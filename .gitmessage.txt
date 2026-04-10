@@ -1,0 +1,17 @@
+<type>(<scope>): <subject>
+
+# --- 常用类型参考 ---
+# feat     : 新功能
+# fix      : 修复 Bug
+# style    : 格式调整 (符合 Norm 等)
+# refactor : 代码重构
+# docs     : 文档更新
+# chore    : Makefile/编译配置等
+# -------------------
+# 注意：
+# 1. Subject 尽量控制在 50 字符内
+# 2. 第二行必须是空行
+# -------------------
+# 使用方法：
+# git config --global commit.template ~/.gitmessage.txt
+# 
