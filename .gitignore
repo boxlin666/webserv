@@ -1,0 +1,8 @@
+*.o
+*.d
+webserv
+.DS_Store
+obj/
+www/uploads/*
+!www/uploads/.gitkeep
+learning/
