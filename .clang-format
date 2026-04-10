@@ -1,0 +1,41 @@
+# Modern Optimized Style
+Language: Cpp
+BasedOnStyle: Google
+
+# 基础缩进设置
+IndentWidth: 5
+ColumnLimit: 100            # 稍微宽一点，现代显示器看起来更舒服
+UseTab: Never               # 推荐用空格，跨平台显示一致性更好
+TabWidth: 4
+
+# 大括号风格 (采用 K&R 风格，即 if/while 后面不换行，函数定义换行)
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: true       # 函数定义左大括号换行，结构清晰
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeElse: false
+  IndentBraces: false
+
+# 允许简单的语句写在一行 (提高简洁度)
+AllowShortBlocksOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: true
+
+# 指针对齐 (int* ptr; 现代 C++ 风格)
+PointerAlignment: Left
+
+# 自动整理 Include (按字母顺序排列，避免混乱)
+SortIncludes: true
+
+# 连续赋值/声明对齐 (让代码像表格一样整齐)
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+
+# 空格控制
+SpaceBeforeParens: ControlStatements # if (condition) 而不是 if(condition)
+SpaceAroundPointerQualifiers: Both
