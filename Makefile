@@ -3,7 +3,7 @@ CXX         = c++
 CXXFLAGS    = -Wall -Werror -Wextra -std=c++98 -I./inc -MMD -MP
 RM          = rm -rf
 
-SRCS        = src/main.cpp
+SRCS        = $(shell find src -name "*.cpp")
 OBJ_DIR     = obj
 OBJS        = $(SRCS:src/%.cpp=$(OBJ_DIR)/%.o)
 DEPS        = $(OBJS:.o=.d)
@@ -11,19 +11,19 @@ DEPS        = $(OBJS:.o=.d)
 all: $(NAME)
 
 $(NAME): $(OBJS)
-\t$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
+	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
 
 $(OBJ_DIR)/%.o: src/%.cpp
-\tmkdir -p $(dir $@)
-\t$(CXX) $(CXXFLAGS) -c $< -o $@
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 -include $(DEPS)
 
 clean:
-\t$(RM) $(OBJ_DIR)
+	$(RM) $(OBJ_DIR)
 
 fclean: clean
-\t$(RM) $(NAME)
+	$(RM) $(NAME)
 
 re: fclean all
 

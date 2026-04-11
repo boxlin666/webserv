@@ -1,11 +1,16 @@
-#include <iostream>
+#include <unistd.h>
 
-int main(int argc, char** argv)
-{
-    if (argc > 2) {
-        std::cerr << "Usage: ./webserv [config_file]" << std::endl;
-        return 1;
-    }
-    std::cout << "Starting webserv..." << std::endl;
-    return 0;
+int init_server(int port);
+
+void run_server(int server_fd); 
+
+int main(void) {
+    int server_fd;
+
+    server_fd = init_server(8080); // 获取内核分配的 fd
+
+    run_server(server_fd); // 传入正确的 fd
+    
+    close(server_fd);    // 良好的习惯：用完关掉
+    return (0);
 }

@@ -3,7 +3,7 @@ Language: Cpp
 BasedOnStyle: Google
 
 # 基础缩进设置
-IndentWidth: 5
+IndentWidth: 4
 ColumnLimit: 100            # 稍微宽一点，现代显示器看起来更舒服
 UseTab: Never               # 推荐用空格，跨平台显示一致性更好
 TabWidth: 4
