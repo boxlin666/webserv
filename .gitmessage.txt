@@ -13,5 +13,5 @@
 # 2. 第二行必须是空行
 # -------------------
 # 使用方法：
-# git config --global commit.template ~/.gitmessage.txt
+# git config --global commit.template .gitmessage.txt
 # 
