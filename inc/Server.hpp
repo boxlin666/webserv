@@ -3,11 +3,11 @@
 
 #include <string>
 
-#include "Socket.hpp"
+#include "PassiveSocket.hpp"
 
 class Server {
    private:
-    Socket*     _listener;
+    PassiveSocket*     _listener;
     int         _port;
     std::string _root;
 
@@ -18,10 +18,10 @@ class Server {
     Server(int port, std::string root);
     ~Server();
 
-    void setup();
-    int  getFd() const;
+    void setupListener();
+    int  getListenFd() const;
 
-    std::string getRoot() const;
+    const std::string &getRoot() const;
 };
 
 #endif

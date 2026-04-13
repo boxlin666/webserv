@@ -1,6 +1,6 @@
-#include "Socket.hpp"
+#include "PassiveSocket.hpp"
 
-Socket::Socket(int port) : _fd(-1), _port(port)
+PassiveSocket::PassiveSocket(int port) : _fd(-1), _port(port)
 {
     try {
         _init_socket();
@@ -12,13 +12,13 @@ Socket::Socket(int port) : _fd(-1), _port(port)
     }
 }
 
-void Socket::_init_socket()
+void PassiveSocket::_init_socket()
 {
     _fd = socket(AF_INET, SOCK_STREAM, 0);
     if (_fd < 0) throw std::runtime_error("socket creation failed");
 }
 
-void Socket::_set_options()
+void PassiveSocket::_set_options()
 {
     int opt = 1;
     if (setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
@@ -27,7 +27,7 @@ void Socket::_set_options()
     // if (fcntl(_fd, F_SETFL, O_NONBLOCK) < 0) throw std::runtime_error("fcntl non-block failed");
 }
 
-void Socket::_bind_and_listen()
+void PassiveSocket::_bind_and_listen()
 {
     struct addrinfo hints, *result;
 
@@ -53,11 +53,11 @@ void Socket::_bind_and_listen()
     if (listen(_fd, 128) < 0) throw std::runtime_error("listen failed");
 }
 
-int Socket::getFd() const {
+int PassiveSocket::getFd() const {
     return this->_fd;
 }
 
-Socket::~Socket()
+PassiveSocket::~PassiveSocket()
 {
     if (_fd != -1) {
         close(_fd);

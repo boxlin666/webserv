@@ -1,5 +1,5 @@
-#ifndef SOCKET_HPP
-#define SOCKET_HPP
+#ifndef PASSIVE_SOCKET_HPP
+#define PASSIVE_SOCKET_HPP
 
 #include <fcntl.h>
 #include <netdb.h>
@@ -13,7 +13,7 @@
 #include <sstream>
 #include <stdexcept>
 
-class Socket {
+class PassiveSocket {
    private:
     int _fd;
     int _port;
@@ -22,12 +22,12 @@ class Socket {
     void _set_options();
     void _bind_and_listen();
 
-    Socket(const Socket& other);
-    Socket& operator=(const Socket& other);
+    PassiveSocket(const PassiveSocket& other);
+    PassiveSocket& operator=(const PassiveSocket& other);
 
    public:
-    Socket(int port);
-    ~Socket();
+    PassiveSocket(int port);
+    ~PassiveSocket();
 
     int getFd() const;
 };
