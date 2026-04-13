@@ -10,7 +10,7 @@
 class Cluster
 {
     private:
-        std::map<int, Server *> _server_map;
+        std::map<int, Server *> _server_map; //could have multiple server for each port
         std::map<int, Connection *> _connection_map;
        
         //TO ADD LATER
@@ -25,6 +25,9 @@ class Cluster
 
         //TO DO LATER
         //void    setup(const ConfigParser& config);
+
+        // just temporary member function, supposed to be replaced by setup(const ConfigParser& config)
+        void    setup(void);
 
         void    run(void);
 };

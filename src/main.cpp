@@ -1,13 +1,45 @@
 #include <unistd.h>
-
 #include <cstring>
 #include <iostream>
 
 #include "Server.hpp"
+#include "Cluster.hpp"
+#include "ConfigParser.hpp"
 
-int main()
+int main(int argc, char **argv)
 {
-    try {
+    if (argc != 2)
+    {
+        std::cerr << "Usage: ./webserv <config_file>" << std::endl;
+        return (1);
+    }
+
+    try 
+    {
+        //To complete config part
+        (void)argc;
+        (void)argv;
+        /*std::string config_file = argv[1];
+        ConfigParser parser(config_file);*/
+
+        Cluster webserv;
+        
+        //TO DO LATER
+        //webserv.setup(parser);
+
+        webserv.setup(); //just temporary function should be replace by the one above
+        webserv.run(); 
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+    return 0;
+}
+
+//OLD MAIN while loop
+/*int main()
+{
+   try {
         Server my_server(8080, "./www");
         my_server.setupListener();
 
@@ -36,4 +68,4 @@ int main()
         return 1;
     }
     return 0;
-}
+}*/
