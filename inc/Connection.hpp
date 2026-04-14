@@ -10,9 +10,9 @@ class Connection
 {
     private:
         int _client_fd;
-        std::string _read_buff;
-        std::string _write_buff;
-        const Server *server;
+        std::string _in_buff;
+        std::string _out_buff;
+        const Server *_server;
 
         //TO DO LATER...
         HttpRequest *_request;
@@ -33,9 +33,13 @@ class Connection
         ~Connection(void);
 
         int getFd(void)const;
-        //const std::string &get_read_buff(void)const;
-        //const std::string &get_write_buff(void)const;
+        const std::string &get_in_buff(void)const;
+        const std::string &get_out_buff(void)const;
 
+        void append_in_buff(const char *tmp_buff, ssize_t recv_len);
+        
+        //Just a temporary function, we hard code the http response here...
+        void set_out_buff(void);
 };
 
 #endif
