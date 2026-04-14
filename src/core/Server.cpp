@@ -6,25 +6,25 @@ Server::Server(int port, std::string root)
 
 Server::~Server() 
 {
-    if (_listener) {
-        delete _listener;
-        std::cout << "[Server] Port " << _port << " has been shut down." << std::endl;
+    if (this->_listener) {
+        delete this->_listener;
+        std::cout << "[Server] Port " << this->_port << " has been shut down." << std::endl;
     }
 }
 
 void Server::setupListener() 
 {
-    _listener = new PassiveSocket(_port); 
-    std::cout << "[Server] Port " << _port << " is up and running." << std::endl;
+    this->_listener = new PassiveSocket(this->_port);
+    std::cout << "[Server] Port " << this->_port << " is up and running." << std::endl;
 }
 
 int Server::getListenFd() const 
 {
-    if (!_listener) return -1;
-    return _listener->getFd();
+    if (!this->_listener) return -1;
+    return this->_listener->getFd();
 }
 
 const std::string &Server::getRoot() const 
 {
-    return _root;
+    return this->_root;
 }
