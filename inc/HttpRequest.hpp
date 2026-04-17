@@ -1,9 +1,50 @@
 #ifndef HTTP_REQUEST_HPP
 # define HTTP_REQUEST_HPP
 
+#include <string>
+#include <map>
+
 class HttpRequest
 {
-    //TO DO LATER
+    private:
+        //request line 部分
+        std::string _method; //GET POST DELETE
+        std::string _path;
+        std::string _http_version; //HTTP 1.1
+
+        //request header 部分
+        // _header_map["Host"] = "172.19.116.71" ; _header_map["User agent"] = "curl 8.5.0" ; _header_map["blabla"] = "BLABLA"
+        std::map<std::string, std::string> _header_map;
+  
+        //Body 部分 (主要针对POST method, 当客户端上传信息给服务端)
+        std::string _body_content;
+        std::size_t _body_len; 
+
+        enum e_request_state 
+        {
+            PARSE_REQUEST_LINE,
+            PARSE_HEADER,
+            PARSE_BODY,
+            PARSE_FINISHED
+        };
+
+        //记录当前状态
+        e_request_state _state;
+
+        bool parse_request_line(std::string &line);
+        bool parse_request_header(std::string &line);
+        bool parse_body(std::string &buff);
+
+        HttpRequest(const HttpRequest& other);
+        HttpRequest& operator=(const HttpRequest& other);
+
+    public:
+        HttpRequest(void);
+        ~HttpRequest(void);
+
+        //如果中途解析失败 直接返回false
+        //input_data 直接从connection类传入，解析完成的部分需要被销毁，为新的数据腾出地方！
+        bool parse(std::string& input_data);
 };
 
 #endif

@@ -88,13 +88,13 @@ bool Cluster::handle_client_data(size_t poll_idx)
     if (bytes_read > 0) {
         buffer[bytes_read] = '\0';
         // 打印出来看看，确保收到了浏览器的 GET 请求
-        // std::cout << "Received: " << buffer << std::endl;
+        std::cout << "Received: " << buffer << std::endl;
 
         // 2. 构造一个最基本的、符合 HTTP 规范的响应
         std::string response =
             "HTTP/1.1 200 OK\r\n"
             "Content-Type: text/html\r\n"
-            "Content-Length: 20\r\n"
+            "Content-Length: 18\r\n"
             "Connection: close\r\n"  // 明确告诉浏览器发完就断开
             "\r\n"
             "<h1>Hello 42!</h1>";
