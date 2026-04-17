@@ -6,6 +6,7 @@
 #include "Connection.hpp"
 #include <map>
 #include <vector>
+#include <poll.h>
 
 class Cluster
 {
@@ -14,7 +15,7 @@ class Cluster
         std::map<int, Connection *> _connection_map;
        
         //TO ADD LATER
-        //std::vector<struct pollfd> _poll_fds;
+        std::vector<struct pollfd> _poll_fds;
 
         Cluster(const Cluster& other);
         Cluster& operator=(const Cluster& other);
@@ -29,7 +30,13 @@ class Cluster
         // just temporary member function, supposed to be replaced by setup(const ConfigParser& config)
         void    setup(void);
 
+        void    handle_new_connection(int listen_fd, Server* server);
+        void    close_connection(size_t poll_idx);
+        bool    handle_client_data(size_t poll_idx);
+        
         void    run(void);
+
+
 };
 
 #endif
