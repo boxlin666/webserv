@@ -8,19 +8,16 @@
 class Server {
    private:
     PassiveSocket*     _listener;
-    int         _port;
     std::string _root;
     // Config   _config;
-
 
     Server(const Server& other);
     Server& operator=(const Server& other);
 
    public:
-    Server(int port, std::string root);
+    Server(PassiveSocket* listener, std::string root);
     ~Server();
 
-    void setupListener();
     int  getListenFd() const;
 
     const std::string &getRoot() const;

@@ -1,12 +1,14 @@
 #ifndef CLUSTER_HPP
 # define CLUSTER_HPP
 
-#include "PassiveSocket.hpp"
-#include "Server.hpp"
-#include "Connection.hpp"
 #include <map>
 #include <vector>
 #include <poll.h>
+
+#include "PassiveSocket.hpp"
+#include "Server.hpp"
+#include "Connection.hpp"
+#include "ServerConfig.hpp"
 
 class Cluster
 {
@@ -14,7 +16,7 @@ class Cluster
         std::map<int, Connection *> _connection_map;
         std::map<int, PassiveSocket *> _socket_map;
         std::vector <Server*> _servers;
-        // std::vector <ServerConfig*> _virtual_servers;
+        std::vector <ServerConfig*> _virtual_servers;
 
         std::vector<struct pollfd> _poll_fds;
 
@@ -38,6 +40,7 @@ class Cluster
         // void add_config
         void    run(void);
 
+        // void send 分片发送
 
 };
 

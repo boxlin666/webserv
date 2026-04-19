@@ -1,6 +1,6 @@
 NAME        = webserv
 CXX         = c++
-CXXFLAGS    = -Wall -Werror -Wextra -std=c++98 -I./inc -MMD -MP
+CXXFLAGS    = -Wall -Werror -Wextra -std=c++98 -I./inc -MMD -MP -g
 RM          = rm -rf
 
 SRCS        = $(shell find src -name "*.cpp")

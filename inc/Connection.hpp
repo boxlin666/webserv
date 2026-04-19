@@ -14,9 +14,8 @@ class Connection
         std::string _in_buff;
         std::string _out_buff;
         PassiveSocket *_matched_socket;
-        Server_config *_matched_server;
+        ServerConfig *_matched_server;
 
-        //TO DO LATER...
         HttpRequest *_request;
         HttpResponse *_response;
 

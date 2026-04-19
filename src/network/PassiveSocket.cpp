@@ -57,6 +57,9 @@ int PassiveSocket::getFd() const {
     return this->_fd;
 }
 
+int PassiveSocket::getPort() const {
+    return this->_port;
+}
 PassiveSocket::~PassiveSocket()
 {
     if (this->_fd != -1) {

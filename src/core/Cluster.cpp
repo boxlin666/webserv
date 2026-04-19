@@ -14,11 +14,12 @@ Cluster::~Cluster(void)
 // init new_server hard_code instead of providing config input data
 void Cluster::setup(void)
 {
-    Server* new_server = new Server(8080, "./www");
-    new_server->setupListener();
+    PassiveSocket* listener = new PassiveSocket(8080);
+    Server* new_server = new Server(listener, "./www");
     int listen_fd = new_server->getListenFd();
 
     this->_servers.push_back(new_server);
+    this->_socket_map.insert(std::make_pair(listen_fd, listener));
     
     struct pollfd pfd;
     pfd.fd      = listen_fd;
@@ -90,6 +91,7 @@ bool Cluster::handle_client_data(size_t poll_idx)
         buffer[bytes_read] = '\0';
         // 打印出来看看，确保收到了浏览器的 GET 请求
         std::cout << "Received: " << buffer << std::endl;
+        // call request parse
 
         // 2. 构造一个最基本的、符合 HTTP 规范的响应
         std::string response =
@@ -102,7 +104,6 @@ bool Cluster::handle_client_data(size_t poll_idx)
 
         // 3. 发送响应
         send(fd, response.c_str(), response.size(), 0);
-
         // 4. 关键：立即关闭连接或移除 poll 监听
         // 在你还没实现完整的 HTTP Keep-Alive 逻辑前，发完就 close
         this->close_connection(poll_idx);

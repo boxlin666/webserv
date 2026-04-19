@@ -21,7 +21,7 @@ class PassiveSocket {
     int _fd;
     int _port;
 
-    std::vector<Server_config*> _server_configs;
+    std::vector<ServerConfig*> _server_configs;
 
     void _init_socket();
     void _set_options();
@@ -35,6 +35,8 @@ class PassiveSocket {
     ~PassiveSocket();
 
     int getFd() const;
+    int getPort() const;
+    ServerConfig* match_server(std::string hostname);
 };
 
 #endif
