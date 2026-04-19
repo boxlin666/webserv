@@ -12,11 +12,16 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
+
+#include "ServerConfig.hpp"
 
 class PassiveSocket {
    private:
     int _fd;
     int _port;
+
+    std::vector<Server_config*> _server_configs;
 
     void _init_socket();
     void _set_options();

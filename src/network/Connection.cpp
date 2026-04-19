@@ -1,10 +1,10 @@
 #include "Connection.hpp"
 
-Connection::Connection(int client_fd, const Server *server)
+Connection::Connection(int client_fd, PassiveSocket *matched_socket)
 :_client_fd(client_fd),
 _in_buff(""),
 _out_buff(""),
-_server(server),
+_matched_socket(matched_socket),
 _request(NULL),
 _response(NULL)
 {

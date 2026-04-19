@@ -1,6 +1,7 @@
 #include "Cluster.hpp"
 
-Cluster::Cluster(void) {}
+Cluster::Cluster(void) 
+{}
 
 Cluster::~Cluster(void)
 {
@@ -17,8 +18,8 @@ void Cluster::setup(void)
     new_server->setupListener();
     int listen_fd = new_server->getListenFd();
 
-    this->_server_map[listen_fd] = new_server;
-
+    this->_servers.push_back(new_server);
+    
     struct pollfd pfd;
     pfd.fd      = listen_fd;
     pfd.events  = POLLIN;
@@ -26,7 +27,7 @@ void Cluster::setup(void)
     _poll_fds.push_back(pfd);
 }
 
-void Cluster::handle_new_connection(int listen_fd, Server* server)
+void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket)
 {
     struct sockaddr_in client_addr;
     socklen_t          client_len = sizeof(client_addr);
@@ -40,7 +41,7 @@ void Cluster::handle_new_connection(int listen_fd, Server* server)
     fcntl(client_fd, F_SETFL, O_NONBLOCK);
 
     // 3. 创建 Connection 对象并存入 map
-    Connection* conn = new Connection(client_fd, server);
+    Connection* conn = new Connection(client_fd, passive_socket);
     this->_connection_map.insert(std::make_pair(client_fd, conn));
 
     // 4. 将新的 FD 注册到 poll 监听列表中
@@ -120,8 +121,8 @@ void Cluster::run()
 
         for (size_t i = 0; i < _poll_fds.size(); ++i) {
             if (_poll_fds[i].revents & POLLIN) {
-                if (_server_map.count(_poll_fds[i].fd)) {
-                    handle_new_connection(_poll_fds[i].fd, _server_map[_poll_fds[i].fd]);
+                if (_socket_map.count(_poll_fds[i].fd)) {
+                    handle_new_connection(_poll_fds[i].fd, _socket_map[_poll_fds[i].fd]);
                 } else {
                     // 处理数据，如果返回 false 表示需要关闭连接
                     if (handle_client_data(i) == false) {

@@ -10,6 +10,8 @@ class Server {
     PassiveSocket*     _listener;
     int         _port;
     std::string _root;
+    // Config   _config;
+
 
     Server(const Server& other);
     Server& operator=(const Server& other);
