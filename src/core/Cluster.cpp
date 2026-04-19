@@ -1,6 +1,7 @@
 #include "Cluster.hpp"
 
-Cluster::Cluster(void) {}
+Cluster::Cluster(void) 
+{}
 
 Cluster::~Cluster(void)
 {
@@ -13,12 +14,13 @@ Cluster::~Cluster(void)
 // init new_server hard_code instead of providing config input data
 void Cluster::setup(void)
 {
-    Server* new_server = new Server(8080, "./www");
-    new_server->setupListener();
+    PassiveSocket* listener = new PassiveSocket(8080);
+    Server* new_server = new Server(listener, "./www");
     int listen_fd = new_server->getListenFd();
 
-    this->_server_map[listen_fd] = new_server;
-
+    this->_servers.push_back(new_server);
+    this->_socket_map.insert(std::make_pair(listen_fd, listener));
+    
     struct pollfd pfd;
     pfd.fd      = listen_fd;
     pfd.events  = POLLIN;
@@ -26,7 +28,7 @@ void Cluster::setup(void)
     _poll_fds.push_back(pfd);
 }
 
-void Cluster::handle_new_connection(int listen_fd, Server* server)
+void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket)
 {
     struct sockaddr_in client_addr;
     socklen_t          client_len = sizeof(client_addr);
@@ -40,7 +42,7 @@ void Cluster::handle_new_connection(int listen_fd, Server* server)
     fcntl(client_fd, F_SETFL, O_NONBLOCK);
 
     // 3. 创建 Connection 对象并存入 map
-    Connection* conn = new Connection(client_fd, server);
+    Connection* conn = new Connection(client_fd, passive_socket);
     this->_connection_map.insert(std::make_pair(client_fd, conn));
 
     // 4. 将新的 FD 注册到 poll 监听列表中
@@ -89,6 +91,7 @@ bool Cluster::handle_client_data(size_t poll_idx)
         buffer[bytes_read] = '\0';
         // 打印出来看看，确保收到了浏览器的 GET 请求
         std::cout << "Received: " << buffer << std::endl;
+        // call request parse
 
         // 2. 构造一个最基本的、符合 HTTP 规范的响应
         std::string response =
@@ -101,7 +104,6 @@ bool Cluster::handle_client_data(size_t poll_idx)
 
         // 3. 发送响应
         send(fd, response.c_str(), response.size(), 0);
-
         // 4. 关键：立即关闭连接或移除 poll 监听
         // 在你还没实现完整的 HTTP Keep-Alive 逻辑前，发完就 close
         this->close_connection(poll_idx);
@@ -120,8 +122,8 @@ void Cluster::run()
 
         for (size_t i = 0; i < _poll_fds.size(); ++i) {
             if (_poll_fds[i].revents & POLLIN) {
-                if (_server_map.count(_poll_fds[i].fd)) {
-                    handle_new_connection(_poll_fds[i].fd, _server_map[_poll_fds[i].fd]);
+                if (_socket_map.count(_poll_fds[i].fd)) {
+                    handle_new_connection(_poll_fds[i].fd, _socket_map[_poll_fds[i].fd]);
                 } else {
                     // 处理数据，如果返回 false 表示需要关闭连接
                     if (handle_client_data(i) == false) {

@@ -3,6 +3,7 @@
 
 #include <string>
 #include "Server.hpp"
+#include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 
@@ -12,9 +13,9 @@ class Connection
         int _client_fd;
         std::string _in_buff;
         std::string _out_buff;
-        const Server *_server;
+        PassiveSocket *_matched_socket;
+        ServerConfig *_matched_server;
 
-        //TO DO LATER...
         HttpRequest *_request;
         HttpResponse *_response;
 
@@ -29,7 +30,7 @@ class Connection
         Connection& operator=(const Connection& other);
 
     public:
-        Connection(int client_fd, const Server *server);
+        Connection(int client_fd, PassiveSocket *matched_socket);
         ~Connection(void);
 
         int getFd(void)const;
