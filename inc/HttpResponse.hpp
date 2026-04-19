@@ -3,8 +3,18 @@
 
 #include <string>
 #include <map>
-
+#include "HttpRequest.hpp"
 #include "ServerConfig.hpp"
+
+#define URI_SIZE 8192
+#define MAX_HEADER_SIZE 8192
+#define URI_TOO_LONG 414
+#define MAX_HEADER_SIZE 431
+#define NO_HTTP_VERSION 505
+#define NO_METHOD 501
+#define BODY_TOO_LARGE 413
+#define PER_DENIED 403
+#define NOT_FOUND 404
 
 class HttpResponse
 {
@@ -21,6 +31,8 @@ private:
     void _handle_get();
     void _handle_post();
     void _handle_delete();
+
+    int _check_request(const HttpRequest& req);
 
     // 根据文件后缀判断类型
     //std::string _get_content_type(std::string path);
