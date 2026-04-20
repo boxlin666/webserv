@@ -41,12 +41,16 @@ void HttpResponse::build(const HttpRequest& req, const ServerConfig& config)
         this->set_status(ret);
         return ;
     }
-
-
+   
     //4. get_raw_data
+    if (req.get_method() == "GET")
+        this->_handle_get(full_path);
+    else if (req.get_method() == "POST")
+        this->_handle_post();
+    else if (req.get_method() == "DELETE")
+        this->_handle_delete();
 
     //5. append all the elements together!
-
 }
 
 int HttpResponse::_check_request(const HttpRequest& req)const
@@ -101,7 +105,7 @@ int HttpResponse::_check_resource(std::string &full_path)
 
     if (stat(full_path.c_str(), &st) == -1)
     {
-        if (errno == ENONET)
+        if (errno == ENOENT)
             return (NOT_FOUND);
         else if (errno == EACCES)
             return (PER_DENIED);
@@ -120,12 +124,16 @@ int HttpResponse::_check_resource(std::string &full_path)
             return (PER_DENIED);
         }
         if (!S_ISREG(st_index.st_mode))
-           return (NOT_FOUND); 
+            return (NOT_FOUND);
+        if (access(full_path.c_str(), R_OK) == -1)
+            return (PER_DENIED);
         this->set_body_len(st_index.st_size);
         return (SUCCESS);
     }
     if (S_ISREG(st.st_mode))
     {
+        if (access(full_path.c_str(), R_OK) == -1)
+            return (PER_DENIED);
         this->set_body_len(st.st_size);
         return (SUCCESS);
     }
@@ -140,6 +148,11 @@ void HttpResponse::set_status(int code)
 void HttpResponse::set_body_len(size_t input)
 {
     this->body_len = input;
+}
+
+void _handle_get(const std::string& full_path)
+{
+
 }
 
 void HttpResponse::add_header(const std::string& key, const std::string& value)

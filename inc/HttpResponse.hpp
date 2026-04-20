@@ -32,7 +32,7 @@ private:
     HttpResponse(const HttpResponse& other);
     HttpResponse& operator=(const HttpResponse& other);
 
-    void _handle_get();
+    void _handle_get(const std::string& full_path);
     void _handle_post();
     void _handle_delete();
 
