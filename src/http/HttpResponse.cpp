@@ -47,7 +47,7 @@ void HttpResponse::build(const HttpRequest& req, const ServerConfig& config)
     if (req.get_method() == "GET")
         ret = this->_handle_get(full_path);
     else if (req.get_method() == "POST")
-        ret = this->_handle_post(full_path, req.get_body_content());
+        ret = this->_handle_post(full_path, req);
     else if (req.get_method() == "DELETE")
         ret = this->_handle_delete(full_path);
  
@@ -106,7 +106,7 @@ std::string &HttpResponse::_build_full_path(const HttpRequest& req, const Server
     return (full_path);
 }
 
-int HttpResponse::_check_resource(std::string &full_path)
+int HttpResponse::_check_resource(std::string &full_path, const HttpRequest& req)
 {
     struct stat st;
     struct stat st_index;
@@ -122,6 +122,8 @@ int HttpResponse::_check_resource(std::string &full_path)
 
     if (S_ISDIR(st.st_mode))
     {
+        if (req.get_method() != "GET")
+            return (METHOD_NOT_ALLOWED);
         if (full_path.back() != '/')
             full_path += "/";
         full_path += "index.html";
@@ -174,25 +176,59 @@ int HttpResponse::_handle_get(const std::string& full_path)
         return (SUCCESS);
     }
     ret = read(fd, &tmp[0], this->_body_len);
+    close(fd);
     if (ret < 0) 
     {
         this->_body.clear();
-        close(fd);
         return (SERVER_ERROR);
     }
     this->_body.assign(tmp.begin(), tmp.begin() + ret);
-    close(fd);
     return (SUCCESS);
 }
 
-int HttpResponse::_handle_post(const std::string& full_path, const std::string& req_body)
+int HttpResponse::_handle_post(const std::string& full_path, const HttpRequest& req)
 {
-    
+    int fd;
+    ssize_t ret;
+    size_t total_size;
+    size_t byte_written;
+    const char *tmp_buff;
 
-
+    fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1)
+        return (PER_DENIED);
+    if (req.get_body_len() == 0)
+    {
+        this->_body.clear();
+        close(fd);
+        return (CREATED);
+    }
+    total_size = req.get_body_len();
+    byte_written = 0;
+    tmp_buff = req.get_body_content().data(); 
+    ret = 0;
+    while (1)
+    {
+        ret = write(fd, tmp_buff + byte_written, total_size - byte_written);
+        if (ret < 0)
+        {
+            if (errno == EINTR)
+                continue ;
+            close(fd);
+            return (SERVER_ERROR);
+        }
+        if (ret == 0 && total_size > 0)
+        {
+            close(fd);
+            return (SERVER_ERROR);
+        }
+        byte_written += ret;
+        if (byte_written >= total_size)
+            break ;
+    }
+    close(fd);
+    return (CREATED);
 }
-
-
 
 void HttpResponse::add_header(const std::string& key, const std::string& value)
 {

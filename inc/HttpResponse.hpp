@@ -16,8 +16,11 @@
 #define BODY_TOO_LARGE 413
 #define PER_DENIED 403
 #define NOT_FOUND 404
+#define METHOD_NOT_ALLOWED 405
 #define BAD_REQUEST 400
 #define SUCCESS 200
+#define CREATED 201
+
 
 class HttpResponse
 {
@@ -33,12 +36,12 @@ private:
     HttpResponse& operator=(const HttpResponse& other);
 
     int _handle_get(const std::string& full_path);
-    int _handle_post(const std::string& full_path, const std::string& req_body);
+    int _handle_post(const std::string& full_path, const HttpRequest& req);
     int _handle_delete(const std::string& full_path);
 
     int _check_request(const HttpRequest& req)const;
     std::string &_build_full_path(const HttpRequest& req, const ServerConfig& config)const;
-    int _check_resource(std::string &full_path);
+    int _check_resource(std::string &full_path, const HttpRequest& req);
 
     void set_body_len(size_t body_len);
     // 根据文件后缀判断类型
