@@ -26,21 +26,21 @@ private:
     std::map<std::string, std::string> _headers;
     std::string _body;
     std::string _full_response;
-    std::size_t body_len;
+    std::size_t _body_len;
     const ServerConfig* _config;
 
     HttpResponse(const HttpResponse& other);
     HttpResponse& operator=(const HttpResponse& other);
 
-    void _handle_get(const std::string& full_path);
-    void _handle_post();
-    void _handle_delete();
+    int _handle_get(const std::string& full_path);
+    int _handle_post(const std::string& full_path, const std::string& req_body);
+    int _handle_delete(const std::string& full_path);
 
     int _check_request(const HttpRequest& req)const;
     std::string &_build_full_path(const HttpRequest& req, const ServerConfig& config)const;
     int _check_resource(std::string &full_path);
 
-    void set_body_len(size_t input);
+    void set_body_len(size_t body_len);
     // 根据文件后缀判断类型
     //std::string _get_content_type(std::string path);
 public:

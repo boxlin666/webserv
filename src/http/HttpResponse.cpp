@@ -4,8 +4,9 @@
 #include <iterator>
 
 #include <unistd.h> //tmp header missing config data 
+#include <fcntl.h>
 #include <sys/stat.h> 
-
+#include <vector>
 
 HttpResponse::HttpResponse(void)
 {
@@ -44,11 +45,18 @@ void HttpResponse::build(const HttpRequest& req, const ServerConfig& config)
    
     //4. get_raw_data
     if (req.get_method() == "GET")
-        this->_handle_get(full_path);
+        ret = this->_handle_get(full_path);
     else if (req.get_method() == "POST")
-        this->_handle_post();
+        ret = this->_handle_post(full_path, req.get_body_content());
     else if (req.get_method() == "DELETE")
-        this->_handle_delete();
+        ret = this->_handle_delete(full_path);
+ 
+    if (ret != 200)
+    {
+        this->set_status(ret);
+        return ;
+    }
+ 
 
     //5. append all the elements together!
 }
@@ -145,15 +153,46 @@ void HttpResponse::set_status(int code)
     this->_status_code = code;
 }
 
-void HttpResponse::set_body_len(size_t input)
+void HttpResponse::set_body_len(size_t body_len)
 {
-    this->body_len = input;
+    this->_body_len = body_len;
 }
 
-void _handle_get(const std::string& full_path)
+int HttpResponse::_handle_get(const std::string& full_path)
 {
+    int fd;
+    ssize_t ret;
+    std::vector<char> tmp(this->_body_len);
+
+    fd = open(full_path.c_str(), O_RDONLY);
+    if (fd == -1)
+        return (NOT_FOUND); 
+    if (this->_body_len == 0)
+    {
+        this->_body.clear();
+        close(fd);
+        return (SUCCESS);
+    }
+    ret = read(fd, &tmp[0], this->_body_len);
+    if (ret < 0) 
+    {
+        this->_body.clear();
+        close(fd);
+        return (SERVER_ERROR);
+    }
+    this->_body.assign(tmp.begin(), tmp.begin() + ret);
+    close(fd);
+    return (SUCCESS);
+}
+
+int HttpResponse::_handle_post(const std::string& full_path, const std::string& req_body)
+{
+    
+
 
 }
+
+
 
 void HttpResponse::add_header(const std::string& key, const std::string& value)
 {
