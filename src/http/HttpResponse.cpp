@@ -15,7 +15,7 @@ std::map<std::string, std::string> HttpResponse::_ext_map;
 
 HttpResponse::HttpResponse(void)
 {
-
+    this->reset();
 }
 
 HttpResponse::~HttpResponse(void)
