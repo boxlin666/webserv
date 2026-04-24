@@ -46,12 +46,6 @@ class HttpRequest
         //input_data 直接从connection类传入，解析完成的部分需要被销毁，为新的数据腾出地方！
         bool parse(std::string& input_data);
 
-        const std::string &get_method()const;
-        const std::string &get_path()const;
-        const std::string &get_http_version()const;
-        const std::map<std::string, std::string> &get_header_map()const;
-        const std::string &get_body_content()const;
-        std::size_t get_body_len()const;
 };
 
 #endif
