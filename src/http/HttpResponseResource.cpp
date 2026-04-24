@@ -7,7 +7,7 @@ int HttpResponse::_check_request(const HttpRequest& req)const
     size_t  req_header_len = 0;
     std::string request_path = "";
 
-    req_line_len = req.get_method().length() + req.get_path().length() + req.get_http_version().length();
+    req_line_len = req.get_method().length() + req.get_path().length() + req.get_version().length();
 
     for (std::map<std::string, std::string>::const_iterator it = req.get_header_map().begin(); it != req.get_header_map().end(); ++it)
     {
@@ -17,7 +17,7 @@ int HttpResponse::_check_request(const HttpRequest& req)const
         return (URI_TOO_LONG);
     if (req_header_len > MAX_HEADER_SIZE)
         return (MAX_HEADER_SIZE);
-    if (req.get_http_version() == "HTTP/1.1")
+    if (req.get_version() == "HTTP/1.1")
         return (NO_HTTP_VERSION);
     if (req.get_method() != "GET" && req.get_method() != "POST" && req.get_method() != "DELETE")
         return (NO_METHOD);

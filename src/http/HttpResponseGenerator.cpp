@@ -10,7 +10,7 @@ void HttpResponse::_prepare_response_data(const HttpRequest& req)
 void HttpResponse::_build_status_line(const HttpRequest& req)
 {
     std::string str_status_code = Utils::toString(this->_status_code);
-    this->_status_line = req.get_http_version() + " " + str_status_code + " " + this->_status_msg_map[this->_status_code] + "\r\n"; 
+    this->_status_line = req.get_version() + " " + str_status_code + " " + this->_status_msg_map[this->_status_code] + "\r\n"; 
 }
 
 void HttpResponse::_build_headers_map(void)
