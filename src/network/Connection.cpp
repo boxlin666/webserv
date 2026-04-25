@@ -5,9 +5,10 @@ Connection::Connection(int client_fd, PassiveSocket *matched_socket)
 _in_buff(""),
 _out_buff(""),
 _matched_socket(matched_socket),
-_request(),
+_request(NULL),
 _response(NULL)
 {
+
 }
 
 Connection::~Connection(void)
@@ -43,22 +44,3 @@ void    Connection::set_out_buff(void)
     this->_out_buff = "HTTP/1.1 200 OK\r\n\r\n<h1>Hello from Server Class!</h1>";
 }
 
-bool    Connection::handle_data(const char* raw_data, ssize_t size)
-{
-    _in_buff.append(raw_data, size);
-    if(_request.parse(_in_buff) == false)
-    {
-        // TODO: prepare error 400 
-        return true;
-    }
-    if(_request.get_state() == HttpRequest::PARSE_FINISHED)
-    {
-        // TODO: process logic
-    }
-    return true;
-}
-
-bool Connection::check_parse_finished()
-{
-    return _request.get_state() == HttpRequest::PARSE_FINISHED;
-}
