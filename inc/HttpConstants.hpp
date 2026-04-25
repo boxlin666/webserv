@@ -1,0 +1,17 @@
+#ifndef HTTP_CONSTANTS
+# define HTTP_CONSTANTS
+
+#define SUCCESS 200
+#define CREATED 201
+#define DELETED 204
+#define BAD_REQUEST 400
+#define PER_DENIED 403
+#define NOT_FOUND 404
+#define METHOD_NOT_ALLOWED 405
+#define BODY_TOO_LARGE 413
+#define URI_TOO_LONG 414
+#define SERVER_ERROR 500
+#define NO_METHOD 501
+#define NO_HTTP_VERSION 505
+
+#endif
