@@ -1,6 +1,7 @@
 #include "Cluster.hpp"
 
-Cluster::Cluster(void) {}
+Cluster::Cluster(void) 
+{}
 
 Cluster::~Cluster(void)
 {
@@ -13,13 +14,13 @@ Cluster::~Cluster(void)
 // init new_server hard_code instead of providing config input data
 void Cluster::setup(void)
 {
-    PassiveSocket* listener   = new PassiveSocket(8080);
-    Server*        new_server = new Server(listener, "./www");
-    int            listen_fd  = new_server->getListenFd();
+    PassiveSocket* listener = new PassiveSocket(8080);
+    Server* new_server = new Server(listener, "./www");
+    int listen_fd = new_server->getListenFd();
 
     this->_servers.push_back(new_server);
     this->_socket_map.insert(std::make_pair(listen_fd, listener));
-
+    
     struct pollfd pfd;
     pfd.fd      = listen_fd;
     pfd.events  = POLLIN;
@@ -80,55 +81,36 @@ void Cluster::close_connection(size_t poll_idx)
 
 bool Cluster::handle_client_data(size_t poll_idx)
 {
-    int fd = _poll_fds[poll_idx].fd;
+    int  fd = _poll_fds[poll_idx].fd;
+    char buffer[4096];
 
-    // 1. 安全获取 Connection 指针
-    std::map<int, Connection*>::iterator it = _connection_map.find(fd);
-    if (it == _connection_map.end() || it->second == NULL) { return false; }
-    Connection& conn = *(it->second);
+    // 1. 读取请求
+    ssize_t bytes_read = recv(fd, buffer, sizeof(buffer) - 1, 0);
 
-    // 2. 读取数据 (非阻塞设计)
-    char    buffer[4096];
-    ssize_t bytes_read = recv(fd, buffer, sizeof(buffer), 0);
+    if (bytes_read > 0) {
+        buffer[bytes_read] = '\0';
+        // 打印出来看看，确保收到了浏览器的 GET 请求
+        std::cout << "Received: " << buffer << std::endl;
+        // call request parse
 
-    if (bytes_read <= 0) {
-        // bytes_read == 0: 客户端关闭; < 0: 读取错误
-        return false;
+        // 2. 构造一个最基本的、符合 HTTP 规范的响应
+        std::string response =
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/html\r\n"
+            "Content-Length: 18\r\n"
+            "Connection: close\r\n"  // 明确告诉浏览器发完就断开
+            "\r\n"
+            "<h1>Hello 42!</h1>";
+
+        // 3. 发送响应
+        send(fd, response.c_str(), response.size(), 0);
+        // 4. 关键：立即关闭连接或移除 poll 监听
+        // 在你还没实现完整的 HTTP Keep-Alive 逻辑前，发完就 close
+        this->close_connection(poll_idx);
+    } else if (bytes_read == 0) {
+        // 客户端主动关闭
+        this->close_connection(poll_idx);
     }
-
-    // 3. 驱动解析器
-    if (conn.handle_data(buffer, bytes_read) == false) {
-        // 解析遇到严重错误 (如 400 Bad Request)
-        // 标记该连接已准备好发送错误响应
-        _poll_fds[poll_idx].events |= POLLOUT;
-        return true;
-    }
-
-    // 4. 检查解析是否完成
-    if (conn.check_parse_finished()) {
-        std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
-
-        //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）
-        //     conn.prepare_response();
-
-        // 核心切换：告诉 poll 我们现在想往这个 socket 写数据了
-        _poll_fds[poll_idx].events |= POLLOUT;
-
-        // 习惯性清理：既然请求解析完了，可以把该 FD 的 POLLIN 暂时关掉（可选）
-        // _poll_fds[poll_idx].events &= ~POLLIN;
-    }
-
-    // 临时
-    std::string response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html\r\n"
-        "Content-Length: 18\r\n"
-        "Connection: close\r\n"  // 明确告诉浏览器发完就断开
-        "\r\n"
-        "<h1>Hello 42!</h1>";
-
-    send(fd, response.c_str(), response.size(), 0);
-    this->close_connection(poll_idx);
     return true;
 }
 
