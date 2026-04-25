@@ -24,11 +24,6 @@ class HttpRequest {
     const std::string& get_version() const;
     const std::string& get_body() const;
     const std::string* get_header(const std::string& key) const;  // 方便查找特定头
-    const std::string& get_body_content()const;
-    std::size_t get_body_len()const;
-
-    //tempo add for compilation with response
-    const std::map<std::string, std::string>& get_header_map()const;
 
     e_request_state get_state() const;
 
@@ -67,7 +62,6 @@ class HttpRequest {
 
     HttpRequest(const HttpRequest& other);
     HttpRequest& operator=(const HttpRequest& other);
-
 };
 
 #endif
