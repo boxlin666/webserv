@@ -16,7 +16,7 @@ void HttpRequest::reset() {
     _chunk_size = 0;
     _is_chunked = false;
 
-    // _error_code = 0;
+    //_error_code = 0;
 }
 
 // 构造函数直接调用 reset 即可
