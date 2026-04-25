@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 class HttpRequest {
+
    public:
     enum e_request_state {
         PARSE_REQUEST_LINE,
