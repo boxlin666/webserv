@@ -16,7 +16,7 @@ class Connection
         PassiveSocket *_matched_socket;
         ServerConfig *_matched_server;
 
-        HttpRequest _request;
+        HttpRequest *_request;
         HttpResponse *_response;
 
         //TO DO LATER (状态机)
@@ -41,9 +41,6 @@ class Connection
         
         //Just a temporary function, we hard code the http response here...
         void set_out_buff(void);
-
-        bool handle_data(const char* raw_data, ssize_t size);
-        bool check_parse_finished();
 };
 
 #endif
