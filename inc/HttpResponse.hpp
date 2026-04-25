@@ -10,6 +10,7 @@
 #include <sys/stat.h> 
 #include <vector>
 #include <cstdio>
+#include <cerrno>
 
 #include "HttpRequest.hpp"
 #include "ServerConfig.hpp"
