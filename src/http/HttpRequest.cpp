@@ -1,4 +1,7 @@
 #include "HttpRequest.hpp"
+#include <iostream>
+#define RED     "\033[31m"
+#define RESET   "\033[0m"
 
 void HttpRequest::reset() {
     _method.clear();
@@ -27,23 +30,27 @@ HttpRequest::HttpRequest() {
 HttpRequest::~HttpRequest() {
 }
 
-bool HttpRequest::parse_request_line(std::string& line)
+bool    HttpRequest::parse_request_line(std::string& line)
 {
-    size_t pos1 = line.find(' ');
-    if (pos1 == std::string::npos) return false;
-    _method = line.substr(0, pos1);
+    if (line.empty()) return false;
 
-    size_t pos2 = line.find(' ');
-    if (pos2 == std::string::npos) return false;
-    _path = line.substr(pos1 + 1, pos2 - (pos1 + 1));
+    std::stringstream ss(line);
+    std::string extra;
 
-    _http_version = line.substr(pos2 + 1);
-
-    // check http version
-    if (_http_version != "HTTP/1.1") return false;
-
-    _state = PARSE_HEADER;
-    return true;
+    if (!(ss >> this->_method >> this->_path >> this->_http_version))
+        return (false);
+    if (ss >> extra)
+        return (false);
+    if (this->_method != "GET" && this->_method != "POST" && this->_method != "DELETE")
+        return (false);
+    if (this->_path.empty() || this->_path[0] != '/')
+        return (false);
+    if (this->_path.find("..") != std::string::npos) //不允许访问除了www以外的，他的上一级目录
+        return (false); 
+    if (this->_http_version != "HTTP/1.1")
+        return (false);
+    this->_state = PARSE_HEADER;
+    return (true);
 }
 
 bool HttpRequest::parse_request_header(std::string& line) 
@@ -105,7 +112,8 @@ bool HttpRequest::parse_body(std::string& input_data) {
 
 bool HttpRequest::parse(std::string& input_data)
 {
-    while (_state != PARSE_ERROR && _state != PARSE_FINISHED) {
+    while (_state != PARSE_ERROR && _state != PARSE_FINISHED) 
+    {
         if (_state == PARSE_REQUEST_LINE || _state == PARSE_HEADER) {
             size_t pos = input_data.find("\r\n");
             if (pos == std::string::npos) break;
