@@ -17,7 +17,7 @@ int HttpResponse::_check_request(const HttpRequest& req)const
         return (URI_TOO_LONG);
     if (req_header_len > MAX_HEADER_SIZE)
         return (MAX_HEADER_SIZE);
-    if (req.get_version() == "HTTP/1.1")
+    if (req.get_version() != "HTTP/1.1")
         return (NO_HTTP_VERSION);
     if (req.get_method() != "GET" && req.get_method() != "POST" && req.get_method() != "DELETE")
         return (NO_METHOD);
@@ -41,7 +41,8 @@ std::string HttpResponse::_build_full_path(const HttpRequest& req, const ServerC
     char    buffer[100]; //tmp 
 
     getcwd(buffer, 100); //tmp because we don't have config!
-    root_path = buffer; //tmp
+    root_path = buffer; //tmp 
+    root_path += "/www"; //tmp
     full_path = root_path + req.get_path(); //tmp funct!
 
     return (full_path);

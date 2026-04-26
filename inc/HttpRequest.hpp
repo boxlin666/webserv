@@ -37,6 +37,36 @@ class HttpRequest {
 
     bool parse(std::string& input_data);
 
+    // --- 仅用于隔离测试的 Setter (Unit Test Helpers) ---
+
+    // 设置请求方法（GET, POST, DELETE 等）
+    void set_method(const std::string& method) { _method = method; }
+
+    // 设置请求路径（例如 "/index.html"）
+    void set_path(const std::string& path) { _path = path; }
+
+    // 设置 HTTP 版本（通常为 "HTTP/1.1"）
+    void set_version(const std::string& version) { _http_version = version; }
+
+    // 设置 Header 键值对
+    void set_header(const std::string& key, const std::string& value) {
+        _header_map[key] = value;
+    }
+
+    // 设置 Body 内容，并自动更新长度
+    void set_body(const std::string& content) {
+        _body_content = content;
+        _body_len = content.length();
+        _content_length = content.length();
+    }
+
+    // 极其重要：手动标记解析状态
+    // 测试时通常设为 HttpRequest::PARSE_FINISHED
+    void set_state(e_request_state state) { _state = state; }
+
+    // 如果需要模拟 Chunked 传输
+    void set_is_chunked(bool is_chunked) { _is_chunked = is_chunked; }
+
    private:
     // request line 部分
     std::string _method;  // GET POST DELETE
@@ -68,7 +98,6 @@ class HttpRequest {
 
     HttpRequest(const HttpRequest& other);
     HttpRequest& operator=(const HttpRequest& other);
-
 };
 
 #endif
