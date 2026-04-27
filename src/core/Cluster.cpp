@@ -118,14 +118,18 @@ bool Cluster::handle_client_data(size_t poll_idx)
         // _poll_fds[poll_idx].events &= ~POLLIN;
     }
 
+    std::string response = conn.prepare_response();
     // 临时
-    std::string response =
+    /*std::string response =
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n"
         "Content-Length: 18\r\n"
         "Connection: close\r\n"  // 明确告诉浏览器发完就断开
         "\r\n"
-        "<h1>Hello 42!</h1>";
+        "<h1>Hello 42!</h1>";*/
+
+    //std::string response = conn.prepare_response();
+
 
     send(fd, response.c_str(), response.size(), 0);
     this->close_connection(poll_idx);

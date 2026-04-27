@@ -6,7 +6,7 @@ _in_buff(""),
 _out_buff(""),
 _matched_socket(matched_socket),
 _request(),
-_response(NULL)
+_response()
 {
 }
 
@@ -61,4 +61,10 @@ bool    Connection::handle_data(const char* raw_data, ssize_t size)
 bool Connection::check_parse_finished()
 {
     return _request.get_state() == HttpRequest::PARSE_FINISHED;
+}
+
+std::string Connection::prepare_response()
+{
+    this->_response.build(this->_request, *(this->_matched_server));
+    return (this->_response.get_full_response());
 }

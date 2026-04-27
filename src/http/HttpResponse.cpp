@@ -1,5 +1,6 @@
 #include "HttpResponse.hpp"
 #include "HttpRequest.hpp"
+#include <iostream>
 
 HttpResponse::HttpResponse(void)
 {
@@ -34,7 +35,7 @@ void HttpResponse::build(const HttpRequest& req, const ServerConfig& config)
     if (ret != 200)
     {
         this->_set_status(ret);
-        return ;
+        //return ;
     }
 
     //2. path convert
@@ -46,7 +47,7 @@ void HttpResponse::build(const HttpRequest& req, const ServerConfig& config)
     if (ret != 200)
     {
         this->_set_status(ret);
-        return ;
+        //return ;
     }
    
     //4. handle method 
@@ -60,7 +61,7 @@ void HttpResponse::build(const HttpRequest& req, const ServerConfig& config)
     if (ret != 200)
     {
         this->_set_status(ret);
-        return ;
+        //return ;
     }
     //5. prepare response data!
     this->_prepare_response_data(req);
