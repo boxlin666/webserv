@@ -8,4 +8,4 @@ www/uploads/*
 learning/
 .venv
 .pytest_cache
-__pychache__/
+test/__pycache__/
