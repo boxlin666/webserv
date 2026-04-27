@@ -6,3 +6,6 @@ obj/
 www/uploads/*
 !www/uploads/.gitkeep
 learning/
+.venv
+.pytest_cache
+test/__pycache__/

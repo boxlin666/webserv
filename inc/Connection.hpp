@@ -17,7 +17,7 @@ class Connection
         ServerConfig *_matched_server;
 
         HttpRequest _request;
-        HttpResponse *_response;
+        HttpResponse _response;
 
         //TO DO LATER (状态机)
         enum State 
@@ -44,6 +44,7 @@ class Connection
 
         bool handle_data(const char* raw_data, ssize_t size);
         bool check_parse_finished();
+        std::string prepare_response();
 };
 
 #endif
