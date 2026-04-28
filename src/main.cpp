@@ -19,7 +19,7 @@ int main(int argc, char **argv)
         //To complete config part
         (void)argc;
         (void)argv;
-        /*std::string config_file = argv[1];
+        /*char *config_file = argv[1];
         ConfigParser parser(config_file);*/
 
         Cluster webserv;
