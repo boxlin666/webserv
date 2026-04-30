@@ -13,7 +13,7 @@ struct Token
 
 class ConfigParser
 {
-    private:
+/*    private:
         std::map<int, vector<ServerConfig>> _config_map; // key = Port Number , Value = vector(Server1, Server2, Server3)
   
         ConfigParser(const ConfigParser& other);
@@ -29,7 +29,7 @@ class ConfigParser
         std::string _config_content;
 
         std::vector<Token> tokens;
-
+*/
     public:
         ConfigParser(char *config_file);
         ~ConfigParser(void);

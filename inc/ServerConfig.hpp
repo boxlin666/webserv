@@ -7,7 +7,7 @@
 
 class ServerConfig
 {
-    private:
+    /*private:
         ServerConfig(const ServerConfig& other);
         ServerConfig& operator=(const ServerConfig& other);
 
@@ -41,7 +41,7 @@ class ServerConfig
         std::vector<Token>::const_iterator begin; //从构造函数中传递而来
         std::vector<Token>::const_iterator end; //同上
         std::vector<location> locations; //最长前缀匹配 不需要使用map,需要循环遍历vector得到最长匹配（我是说run connection阶段）
-
+    */
     public:
         ServerConfig(std::vector<Token>::const_iterator begin, std::vector<Token>::const_iterator end); //截获ConfigParser 内部相关server的开启单词和结束单词
         ~ServerConfig(void);
