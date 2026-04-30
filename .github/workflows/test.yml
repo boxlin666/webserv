@@ -19,6 +19,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Build Essentials
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential
+
+      - name: Compile Webserver
+        run: |
+          make
+      
+      - name: Verify Executable
+        run: ls -l webserv
+
     # Step 2: Install the specific Python version 
       - name: Set up Python
         uses: actions/setup-python@v5
