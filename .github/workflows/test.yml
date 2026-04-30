@@ -1,0 +1,36 @@
+# Workflow name: displayed in the GitHub Actions tab
+name: Webserver CI Check
+
+# Define the events that trigger this workflow
+on:
+  # Trigger automatically when a pull request is created for the main branch
+  pull_request:
+    branches: ["main"]
+  # Allow manual execution form the GitHub UI for testing/debugging
+  workflow_dispatch: {}
+
+jobs:
+# Job ID: defines a group of steps
+  test:
+  # Use the latest Ubuntu virtual machine provided by Github
+    runs-on: ubuntu-latest
+    steps:
+    # Step 1: Download the repository code onto the runner
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+    # Step 2: Install the specific Python version 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+    # Step 3: Install project dependencies from requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+    # Step 4: Execute Pytest
+    # If any test fails, ths step returns a non-zero exit code
+    # and the workflow will stop immediately (makred as Failed/KO)
+      - name: Run tests
+        run: pytest
