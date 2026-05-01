@@ -39,8 +39,7 @@ jobs:
           lsb_release -a
 
       - name: Compile Webserver
-        run: |
-          make
+        run: make
       
       - name: Verify Executable
         run: ls -l webserv
