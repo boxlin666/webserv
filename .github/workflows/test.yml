@@ -54,7 +54,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-    # Step 4: Execute Pytest
+    # Step 4: Execute the webserv program and wait for 5s before pytest
+      - name: Execute program
+        run: |
+          ./webserv ./conf/default.conf
+          sleep 5
+
+    # Step 5: Execute Pytest
     # If any test fails, ths step returns a non-zero exit code
     # and the workflow will stop immediately (makred as Failed/KO)
       - name: Run tests
