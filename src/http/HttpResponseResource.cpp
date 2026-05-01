@@ -1,4 +1,5 @@
 #include "HttpResponse.hpp"
+#include <cerrno>
 
 int HttpResponse::_check_request(const HttpRequest& req)const
 {
