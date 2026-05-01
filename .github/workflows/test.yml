@@ -24,6 +24,17 @@ jobs:
           sudo apt update
           sudo apt install -y build-essential
 
+      - name: Check Environment Versions
+        run: |
+          echo "--- GCC Version---"
+          g++ --version
+          echo "--- Clang Version ---"
+          clang++ --version
+          echo "--- Make Version --"
+          make --version
+          echo "--- OS Version ---"
+          lsb_release -a
+
       - name: Compile Webserver
         run: |
           make
