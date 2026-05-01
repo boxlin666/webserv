@@ -3,6 +3,9 @@ name: Webserver CI Check
 
 # Define the events that trigger this workflow
 on:
+  # Trigger automatically when a push is created for the main branch
+  push:
+    branches: ["main"]
   # Trigger automatically when a pull request is created for the main branch
   pull_request:
     branches: ["main"]
