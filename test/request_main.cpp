@@ -13,7 +13,7 @@ int main(void) {
     // 使用 \r\n 模拟真实的 HTTP 网络报文格式
     // 最后的 \r\n\r\n 是必须的，代表 Header 结束
     std::string raw_data = 
-        "GET /contact HTTP/1.1\r\n"
+        "POST /index.html HTTP/1.1\r\n"
         "Host: example.com\r\n"
         "User-Agent: curl/8.6.0\r\n"
         "Accept: */*\r\n"
