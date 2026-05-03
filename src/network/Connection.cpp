@@ -51,6 +51,7 @@ bool    Connection::handle_data(const char* raw_data, ssize_t size)
         // TODO: prepare error 400 
         return true;
     }
+   
     if(_request.get_state() == HttpRequest::PARSE_FINISHED)
     {
         // TODO: process logic
