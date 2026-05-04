@@ -74,6 +74,7 @@ class HttpRequest {
     //临时变量 
     std::vector<location> locations;
     std::string router_path; //after http request has been completed
+    int loc_index; //note which index vector locations is related to this request!
     //临时成员函数
     void init_locations(void);
     void update_path(void); //根据假的location结构体设置真实路径 

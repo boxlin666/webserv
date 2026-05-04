@@ -17,7 +17,7 @@ struct location
 
     //access
     std::vector<std::string> methods;
-    std::size_t client_max_body_size;  
+    std::size_t client_max_body_size;
 };
 
 #endif

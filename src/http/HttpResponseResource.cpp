@@ -1,4 +1,19 @@
 #include "HttpResponse.hpp"
+#include <iterator>
+#include "Location.hpp"
+#include <iostream>
+
+//tempo function
+static bool check_method(const HttpRequest& req)
+{ 
+    std::vector<std::string>::const_iterator it;
+
+    for (it = req.locations[req.loc_index].methods.begin(); it != req.locations[req.loc_index].methods.end(); it++)
+    {
+        if (req.get_method() == *it) return (true);
+    }
+    return (false);
+}
 
 int HttpResponse::_check_request(const HttpRequest& req)const
 {
@@ -21,6 +36,12 @@ int HttpResponse::_check_request(const HttpRequest& req)const
         return (NO_HTTP_VERSION);
     if (req.get_method() != "GET" && req.get_method() != "POST" && req.get_method() != "DELETE")
         return (NO_METHOD);
+
+    if (!check_method(req))
+    {
+        return (METHOD_NOT_ALLOWED);
+    }
+
     if (req.get_body_len() > 100000000000000000 && req.get_method() == "POST") //temporary limit should be set up by config file!
         return (BODY_TOO_LARGE);
     request_path = req.get_path();

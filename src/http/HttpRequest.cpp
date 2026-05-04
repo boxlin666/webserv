@@ -143,7 +143,9 @@ bool HttpRequest::parse(std::string& input_data)
         }
 
         // TODO: PARSE_CHUNKED 逻辑
-    }
+    } 
+    
+    this->update_path(); 
     return (_state != PARSE_ERROR);
 }
 

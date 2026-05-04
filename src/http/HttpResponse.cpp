@@ -51,18 +51,22 @@ void HttpResponse::build(const HttpRequest& req, const ServerConfig& config)
     }
    
     //4. handle method 
-    if (req.get_method() == "GET")
-        ret = this->_handle_get();
-    else if (req.get_method() == "POST")
-        ret = this->_handle_post(req);
-    else if (req.get_method() == "DELETE")
-        ret = this->_handle_delete();
- 
+    if (this->_status_code == 200)
+    {
+        if (req.get_method() == "GET")
+            ret = this->_handle_get();
+        else if (req.get_method() == "POST")
+            ret = this->_handle_post(req);
+        else if (req.get_method() == "DELETE")
+            ret = this->_handle_delete();
+    }
+
     if (ret != 200)
     {
         this->_set_status(ret);
         //return ;
     }
+    //std::cout << "ret = " << ret << std::endl;
     //5. prepare response data!
     this->_prepare_response_data(req);
 
