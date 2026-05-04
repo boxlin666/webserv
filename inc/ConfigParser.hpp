@@ -1,40 +1,53 @@
 #ifndef CONFIG_PARSER_HPP
-# define CONFIG_PARSER_HPP
+#define CONFIG_PARSER_HPP
+
+#include <errno.h>
+#include <string.h>
+#include <sys/stat.h>
+
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 
 #include "ServerConfig.hpp"
-#include <string>
-#include <map>
 
-struct Token
-{
-    std::string value;
-    int line_num; //方便调试
+struct location;
+
+class ServerConfig;
+
+struct Token {
+    std::string content;
+    int         line;
+
+    Token(std::string c, int l) : content(c), line(l) {}
 };
 
-class ConfigParser
-{
-    private:
-        std::map<int, vector<ServerConfig>> _config_map; // key = Port Number , Value = vector(Server1, Server2, Server3)
-  
-        ConfigParser(const ConfigParser& other);
-        ConfigParser& operator=(const ConfigParser& other);
+class ConfigParser {
+   private:
+    std::vector<ServerConfig*> _servers;
 
-        //报错使用try catch 所以void也没有关系？
-        void pre_process(void); //1:去掉所有备注 , 删除多余空格, 检查大括号是否对称, 是否是空文件, 导入_config_content内部？ 
-        void tokenize(void); //2: 把所有单词存入 vector token 内部
-        void check_key_word(void); //3:: 检查关键词是否对应 "listen" "server_name" "root" "location"  ...(非法关键词退出)
-        void extract_all_ports(void); //4:检查端口合法性和权限 (0 - 65536 之间) 并初步建立map 的keys
-        void fill_server_configs(void); //5: 边填写边检查,开始调用 ServConfig类 
+    ConfigParser(const ConfigParser& other);
+    ConfigParser& operator=(const ConfigParser& other);
 
-        std::string _config_content;
+    void tokenize(const std::string& raw_data, std::vector<Token>& tokens);
 
-        std::vector<Token> tokens;
+    // 递归解析函数：使用引用传递 pos，确保全局进度同步
+    void parseServer(std::vector<Token>& tokens, size_t& pos);
 
-    public:
-        ConfigParser(char *config_file);
-        ~ConfigParser(void);
+    // TODO: 校验
+    void validateDirectives(const std::vector<ServerConfig>& configs);
+    void flush_token(std::string& current, int line, std::vector<Token>& tokens);
 
-        void build_config_map(void); // => 总入口 parser
+   public:
+    ConfigParser();
+    ~ConfigParser(void);
+    // tmp for test
+    std::string read_file(const std::string& filepath);
+    void        build_config_map(const std::string& config_path);  // => 总入口 parser
+    void        print() const;
 };
 
 #endif
