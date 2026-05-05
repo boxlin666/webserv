@@ -48,6 +48,8 @@ class ConfigParser {
     std::string read_file(const std::string& filepath);
     void        build_config_map(const std::string& config_path);  // => 总入口 parser
     void        print() const;
+
+    const std::vector<ServerConfig*> &get_servers(void)const;
 };
 
 #endif

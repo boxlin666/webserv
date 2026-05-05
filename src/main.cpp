@@ -32,7 +32,7 @@ int main(int argc, char** argv)
         Cluster webserv;
 
         // TO DO LATER
-        // webserv.setup(parser);
+        webserv.setup(parser);
 
         //webserv.setup();  // just temporary function should be replace by the one above
         //webserv.run();

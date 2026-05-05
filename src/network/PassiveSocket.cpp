@@ -8,7 +8,7 @@ PassiveSocket::PassiveSocket(int port) : _fd(-1), _port(port)
         _bind_and_listen();
     } catch (...) {
         if (this->_fd != -1) close(this->_fd);
-        throw;
+        throw ;
     }
 }
 

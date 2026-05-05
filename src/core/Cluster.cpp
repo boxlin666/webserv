@@ -1,3 +1,5 @@
+#include <set>
+#include <iterator>
 #include "Cluster.hpp"
 
 Cluster::Cluster(void) {}
@@ -25,6 +27,66 @@ void Cluster::setup(void)
     pfd.events  = POLLIN;
     pfd.revents = 0;
     _poll_fds.push_back(pfd);
+}
+
+void Cluster::setup(const ConfigParser& config)
+{
+    this->open_listener(config);
+    this->init_poll_fds();
+
+    std::cout << "set up finished!!!" << std::endl;
+   /* PassiveSocket* listener   = new PassiveSocket(8080);
+    Server*        new_server = new Server(listener, "./www");
+    int            listen_fd  = new_server->getListenFd();
+
+    this->_servers.push_back(new_server);
+    this->_socket_map.insert(std::make_pair(listen_fd, listener));
+*/
+    
+    /*struct pollfd pfd;
+    pfd.fd      = this->_socket_map->first;
+    pfd.events  = POLLIN;
+    pfd.revents = 0;
+    _poll_fds.push_back(pfd);*/
+}
+
+void Cluster::open_listener(const ConfigParser& config)
+{
+    std::set<int> ports;
+    std::vector<ServerConfig*>::const_iterator vector_it;
+    std::set<int>::const_iterator set_it;
+
+    for (vector_it = config.get_servers().begin(); vector_it != config.get_servers().end(); vector_it++)
+    {
+        ports.insert((*vector_it)->getPort());
+    }
+    if (ports.empty())
+        throw std::runtime_error("No ports found in configuration file!");
+    for (set_it = ports.begin(); set_it != ports.end(); set_it++)
+    {
+        PassiveSocket* listener = new PassiveSocket(*set_it);
+        this->_socket_map.insert(std::make_pair(listener->getFd(), listener));
+    }
+}
+
+void Cluster::init_poll_fds()
+{
+    /*struct pollfd pfd;
+    pfd.fd      = listen_fd;
+    pfd.events  = POLLIN;
+    pfd.revents = 0;
+    _poll_fds.push_back(pfd);*/
+
+    std::map<int, PassiveSocket*>::const_iterator map_it;
+
+    for (map_it = this->_socket_map.begin(); map_it != this->_socket_map.end() ; map_it++)
+    {
+        struct pollfd pfd;
+        pfd.fd = map_it->first;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        this->_poll_fds.push_back(pfd);
+    }
 }
 
 void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket)

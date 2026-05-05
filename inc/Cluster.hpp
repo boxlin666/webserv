@@ -20,6 +20,9 @@ class Cluster
 
         std::vector<struct pollfd> _poll_fds;
 
+        void    open_listener(const ConfigParser& config);
+        void    init_poll_fds();
+
         Cluster(const Cluster& other);
         Cluster& operator=(const Cluster& other);
 
@@ -27,11 +30,12 @@ class Cluster
         Cluster(void);
         ~Cluster(void);
 
-        //TODO
-        //void    setup(const ConfigParser& config);
 
         // just temporary member function, supposed to be replaced by setup(const ConfigParser& config)
         void    setup(void);
+
+        //TODO
+        void    setup(const ConfigParser& config);
 
         void    handle_new_connection(int listen_fd, PassiveSocket* passive_socket);
         void    close_connection(size_t poll_idx);
