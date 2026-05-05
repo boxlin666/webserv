@@ -8,7 +8,7 @@ Router::Router(void)
 Router::~Router(void)
 {}
 
-RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConfig& server)const
+RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConfig& server)
 {
     struct RouterCtx ctx;
 
@@ -19,7 +19,7 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
     return (ctx);
 }
 
-const location* Router::find_location(const HttpRequest& req, const ServerConfig& server)const
+const location* Router::find_location(const HttpRequest& req, const ServerConfig& server)
 {
     std::vector<location>::const_iterator it;
     int index = 0;
@@ -29,7 +29,7 @@ const location* Router::find_location(const HttpRequest& req, const ServerConfig
     //pre-requis (TO DO):: we should normalize the format of URI before the match process (remove "../.." "///" "//" extra)
     for (it = server.get_locations().begin(); it != server.get_locations().end(); it++)
     {
-        if (this->is_valid_prefix_loc(it, req.get_path()))
+        if (Router::is_valid_prefix_loc(it, req.get_path()))
         {
             if (it->_prefix.length() > longest_match_length)
             {
@@ -44,7 +44,7 @@ const location* Router::find_location(const HttpRequest& req, const ServerConfig
     return (NULL);
 }
 
-std::string Router::build_full_path(const HttpRequest& req, const location *loc)const
+std::string Router::build_full_path(const HttpRequest& req, const location *loc)
 {
     std::string full_path;
 
@@ -57,7 +57,7 @@ std::string Router::build_full_path(const HttpRequest& req, const location *loc)
     return (full_path);
 }
 
-bool Router::is_valid_prefix_loc(std::vector<location>::const_iterator it, const std::string& uri)const
+bool Router::is_valid_prefix_loc(std::vector<location>::const_iterator it, const std::string& uri)
 {
     std::size_t uri_len = uri.length();
     std::size_t pre_len = it->_prefix.length(); 

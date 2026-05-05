@@ -64,6 +64,12 @@ bool Connection::check_parse_finished()
     return _request.get_state() == HttpRequest::PARSE_FINISHED;
 }
 
+void Connection::process_router_match()
+{
+    if (this->_matched_server)
+        this->_route_ctx = Router::build_router_context(this->_request, *(this->_matched_server));
+}
+
 std::string Connection::prepare_response()
 {
     this->_response.build(this->_request, *(this->_matched_server));

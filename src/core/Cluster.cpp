@@ -81,6 +81,7 @@ void Cluster::close_connection(size_t poll_idx)
 bool Cluster::handle_client_data(size_t poll_idx)
 {
     int fd = _poll_fds[poll_idx].fd;
+    std::string response;
 
     // 1. 安全获取 Connection 指针
     std::map<int, Connection*>::iterator it = _connection_map.find(fd);
@@ -107,18 +108,18 @@ bool Cluster::handle_client_data(size_t poll_idx)
     // 4. 检查解析是否完成
     if (conn.check_parse_finished()) {
         std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
+        //开启路由匹配
+        conn.process_router_match();
 
         //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）
-        //     conn.prepare_response();
 
+        response = conn.prepare_response();
         // 核心切换：告诉 poll 我们现在想往这个 socket 写数据了
         _poll_fds[poll_idx].events |= POLLOUT;
 
         // 习惯性清理：既然请求解析完了，可以把该 FD 的 POLLIN 暂时关掉（可选）
         // _poll_fds[poll_idx].events &= ~POLLIN;
     }
-
-    std::string response = conn.prepare_response();
     // 临时
     /*std::string response =
         "HTTP/1.1 200 OK\r\n"

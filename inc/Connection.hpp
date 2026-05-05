@@ -6,6 +6,8 @@
 #include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
+#include "Router.hpp"
+#include "RequestHandler.hpp"
 
 class Connection
 {
@@ -17,6 +19,8 @@ class Connection
         ServerConfig *_matched_server;
 
         HttpRequest _request;
+        RouterCtx  _route_ctx;
+        RequestHandler _req_handler;
         HttpResponse _response;
 
         //TO DO LATER (状态机)
@@ -44,6 +48,7 @@ class Connection
 
         bool handle_data(const char* raw_data, ssize_t size);
         bool check_parse_finished();
+        void process_router_match();
         std::string prepare_response();
 };
 

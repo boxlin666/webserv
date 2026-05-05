@@ -21,15 +21,15 @@ struct RouterCtx
 class Router
 {
     public:
-        Router(void);
-        ~Router(void);
-
-        RouterCtx build_router_context(const HttpRequest& req, const ServerConfig& server)const;
+        static RouterCtx build_router_context(const HttpRequest& req, const ServerConfig& server);
 
     private:
-        const location* find_location(const HttpRequest& req, const ServerConfig& server)const;
-        std::string build_full_path(const HttpRequest& req, const location* loc)const;
-        bool is_valid_prefix_loc(std::vector<location>::const_iterator it, const std::string &uri)const;
+        static const location* find_location(const HttpRequest& req, const ServerConfig& server);
+        static std::string build_full_path(const HttpRequest& req, const location* loc);
+        static bool is_valid_prefix_loc(std::vector<location>::const_iterator it, const std::string &uri);
+
+        Router(void);
+        ~Router(void);
 
         Router(const Router& other);
         Router& operator=(const Router& other);
