@@ -7,17 +7,27 @@
 #include <sstream>
 #include <vector>
 
-//tempo location struct just to pass pytest!!
-struct location
-{
-    //static content
-    std::string _prefix;
-    std::string root;
-    std::string index_file;
+struct location {
+    std::string                _prefix;
+    std::vector<std::string>   index;
+    std::string                root;
+    std::map<int, std::string> error_pages;
+    bool                       autoindex;
 
-    //access
+    // access
     std::vector<std::string> methods;
-    std::size_t client_max_body_size;
+    std::size_t              client_max_body_size;
+
+    int         return_code;
+    std::string return_url;
+
+    // 处理配置文件里写的扩展指令
+    std::string upload_path;
+    std::string cgi_path;
+    std::string cgi_ext;
+
+    std::map<std::string, std::string> _cgi_param;  // cgi 扩展配置
+    std::string index_file;
 };
 
 #endif

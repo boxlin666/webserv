@@ -7,6 +7,7 @@
 
 #include "ConfigParser.hpp"
 #include "Utils.hpp"
+#include "Location.hpp"
 
 struct Token;
 class ServerConfig {
@@ -20,27 +21,8 @@ class ServerConfig {
     { return _listen_port; }
     void setPort(const std::string& port_str);
 
-    struct location {
-        std::string                _prefix;
-        std::vector<std::string>   index;
-        std::string                root;
-        std::map<int, std::string> error_pages;
-        bool                       autoindex;
+    const std::vector<location>& get_locations(void)const;
 
-        // access
-        std::vector<std::string> methods;
-        std::size_t              client_max_body_size;
-
-        int         return_code;
-        std::string return_url;
-
-        // 处理配置文件里写的扩展指令
-        std::string upload_path;
-        std::string cgi_path;
-        std::string cgi_ext;
-
-        std::map<std::string, std::string> _cgi_param;  // cgi 扩展配置
-    };
     typedef void (ServerConfig::*LocationHandler)(std::vector<Token>&, size_t&, location*);
 
     bool hasHandler(const std::string& directive) const;
@@ -52,6 +34,7 @@ class ServerConfig {
     void parse(std::vector<Token>& tokens, size_t& pos);
 
     void print() const;
+
 
    private:
     ServerConfig(const ServerConfig& other);

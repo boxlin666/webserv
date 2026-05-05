@@ -84,6 +84,7 @@ class HttpRequest {
     // request line 部分
     std::string _method;  // GET POST DELETE
     std::string _path;
+
     std::string _http_version;  // HTTP 1.1
     std::map<std::string, std::string> _headers;
     std::string         _body;

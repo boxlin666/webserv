@@ -22,6 +22,11 @@ void ServerConfig::setPort(const std::string& port_str)
     this->_listen_port = static_cast<int>(val);
 }
 
+const std::vector<location>& ServerConfig::get_locations(void)const
+{
+    return (this->locations);
+}
+
 void ServerConfig::_init_handlers()
 {
     _handler_map["root"]                 = &ServerConfig::_handle_root;
