@@ -13,13 +13,17 @@
 #include <sstream>
 #include <stdexcept>
 #include <vector>
+#include <iterator>
 
 #include "ServerConfig.hpp"
 
 class PassiveSocket {
    private:
     int _fd;
+    std::string _host;
     int _port;
+
+    std::vector<int> _listen_ports;
 
     std::vector<ServerConfig*> _server_configs;
 
@@ -31,7 +35,7 @@ class PassiveSocket {
     PassiveSocket& operator=(const PassiveSocket& other);
 
    public:
-    PassiveSocket(int port);
+    PassiveSocket(const ServerConfig::ListenAddr &listen_addr);
     ~PassiveSocket();
 
     int getFd() const;

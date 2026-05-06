@@ -19,7 +19,8 @@ class Cluster
         std::vector<struct pollfd> _poll_fds;
 
         void    open_listener(const ConfigParser& config);
-        void    init_poll_fds();
+        void    init_poll_listen_fds();
+        void    add_to_poll_fds(int fd); //helper function just to fill out the struct poll_fd (listen fd Or Client fd)
 
         Cluster(const Cluster& other);
         Cluster& operator=(const Cluster& other);
@@ -43,6 +44,7 @@ class Cluster
 
         //print test check!
         void    print_socket_map()const;
+        void    print_pfds()const;
 };
 
 #endif

@@ -13,51 +13,65 @@ Cluster::~Cluster(void)
 void Cluster::setup(const ConfigParser& config)
 {
     this->open_listener(config);
-    this->init_poll_fds();
+    this->init_poll_listen_fds();
 
     std::cout << "set up finished!!!" << std::endl;
+    this->print_socket_map();
+    this->print_pfds();
 }
 
 void Cluster::open_listener(const ConfigParser& config)
 {
-    std::set<int> ports;
     std::vector<ServerConfig*>::const_iterator vector_it;
-    std::set<int>::const_iterator set_it;
+    std::set<ServerConfig::ListenAddr>::const_iterator set_it;
+    std::set<ServerConfig::ListenAddr> set_listen_addrs;
 
     for (vector_it = config.get_servers().begin(); vector_it != config.get_servers().end(); vector_it++)
     {
-        std::vector<int> listen_fds; 
         std::vector<ServerConfig::ListenAddr>::const_iterator listen_it;
 
+        if (*vector_it == NULL) 
+            continue;
         for (listen_it = (*vector_it)->get_listen_addrs().begin(); listen_it != (*vector_it)->get_listen_addrs().end(); listen_it++)
         {
-            listen_fds.push_back(listen_it->second);
+            set_listen_addrs.insert(*listen_it);
         }
-        ports.insert(listen_fds.begin(), listen_fds.end());
     }
-    if (ports.empty())
-        throw std::runtime_error("No ports found in configuration file!");
-    for (set_it = ports.begin(); set_it != ports.end(); set_it++)
+
+    for (set_it = set_listen_addrs.begin(); set_it != set_listen_addrs.end(); set_it++)
     {
-        PassiveSocket* listener = new PassiveSocket(*set_it);
-        this->_socket_map.insert(std::make_pair(listener->getFd(), listener));
+        try 
+        {
+            PassiveSocket* listener = new PassiveSocket(*set_it);
+            this->_socket_map.insert(std::make_pair(listener->getFd(), listener));
+        }
+        catch (const std::exception& e) 
+        {
+            std::cerr << "Failed to open listener " << set_it->first << ":" << set_it->second << std::endl; //某个特定listen_addr Host:Port_Num bind 失败 不影响后续的操作
+        }
     }
-    //test for setup
-    print_socket_map();
+    if (this->_socket_map.empty())
+        throw std::runtime_error("No listener could be opened, Webserv cannot start!");
 }
 
-void Cluster::init_poll_fds()
+void Cluster::init_poll_listen_fds()
 {
     std::map<int, PassiveSocket*>::const_iterator map_it;
 
     for (map_it = this->_socket_map.begin(); map_it != this->_socket_map.end() ; map_it++)
     {
-        struct pollfd pfd;
-        pfd.fd = map_it->first;
-        pfd.events = POLLIN;
-        pfd.revents = 0;
-        this->_poll_fds.push_back(pfd);
+        this->add_to_poll_fds(map_it->first);
     }
+}
+
+void Cluster::add_to_poll_fds(int fd)
+{
+    struct pollfd pfd;
+
+    pfd.fd = fd;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    this->_poll_fds.push_back(pfd);
 }
 
 void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket)
@@ -78,11 +92,12 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
     this->_connection_map.insert(std::make_pair(client_fd, conn));
 
     // 4. 将新的 FD 注册到 poll 监听列表中
-    struct pollfd pfd;
+/*    struct pollfd pfd;
     pfd.fd      = client_fd;
     pfd.events  = POLLIN;  // 监听读事件
     pfd.revents = 0;
-    this->_poll_fds.push_back(pfd);
+    this->_poll_fds.push_back(pfd);*/
+    this->add_to_poll_fds(client_fd);
 }
 
 /* * Cluster::close_connection
@@ -205,5 +220,17 @@ void    Cluster::print_socket_map(void)const
     for (it = this->_socket_map.begin(); it != this->_socket_map.end(); it++)
     {
         std::cout << "listen fd: " << it->first << " Port No:" << it->second->getPort() << " listen fd: " << it->second->getFd() << std::endl;
+    }
+}
+
+void    Cluster::print_pfds(void)const
+{
+    std::vector<struct pollfd>::const_iterator it;
+
+    for (it = this->_poll_fds.begin(); it != this->_poll_fds.end(); it++)
+    {
+        if (it->events == POLLIN)
+            std::cout << "pfd.events = POLLIN ";
+        std::cout << "pfd.fd = " << it->fd << " pfd.revents = " << it->revents << std::endl;
     }
 }

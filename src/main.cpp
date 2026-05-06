@@ -31,7 +31,7 @@ int main(int argc, char** argv)
         Cluster webserv;
 
         webserv.setup(parser);
-        //webserv.run();
+        webserv.run();
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
