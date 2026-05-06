@@ -26,7 +26,14 @@ void Cluster::open_listener(const ConfigParser& config)
 
     for (vector_it = config.get_servers().begin(); vector_it != config.get_servers().end(); vector_it++)
     {
-        ports.insert((*vector_it)->get_ports().begin(), (*vector_it)->get_ports().end());
+        std::vector<int> listen_fds; 
+        std::vector<ServerConfig::ListenAddr>::const_iterator listen_it;
+
+        for (listen_it = (*vector_it)->get_listen_addrs().begin(); listen_it != (*vector_it)->get_listen_addrs().end(); listen_it++)
+        {
+            listen_fds.push_back(listen_it->second);
+        }
+        ports.insert(listen_fds.begin(), listen_fds.end());
     }
     if (ports.empty())
         throw std::runtime_error("No ports found in configuration file!");
