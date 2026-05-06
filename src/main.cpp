@@ -5,7 +5,6 @@
 
 #include "Cluster.hpp"
 #include "ConfigParser.hpp"
-#include "Server.hpp"
 
 int main(int argc, char** argv)
 {

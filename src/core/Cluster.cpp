@@ -10,44 +10,12 @@ Cluster::~Cluster(void)
     //  delete ptr inside _server_map _connection_map
 }
 
-// void    Cluster::setup(const ConfigParse& config);
-// temporary one, should be rewritten!
-// init new_server hard_code instead of providing config input data
-void Cluster::setup(void)
-{
-    PassiveSocket* listener   = new PassiveSocket(8080);
-    Server*        new_server = new Server(listener, "./www");
-    int            listen_fd  = new_server->getListenFd();
-
-    this->_servers.push_back(new_server);
-    this->_socket_map.insert(std::make_pair(listen_fd, listener));
-
-    struct pollfd pfd;
-    pfd.fd      = listen_fd;
-    pfd.events  = POLLIN;
-    pfd.revents = 0;
-    _poll_fds.push_back(pfd);
-}
-
 void Cluster::setup(const ConfigParser& config)
 {
     this->open_listener(config);
     this->init_poll_fds();
 
     std::cout << "set up finished!!!" << std::endl;
-   /* PassiveSocket* listener   = new PassiveSocket(8080);
-    Server*        new_server = new Server(listener, "./www");
-    int            listen_fd  = new_server->getListenFd();
-
-    this->_servers.push_back(new_server);
-    this->_socket_map.insert(std::make_pair(listen_fd, listener));
-*/
-    
-    /*struct pollfd pfd;
-    pfd.fd      = this->_socket_map->first;
-    pfd.events  = POLLIN;
-    pfd.revents = 0;
-    _poll_fds.push_back(pfd);*/
 }
 
 void Cluster::open_listener(const ConfigParser& config)

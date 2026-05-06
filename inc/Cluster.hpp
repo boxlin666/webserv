@@ -6,7 +6,6 @@
 #include <poll.h>
 
 #include "PassiveSocket.hpp"
-#include "Server.hpp"
 #include "Connection.hpp"
 #include "ServerConfig.hpp"
 
@@ -15,7 +14,6 @@ class Cluster
     private:
         std::map<int, Connection *> _connection_map;
         std::map<int, PassiveSocket *> _socket_map;
-        std::vector <Server*> _servers;
         std::vector <ServerConfig*> _virtual_servers;
 
         std::vector<struct pollfd> _poll_fds;
@@ -29,10 +27,6 @@ class Cluster
     public:
         Cluster(void);
         ~Cluster(void);
-
-
-        // just temporary member function, supposed to be replaced by setup(const ConfigParser& config)
-        void    setup(void);
 
         //TODO
         void    setup(const ConfigParser& config);

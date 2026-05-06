@@ -2,7 +2,7 @@
 # define CONNECTION_HPP
 
 #include <string>
-#include "Server.hpp"
+#include "PassiveSocket.hpp"
 #include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
