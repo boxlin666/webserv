@@ -1,12 +1,12 @@
 #include "ServerConfig.hpp"
 
 ServerConfig::ServerConfig()
-    : _listen_port(8080), _host("127.0.0.1"), _client_max_body_size(1048576)  // 默认 1MB
+    : _host("127.0.0.1"), _client_max_body_size(1048576)  // 默认 1MB
 { _init_handlers(); }
 
 ServerConfig::~ServerConfig() {}
 
-void ServerConfig::setPort(const std::string& port_str)
+void ServerConfig::set_ports(const std::string& port_str)
 {
     for (size_t i = 0; i < port_str.length(); ++i) {
         if (!std::isdigit(port_str[i])) {
@@ -18,8 +18,7 @@ void ServerConfig::setPort(const std::string& port_str)
     if (val < 0 || val > 65535) {
         throw std::runtime_error("Port out of range [0-65535]: " + port_str);
     }
-
-    this->_listen_port = static_cast<int>(val);
+    this->_listen_ports.push_back(static_cast<int>(val));
 }
 
 const std::vector<location>& ServerConfig::get_locations(void)const
@@ -119,7 +118,7 @@ void ServerConfig::_handle_listen(std::vector<Token>& tokens, size_t& pos, locat
         throw std::runtime_error("Syntax error: Missing port number for 'listen'");
     }
 
-    this->setPort(tokens[pos].content.c_str());
+    this->set_ports(tokens[pos].content.c_str());
 
     Utils::expect_semicolon(tokens, ++pos);
 }
@@ -397,7 +396,12 @@ void ServerConfig::parseLocation(std::vector<Token>& tokens, size_t& pos)
 void ServerConfig::print() const
 {
     std::cout << "  [Server Block]" << std::endl;
-    std::cout << "    Listen Port: " << this->_listen_port << std::endl;
+
+    for (size_t i = 0; i < this->_listen_ports.size(); ++i) 
+    {
+        std::cout << "listen_port " << i << " " <<  this->_listen_ports[i] << std::endl;
+    }
+
     std::cout << "    Root: " << this->_root << std::endl;
 
     std::cout << "    Server Names: ";

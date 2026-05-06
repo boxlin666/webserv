@@ -17,9 +17,11 @@ class ServerConfig {
 
     const std::string& getHost() const
     { return _host; }
-    int getPort() const
-    { return _listen_port; }
-    void setPort(const std::string& port_str);
+
+    const std::vector<int>  &get_ports() const 
+    { return this->_listen_ports; }
+
+    void set_ports(const std::string& port_str);
 
     const std::vector<location>& get_locations(void)const;
 
@@ -41,7 +43,7 @@ class ServerConfig {
     ServerConfig& operator=(const ServerConfig& other);
 
     std::vector<std::string> _server_names;
-    int                      _listen_port;
+    std::vector<int>         _listen_ports;
     std::string              _host;
 
     std::vector<std::string>   _index;

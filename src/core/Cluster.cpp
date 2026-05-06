@@ -26,7 +26,7 @@ void Cluster::open_listener(const ConfigParser& config)
 
     for (vector_it = config.get_servers().begin(); vector_it != config.get_servers().end(); vector_it++)
     {
-        ports.insert((*vector_it)->getPort());
+        ports.insert((*vector_it)->get_ports().begin(), (*vector_it)->get_ports().end());
     }
     if (ports.empty())
         throw std::runtime_error("No ports found in configuration file!");
@@ -35,16 +35,12 @@ void Cluster::open_listener(const ConfigParser& config)
         PassiveSocket* listener = new PassiveSocket(*set_it);
         this->_socket_map.insert(std::make_pair(listener->getFd(), listener));
     }
+    //test for setup
+    print_socket_map();
 }
 
 void Cluster::init_poll_fds()
 {
-    /*struct pollfd pfd;
-    pfd.fd      = listen_fd;
-    pfd.events  = POLLIN;
-    pfd.revents = 0;
-    _poll_fds.push_back(pfd);*/
-
     std::map<int, PassiveSocket*>::const_iterator map_it;
 
     for (map_it = this->_socket_map.begin(); map_it != this->_socket_map.end() ; map_it++)
@@ -191,5 +187,16 @@ void Cluster::run()
                 i--;
             }
         }
+    }
+}
+
+//print test check
+void    Cluster::print_socket_map(void)const
+{
+    std::map<int, PassiveSocket *>::const_iterator it; 
+   
+    for (it = this->_socket_map.begin(); it != this->_socket_map.end(); it++)
+    {
+        std::cout << "listen fd: " << it->first << " Port No:" << it->second->getPort() << " listen fd: " << it->second->getFd() << std::endl;
     }
 }

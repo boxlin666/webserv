@@ -40,6 +40,9 @@ class Cluster
 
         // void send 分片发送
 
+
+        //print test check!
+        void    print_socket_map()const;
 };
 
 #endif
