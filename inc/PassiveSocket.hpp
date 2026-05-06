@@ -40,6 +40,7 @@ class PassiveSocket {
 
     int getFd() const;
     int getPort() const;
+    const std::string &get_host() const;
     ServerConfig* match_server(std::string hostname);
 };
 

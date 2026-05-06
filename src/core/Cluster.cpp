@@ -219,7 +219,7 @@ void    Cluster::print_socket_map(void)const
    
     for (it = this->_socket_map.begin(); it != this->_socket_map.end(); it++)
     {
-        std::cout << "listen fd: " << it->first << " Port No:" << it->second->getPort() << " listen fd: " << it->second->getFd() << std::endl;
+        std::cout << "listen fd: " << it->first << " Port No:" << it->second->getPort() << " listen fd: " << it->second->getFd() << " Host: " << it->second->get_host()<< std::endl;
     }
 }
 
