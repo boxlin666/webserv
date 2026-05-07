@@ -1,5 +1,6 @@
 #include <set>
 #include <iterator>
+#include <algorithm>
 #include "Cluster.hpp"
 
 Cluster::Cluster(void) {}
@@ -68,6 +69,7 @@ void Cluster::add_to_poll_fds(int fd)
 {
     struct pollfd pfd;
 
+    std::memset(&pfd, 0, sizeof(pfd));
     pfd.fd = fd;
     pfd.events = POLLIN;
     pfd.revents = 0;
@@ -79,8 +81,11 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
     struct sockaddr_in client_addr;
     socklen_t          client_len = sizeof(client_addr);
     int                client_fd  = accept(listen_fd, (struct sockaddr*)&client_addr, &client_len);
-    if (client_fd < 0) {
-        // 在非阻塞模式下，需要忽略 EAGAIN
+    if (client_fd < 0) 
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return ;
+        std::cerr << "Accept failed: " << strerror(errno) << std::endl;
         return;
     }
 
@@ -92,11 +97,6 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
     this->_connection_map.insert(std::make_pair(client_fd, conn));
 
     // 4. 将新的 FD 注册到 poll 监听列表中
-/*    struct pollfd pfd;
-    pfd.fd      = client_fd;
-    pfd.events  = POLLIN;  // 监听读事件
-    pfd.revents = 0;
-    this->_poll_fds.push_back(pfd);*/
     this->add_to_poll_fds(client_fd);
 }
 
@@ -115,21 +115,17 @@ void Cluster::close_connection(size_t poll_idx)
         _connection_map.erase(it);  // 从 map 中移除
     }
 
-    // 2. 从 pollfd 向量中移除（这是防止轮询到无效 FD 的关键）
-    // 使用 erase 移除当前位置的元素
-    _poll_fds.erase(_poll_fds.begin() + poll_idx);
-
-    // 3. 最后关闭文件描述符
+    // 2. 最后关闭文件描述符
     close(fd);
 
-    // 注意：由于在 run() 的循环中调用了 erase，
-    // 调用完此函数后，外部循环的索引 i 必须进行相应调整（如 i--）
+    // 3. 标记容器位置 (不删除，只标记)
+    this->_poll_fds[poll_idx].fd = -1;
+    this->_poll_fds[poll_idx].revents = 0;
 }
 
-bool Cluster::handle_client_data(size_t poll_idx)
+bool Cluster::handle_client_read_event(size_t poll_idx)
 {
     int fd = _poll_fds[poll_idx].fd;
-    std::string response;
 
     // 1. 安全获取 Connection 指针
     std::map<int, Connection*>::iterator it = _connection_map.find(fd);
@@ -138,78 +134,133 @@ bool Cluster::handle_client_data(size_t poll_idx)
 
     // 2. 读取数据 (非阻塞设计)
     char    buffer[4096];
+    std::memset(buffer, 0, sizeof(buffer));
     ssize_t bytes_read = recv(fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read <= 0) {
+    if (bytes_read <= 0) 
+    {
         // bytes_read == 0: 客户端关闭; < 0: 读取错误
         return false;
     }
+    else
+        conn.append_in_buff(buffer, bytes_read);
 
     // 3. 驱动解析器
+    //TODO: replace buffer by _in_buff later
     if (conn.handle_data(buffer, bytes_read) == false) {
         // 解析遇到严重错误 (如 400 Bad Request)
         // 标记该连接已准备好发送错误响应
-        _poll_fds[poll_idx].events |= POLLOUT;
+        //彻底去掉POLLIN,当4xx(400 408 411 413 414)发生，只发送错误响应，然后关闭该客户端连接
+        _poll_fds[poll_idx].events = POLLOUT;
         return true;
-    }
+    } 
 
     // 4. 检查解析是否完成
     if (conn.check_parse_finished()) {
         std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
         //开启路由匹配
-        conn.process_router_match();
+        //conn.process_router_match();
 
         //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）
 
-        response = conn.prepare_response();
+        //response = conn.prepare_response();
+        conn.prepare_response();
+        std::cout << "REEESPOOOONS = " << conn.get_out_buff() << std::endl;
+
         // 核心切换：告诉 poll 我们现在想往这个 socket 写数据了
         _poll_fds[poll_idx].events |= POLLOUT;
 
         // 习惯性清理：既然请求解析完了，可以把该 FD 的 POLLIN 暂时关掉（可选）
-        // _poll_fds[poll_idx].events &= ~POLLIN;
+         _poll_fds[poll_idx].events &= ~POLLIN;
     }
-    // 临时
-    /*std::string response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html\r\n"
-        "Content-Length: 18\r\n"
-        "Connection: close\r\n"  // 明确告诉浏览器发完就断开
-        "\r\n"
-        "<h1>Hello 42!</h1>";*/
+    return (true);
+}
 
-    //std::string response = conn.prepare_response();
+bool Cluster::handle_client_write_event(size_t poll_idx)
+{
+   int fd = _poll_fds[poll_idx].fd;
 
+    // 1. 安全获取 Connection 指针
+    std::map<int, Connection*>::iterator it = _connection_map.find(fd);
+    if (it == _connection_map.end() || it->second == NULL) { return false; }
+    Connection& conn = *(it->second);
+ 
+    std::cout << "REEESPOOOONS = " << conn.get_out_buff() << std::endl;
+    send(fd, conn.get_out_buff().c_str(), conn.get_out_buff().size(), 0);
 
-    send(fd, response.c_str(), response.size(), 0);
     this->close_connection(poll_idx);
+    this->_poll_fds[poll_idx].fd = -1;
     return true;
 }
 
 void Cluster::run()
 {
-    while (true) {
+    while (true) 
+    {
         int ret = poll(_poll_fds.data(), _poll_fds.size(), -1);
-        if (ret < 0) continue;
-
-        for (size_t i = 0; i < _poll_fds.size(); ++i) {
-            if (_poll_fds[i].revents & POLLIN) {
-                if (_socket_map.count(_poll_fds[i].fd)) {
-                    handle_new_connection(_poll_fds[i].fd, _socket_map[_poll_fds[i].fd]);
-                } else {
-                    // 处理数据，如果返回 false 表示需要关闭连接
-                    if (handle_client_data(i) == false) {
-                        close_connection(i);
-                        i--;  // 核心：抵消 erase 带来的索引偏移
-                    }
-                }
-            }
-            // 还可以处理 POLLHUP (挂起) 或 POLLERR (错误)
-            else if (_poll_fds[i].revents & (POLLHUP | POLLERR)) {
-                close_connection(i);
-                i--;
+        if (ret == -1)
+        {
+            //if CGI child process received a SIGINT, then it will not interrupt the parent process to continue running!
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                std::string error_msg = "Poll failed: ";
+                error_msg += strerror(errno);
+                throw std::runtime_error(error_msg);
             }
         }
+
+        for (size_t i = 0; i < _poll_fds.size(); ++i) 
+        {
+            if (_poll_fds[i].fd == -1) continue ;
+            if (_poll_fds[i].revents & POLLIN) 
+            {
+                if (_socket_map.count(_poll_fds[i].fd))
+                    handle_new_connection(_poll_fds[i].fd, _socket_map[_poll_fds[i].fd]); 
+                else
+                {
+                    if (this->handle_client_read_event(i) == false)
+                    {
+                        this->_poll_fds[i].fd = -1;
+                        close_connection(i);
+                        //i--;
+                    }
+                    // 处理数据，如果返回 false 表示需要关闭连接
+                    /*if (handle_client_data(i) == false) 
+                    {
+                        close_connection(i);
+                        i--;  // 核心：抵消 erase 带来的索引偏移
+                    }*/
+                }
+            }
+            if (_poll_fds[i].revents & POLLOUT)
+            {
+                this->handle_client_write_event(i);
+            }
+            // 还可以处理 POLLHUP (挂起) 或 POLLERR (错误)
+            if (_poll_fds[i].revents & (POLLHUP | POLLERR)) 
+            {
+                this->_poll_fds[i].fd = -1;
+                close_connection(i);
+                //i--;
+            }
+        }
+        this->cleanup_inactive_fds();
     }
+}
+
+bool    Cluster::is_invalid_fd(const struct pollfd& pfd)
+{
+    return (pfd.fd == -1);
+}
+
+void    Cluster::cleanup_inactive_fds(void)
+{
+    std::vector<struct pollfd>::iterator it;
+
+    it = std::remove_if(this->_poll_fds.begin(), this->_poll_fds.end(), is_invalid_fd);
+    this->_poll_fds.erase(it, this->_poll_fds.end());
 }
 
 //print test check

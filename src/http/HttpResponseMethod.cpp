@@ -45,7 +45,7 @@ int HttpResponse::_handle_post(const HttpRequest& req)
     }
     total_size = req.get_body_len();
     byte_written = 0;
-    tmp_buff = req.get_body_content().data(); 
+    tmp_buff = req.get_body().data(); 
     ret = 0;
     while (1)
     {

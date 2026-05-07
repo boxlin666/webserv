@@ -29,7 +29,6 @@ class HttpRequest {
     const std::string& get_version() const;
     const std::string& get_body() const;
     const std::string* get_header(const std::string& key) const;  // 方便查找特定头
-    const std::string& get_body_content()const;
     std::size_t get_body_len()const;
 
     //tempo add for compilation with response
@@ -59,8 +58,7 @@ class HttpRequest {
 
     // 设置 Body 内容，并自动更新长度
     void set_body(const std::string& content) {
-        _body_content = content;
-        _body_len = content.length();
+        _body = content;
         _content_length = content.length();
     }
 
@@ -93,10 +91,6 @@ class HttpRequest {
     //  _header_map["Host"] = "172.19.116.71" ; _header_map["User agent"] = "curl 8.5.0" ;
     //  _header_map["blabla"] = "BLABLA"
     std::map<std::string, std::string> _header_map;
-
-    // Body 部分 (主要针对POST method, 当客户端上传信息给服务端)
-    std::string _body_content;
-    std::size_t _body_len;
 
     // 记录当前状态
     e_request_state _state;

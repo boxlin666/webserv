@@ -45,11 +45,15 @@ void    Connection::set_out_buff(void)
 
 bool    Connection::handle_data(const char* raw_data, ssize_t size)
 {
-    _in_buff.append(raw_data, size);
-    if(_request.parse(_in_buff) == false)
+    std::string _tmp_buff = raw_data;
+
+    this->_in_buff.append(raw_data, size);
+    if(_request.parse(_tmp_buff) == false)
     {
         // TODO: prepare error 400 
-        return true;
+        // skip Router Match step
+        // Go to the Request handler -> request Response
+        return false;
     }
    
     if(_request.get_state() == HttpRequest::PARSE_FINISHED)
@@ -70,8 +74,9 @@ void Connection::process_router_match()
         this->_route_ctx = Router::build_router_context(this->_request, *(this->_matched_server));
 }
 
-std::string Connection::prepare_response()
+void Connection::prepare_response()
 {
     this->_response.build(this->_request, *(this->_matched_server));
-    return (this->_response.get_full_response());
+    this->_out_buff = this->_response.get_full_response(); 
+    //return (this->_response.get_full_response());
 }

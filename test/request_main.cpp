@@ -12,23 +12,22 @@ int main(void) {
     // 1. 在程序内构造 HTTP Request 字符串
     // 使用 \r\n 模拟真实的 HTTP 网络报文格式
     // 最后的 \r\n\r\n 是必须的，代表 Header 结束
-    std::string raw_data = 
-        "POST /index.html HTTP/1.1\r\n"
-        "Host: example.com\r\n"
-        "User-Agent: curl/8.6.0\r\n"
-        "Accept: */*\r\n"
-        "Content-Length: 0\r\n"
-        "\r\n"; // 结尾空行
 
-    // 如果你想测试带 Body 的 POST，可以这样写：
-    /*
-    raw_data = 
-        "POST /submit HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "Content-Length: 11\r\n"
-        "\r\n"
-        "hello world";
-    */
+
+    // 构造一个带有 Message Body 的 GET 请求
+    // 注意：虽然 GET 带 Body 不常见，但 HTTP 协议允许这样做，
+    // 你的服务器必须能通过 Content-Length 正确识别并截取它。
+    
+    std::string raw_data = 
+        "GET /index.html HTTP/1.1\r\n"
+        "Host: localhost:8080\r\n"
+        "User-Agent: curl/8.5.0\r\n"
+        "Accept: */*\r\n"
+        "Content-Length: 22\r\n"  // 必须与 Body 长度严格一致
+        "\r\n"                    // Header 结束标志
+        "this is my secret body"; // 正好 22 个字符
+
+    
 
     std::cout << "--- Raw Request Content ---" << std::endl;
     // 为了方便调试，我们打印时把 \r 可视化
@@ -41,9 +40,9 @@ int main(void) {
 
     // 2. 将数据输入解析器
     bool success = req.parse(raw_data);
-
+    (void) success;
     // 3. 打印解析结果
-    if (success || req.get_state() == HttpRequest::PARSE_FINISHED) {
+    if (req.get_state() == HttpRequest::PARSE_FINISHED) {
         std::cout << "\n[Success] Request Parsing Finished." << std::endl;
         
         std::cout << "Method:      [" << req.get_method() << "]" << std::endl;
@@ -58,9 +57,9 @@ int main(void) {
         }
 
         // 打印 Body
-        if (!req.get_body_content().empty()) {
+        if (!req.get_body().empty()) {
             std::cout << "\nBody (" << req.get_body_len() << " bytes):" << std::endl;
-            std::cout << "[" << req.get_body_content() << "]" << std::endl;
+            std::cout << "[" << req.get_body() << "]" << std::endl;
         } else {
             std::cout << "\nBody: [Empty]" << std::endl;
         }

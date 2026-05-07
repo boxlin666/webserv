@@ -20,7 +20,18 @@ class Cluster
 
         void    open_listener(const ConfigParser& config);
         void    init_poll_listen_fds();
-        void    add_to_poll_fds(int fd); //helper function just to fill out the struct poll_fd (listen fd Or Client fd)
+        void    add_to_poll_fds(int fd); //helper function just to fill out the struct poll_fd (listen fd Or Client fd) 
+
+        void    handle_new_connection(int listen_fd, PassiveSocket* passive_socket);
+        void    close_connection(size_t poll_idx);
+     
+        bool    handle_client_data(size_t poll_idx);
+        bool    handle_client_read_event(size_t poll_idx);
+        bool    handle_client_write_event(size_t poll_idx);
+
+        static bool    is_invalid_fd(const struct pollfd& pfd);
+        void    cleanup_inactive_fds();
+
 
         Cluster(const Cluster& other);
         Cluster& operator=(const Cluster& other);
@@ -31,11 +42,7 @@ class Cluster
 
         //TODO
         void    setup(const ConfigParser& config);
-
-        void    handle_new_connection(int listen_fd, PassiveSocket* passive_socket);
-        void    close_connection(size_t poll_idx);
-        bool    handle_client_data(size_t poll_idx);
-        
+         
         // void add_config
         void    run(void);
 

@@ -49,7 +49,7 @@ class Connection
         bool handle_data(const char* raw_data, ssize_t size);
         bool check_parse_finished();
         void process_router_match();
-        std::string prepare_response();
+        void prepare_response();
 };
 
 #endif
