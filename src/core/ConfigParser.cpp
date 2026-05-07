@@ -121,6 +121,11 @@ void ConfigParser::parseServer(std::vector<Token>& tokens, size_t& pos)
     }
 }
 
+const std::vector<ServerConfig*>& ConfigParser::get_servers(void)const
+{
+    return (this->_servers);
+}
+
 void ConfigParser::print() const {
     std::cout << "=== Configuration Dump ===" << std::endl;
     std::cout << "Total Servers: " << _servers.size() << std::endl;

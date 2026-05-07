@@ -4,9 +4,11 @@
 #include <cstdlib>
 #include <iterator>
 #include <vector>
+#include <utility>
 
 #include "ConfigParser.hpp"
 #include "Utils.hpp"
+#include "Location.hpp"
 
 struct Token;
 class ServerConfig {
@@ -14,33 +16,13 @@ class ServerConfig {
     ServerConfig();
     ~ServerConfig(void);
 
-    const std::string& getHost() const
-    { return _host; }
-    int getPort() const
-    { return _listen_port; }
-    void setPort(const std::string& port_str);
+    typedef std::pair<std::string, int> ListenAddr;
+ 
+    const std::vector<ListenAddr>  &get_listen_addrs() const 
+    { return this->_listen_addrs; }
 
-    struct location {
-        std::string                _prefix;
-        std::vector<std::string>   index;
-        std::string                root;
-        std::map<int, std::string> error_pages;
-        bool                       autoindex;
+    const std::vector<location>& get_locations(void)const;
 
-        // access
-        std::vector<std::string> methods;
-        std::size_t              client_max_body_size;
-
-        int         return_code;
-        std::string return_url;
-
-        // 处理配置文件里写的扩展指令
-        std::string upload_path;
-        std::string cgi_path;
-        std::string cgi_ext;
-
-        std::map<std::string, std::string> _cgi_param;  // cgi 扩展配置
-    };
     typedef void (ServerConfig::*LocationHandler)(std::vector<Token>&, size_t&, location*);
 
     bool hasHandler(const std::string& directive) const;
@@ -53,13 +35,14 @@ class ServerConfig {
 
     void print() const;
 
+
    private:
     ServerConfig(const ServerConfig& other);
     ServerConfig& operator=(const ServerConfig& other);
 
     std::vector<std::string> _server_names;
-    int                      _listen_port;
-    std::string              _host;
+
+    std::vector<ListenAddr> _listen_addrs; // host:port_number 必须成对出现，别弄成数组即可 （ex: 127.0.0.0:8080）
 
     std::vector<std::string>   _index;
     std::string                _root;
@@ -76,7 +59,11 @@ class ServerConfig {
     std::string _cgi_ext;
 
     std::map<std::string, LocationHandler> _handler_map;
+    int string_to_port(const std::string& port_str)const;
     void                                   _init_handlers();  // 在构造函数中调用，初始化映射表
+
+    void set_listen_addrs(const std::string& port_str);
+
 
     // 具体的指令处理器（小函数）
     void _handle_root(std::vector<Token>& tokens, size_t& pos, location* loc);

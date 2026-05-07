@@ -1,3 +1,6 @@
+#include <set>
+#include <iterator>
+#include <algorithm>
 #include "Cluster.hpp"
 
 Cluster::Cluster(void) {}
@@ -8,23 +11,69 @@ Cluster::~Cluster(void)
     //  delete ptr inside _server_map _connection_map
 }
 
-// void    Cluster::setup(const ConfigParse& config);
-// temporary one, should be rewritten!
-// init new_server hard_code instead of providing config input data
-void Cluster::setup(void)
+void Cluster::setup(const ConfigParser& config)
 {
-    PassiveSocket* listener   = new PassiveSocket(8080);
-    Server*        new_server = new Server(listener, "./www");
-    int            listen_fd  = new_server->getListenFd();
+    this->open_listener(config);
+    this->init_poll_listen_fds();
 
-    this->_servers.push_back(new_server);
-    this->_socket_map.insert(std::make_pair(listen_fd, listener));
+    std::cout << "set up finished!!!" << std::endl;
+    this->print_socket_map();
+    this->print_pfds();
+}
 
+void Cluster::open_listener(const ConfigParser& config)
+{
+    std::vector<ServerConfig*>::const_iterator vector_it;
+    std::set<ServerConfig::ListenAddr>::const_iterator set_it;
+    std::set<ServerConfig::ListenAddr> set_listen_addrs;
+
+    for (vector_it = config.get_servers().begin(); vector_it != config.get_servers().end(); vector_it++)
+    {
+        std::vector<ServerConfig::ListenAddr>::const_iterator listen_it;
+
+        if (*vector_it == NULL) 
+            continue;
+        for (listen_it = (*vector_it)->get_listen_addrs().begin(); listen_it != (*vector_it)->get_listen_addrs().end(); listen_it++)
+        {
+            set_listen_addrs.insert(*listen_it);
+        }
+    }
+
+    for (set_it = set_listen_addrs.begin(); set_it != set_listen_addrs.end(); set_it++)
+    {
+        try 
+        {
+            PassiveSocket* listener = new PassiveSocket(*set_it);
+            this->_socket_map.insert(std::make_pair(listener->getFd(), listener));
+        }
+        catch (const std::exception& e) 
+        {
+            std::cerr << "Failed to open listener " << set_it->first << ":" << set_it->second << std::endl; //某个特定listen_addr Host:Port_Num bind 失败 不影响后续的操作
+        }
+    }
+    if (this->_socket_map.empty())
+        throw std::runtime_error("No listener could be opened, Webserv cannot start!");
+}
+
+void Cluster::init_poll_listen_fds()
+{
+    std::map<int, PassiveSocket*>::const_iterator map_it;
+
+    for (map_it = this->_socket_map.begin(); map_it != this->_socket_map.end() ; map_it++)
+    {
+        this->add_to_poll_fds(map_it->first);
+    }
+}
+
+void Cluster::add_to_poll_fds(int fd)
+{
     struct pollfd pfd;
-    pfd.fd      = listen_fd;
-    pfd.events  = POLLIN;
+
+    std::memset(&pfd, 0, sizeof(pfd));
+    pfd.fd = fd;
+    pfd.events = POLLIN;
     pfd.revents = 0;
-    _poll_fds.push_back(pfd);
+    this->_poll_fds.push_back(pfd);
 }
 
 void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket)
@@ -32,8 +81,11 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
     struct sockaddr_in client_addr;
     socklen_t          client_len = sizeof(client_addr);
     int                client_fd  = accept(listen_fd, (struct sockaddr*)&client_addr, &client_len);
-    if (client_fd < 0) {
-        // 在非阻塞模式下，需要忽略 EAGAIN
+    if (client_fd < 0) 
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return ;
+        std::cerr << "Accept failed: " << strerror(errno) << std::endl;
         return;
     }
 
@@ -45,11 +97,7 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
     this->_connection_map.insert(std::make_pair(client_fd, conn));
 
     // 4. 将新的 FD 注册到 poll 监听列表中
-    struct pollfd pfd;
-    pfd.fd      = client_fd;
-    pfd.events  = POLLIN;  // 监听读事件
-    pfd.revents = 0;
-    this->_poll_fds.push_back(pfd);
+    this->add_to_poll_fds(client_fd);
 }
 
 /* * Cluster::close_connection
@@ -67,18 +115,15 @@ void Cluster::close_connection(size_t poll_idx)
         _connection_map.erase(it);  // 从 map 中移除
     }
 
-    // 2. 从 pollfd 向量中移除（这是防止轮询到无效 FD 的关键）
-    // 使用 erase 移除当前位置的元素
-    _poll_fds.erase(_poll_fds.begin() + poll_idx);
-
-    // 3. 最后关闭文件描述符
+    // 2. 最后关闭文件描述符
     close(fd);
 
-    // 注意：由于在 run() 的循环中调用了 erase，
-    // 调用完此函数后，外部循环的索引 i 必须进行相应调整（如 i--）
+    // 3. 标记容器位置 (不删除，只标记)
+    this->_poll_fds[poll_idx].fd = -1;
+    this->_poll_fds[poll_idx].revents = 0;
 }
 
-bool Cluster::handle_client_data(size_t poll_idx)
+bool Cluster::handle_client_read_event(size_t poll_idx)
 {
     int fd = _poll_fds[poll_idx].fd;
 
@@ -89,76 +134,154 @@ bool Cluster::handle_client_data(size_t poll_idx)
 
     // 2. 读取数据 (非阻塞设计)
     char    buffer[4096];
+    std::memset(buffer, 0, sizeof(buffer));
     ssize_t bytes_read = recv(fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read <= 0) {
+    if (bytes_read <= 0) 
+    {
         // bytes_read == 0: 客户端关闭; < 0: 读取错误
         return false;
     }
+    else
+        conn.append_in_buff(buffer, bytes_read);
 
     // 3. 驱动解析器
+    //TODO: replace buffer by _in_buff later
     if (conn.handle_data(buffer, bytes_read) == false) {
         // 解析遇到严重错误 (如 400 Bad Request)
         // 标记该连接已准备好发送错误响应
-        _poll_fds[poll_idx].events |= POLLOUT;
+        //彻底去掉POLLIN,当4xx(400 408 411 413 414)发生，只发送错误响应，然后关闭该客户端连接
+        _poll_fds[poll_idx].events = POLLOUT;
         return true;
-    }
+    } 
 
     // 4. 检查解析是否完成
     if (conn.check_parse_finished()) {
         std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
+        //开启路由匹配
+        //conn.process_router_match();
 
         //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）
-        //     conn.prepare_response();
+
+        //response = conn.prepare_response();
+        conn.prepare_response();
+        std::cout << "REEESPOOOONS = " << conn.get_out_buff() << std::endl;
 
         // 核心切换：告诉 poll 我们现在想往这个 socket 写数据了
         _poll_fds[poll_idx].events |= POLLOUT;
 
         // 习惯性清理：既然请求解析完了，可以把该 FD 的 POLLIN 暂时关掉（可选）
-        // _poll_fds[poll_idx].events &= ~POLLIN;
+         _poll_fds[poll_idx].events &= ~POLLIN;
     }
+    return (true);
+}
 
-    std::string response = conn.prepare_response();
-    // 临时
-    /*std::string response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html\r\n"
-        "Content-Length: 18\r\n"
-        "Connection: close\r\n"  // 明确告诉浏览器发完就断开
-        "\r\n"
-        "<h1>Hello 42!</h1>";*/
+bool Cluster::handle_client_write_event(size_t poll_idx)
+{
+   int fd = _poll_fds[poll_idx].fd;
 
-    //std::string response = conn.prepare_response();
+    // 1. 安全获取 Connection 指针
+    std::map<int, Connection*>::iterator it = _connection_map.find(fd);
+    if (it == _connection_map.end() || it->second == NULL) { return false; }
+    Connection& conn = *(it->second);
+ 
+    std::cout << "REEESPOOOONS = " << conn.get_out_buff() << std::endl;
+    send(fd, conn.get_out_buff().c_str(), conn.get_out_buff().size(), 0);
 
-
-    send(fd, response.c_str(), response.size(), 0);
     this->close_connection(poll_idx);
+    this->_poll_fds[poll_idx].fd = -1;
     return true;
 }
 
 void Cluster::run()
 {
-    while (true) {
+    while (true) 
+    {
         int ret = poll(_poll_fds.data(), _poll_fds.size(), -1);
-        if (ret < 0) continue;
-
-        for (size_t i = 0; i < _poll_fds.size(); ++i) {
-            if (_poll_fds[i].revents & POLLIN) {
-                if (_socket_map.count(_poll_fds[i].fd)) {
-                    handle_new_connection(_poll_fds[i].fd, _socket_map[_poll_fds[i].fd]);
-                } else {
-                    // 处理数据，如果返回 false 表示需要关闭连接
-                    if (handle_client_data(i) == false) {
-                        close_connection(i);
-                        i--;  // 核心：抵消 erase 带来的索引偏移
-                    }
-                }
-            }
-            // 还可以处理 POLLHUP (挂起) 或 POLLERR (错误)
-            else if (_poll_fds[i].revents & (POLLHUP | POLLERR)) {
-                close_connection(i);
-                i--;
+        if (ret == -1)
+        {
+            //if CGI child process received a SIGINT, then it will not interrupt the parent process to continue running!
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                std::string error_msg = "Poll failed: ";
+                error_msg += strerror(errno);
+                throw std::runtime_error(error_msg);
             }
         }
+
+        for (size_t i = 0; i < _poll_fds.size(); ++i) 
+        {
+            if (_poll_fds[i].fd == -1) continue ;
+            if (_poll_fds[i].revents & POLLIN) 
+            {
+                if (_socket_map.count(_poll_fds[i].fd))
+                    handle_new_connection(_poll_fds[i].fd, _socket_map[_poll_fds[i].fd]); 
+                else
+                {
+                    if (this->handle_client_read_event(i) == false)
+                    {
+                        this->_poll_fds[i].fd = -1;
+                        close_connection(i);
+                        //i--;
+                    }
+                    // 处理数据，如果返回 false 表示需要关闭连接
+                    /*if (handle_client_data(i) == false) 
+                    {
+                        close_connection(i);
+                        i--;  // 核心：抵消 erase 带来的索引偏移
+                    }*/
+                }
+            }
+            if (_poll_fds[i].revents & POLLOUT)
+            {
+                this->handle_client_write_event(i);
+            }
+            // 还可以处理 POLLHUP (挂起) 或 POLLERR (错误)
+            if (_poll_fds[i].revents & (POLLHUP | POLLERR)) 
+            {
+                this->_poll_fds[i].fd = -1;
+                close_connection(i);
+                //i--;
+            }
+        }
+        this->cleanup_inactive_fds();
+    }
+}
+
+bool    Cluster::is_invalid_fd(const struct pollfd& pfd)
+{
+    return (pfd.fd == -1);
+}
+
+void    Cluster::cleanup_inactive_fds(void)
+{
+    std::vector<struct pollfd>::iterator it;
+
+    it = std::remove_if(this->_poll_fds.begin(), this->_poll_fds.end(), is_invalid_fd);
+    this->_poll_fds.erase(it, this->_poll_fds.end());
+}
+
+//print test check
+void    Cluster::print_socket_map(void)const
+{
+    std::map<int, PassiveSocket *>::const_iterator it; 
+   
+    for (it = this->_socket_map.begin(); it != this->_socket_map.end(); it++)
+    {
+        std::cout << "listen fd: " << it->first << " Port No:" << it->second->getPort() << " listen fd: " << it->second->getFd() << " Host: " << it->second->get_host()<< std::endl;
+    }
+}
+
+void    Cluster::print_pfds(void)const
+{
+    std::vector<struct pollfd>::const_iterator it;
+
+    for (it = this->_poll_fds.begin(); it != this->_poll_fds.end(); it++)
+    {
+        if (it->events == POLLIN)
+            std::cout << "pfd.events = POLLIN ";
+        std::cout << "pfd.fd = " << it->fd << " pfd.revents = " << it->revents << std::endl;
     }
 }

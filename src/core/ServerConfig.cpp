@@ -1,12 +1,12 @@
 #include "ServerConfig.hpp"
 
 ServerConfig::ServerConfig()
-    : _listen_port(8080), _host("127.0.0.1"), _client_max_body_size(1048576)  // 默认 1MB
+    : _client_max_body_size(1048576)  // 默认 1MB
 { _init_handlers(); }
 
 ServerConfig::~ServerConfig() {}
 
-void ServerConfig::setPort(const std::string& port_str)
+/*void ServerConfig::set_ports(const std::string& port_str)
 {
     for (size_t i = 0; i < port_str.length(); ++i) {
         if (!std::isdigit(port_str[i])) {
@@ -18,8 +18,50 @@ void ServerConfig::setPort(const std::string& port_str)
     if (val < 0 || val > 65535) {
         throw std::runtime_error("Port out of range [0-65535]: " + port_str);
     }
+    this->_listen_ports.push_back(static_cast<int>(val));
+}*/
 
-    this->_listen_port = static_cast<int>(val);
+int ServerConfig::string_to_port(const std::string& port_str)const
+{
+    for (size_t i = 0; i < port_str.length(); ++i) {
+        if (!std::isdigit(port_str[i])) {
+            throw std::runtime_error("Invalid character in port: " + port_str);
+        }
+    }
+    long val = std::atol(port_str.c_str());
+
+    if (val < 0 || val > 65535) {
+        throw std::runtime_error("Port out of range [0-65535]: " + port_str);
+    }
+    return (static_cast<int>(val));
+}
+
+void    ServerConfig::set_listen_addrs(const std::string& listen_data)
+{
+    std::string host;
+    int port;
+
+    std::size_t colon_pos = listen_data.find(':');
+    if (colon_pos == std::string::npos)
+    {
+        port = this->string_to_port(listen_data);
+        host = "0.0.0.0";
+    }
+    else
+    {
+        if (colon_pos + 1 == std::string::npos)
+            throw std::runtime_error("Invalid character in listen data: " + listen_data);
+        std::string port_str = listen_data.substr(colon_pos + 1);
+        port = this->string_to_port(port_str);
+        //TODO check the host syntaxe format!!
+        host = listen_data.substr(0, colon_pos);
+    }
+    this->_listen_addrs.push_back(std::make_pair(host, port));
+}
+
+const std::vector<location>& ServerConfig::get_locations(void)const
+{
+    return (this->locations);
 }
 
 void ServerConfig::_init_handlers()
@@ -114,7 +156,9 @@ void ServerConfig::_handle_listen(std::vector<Token>& tokens, size_t& pos, locat
         throw std::runtime_error("Syntax error: Missing port number for 'listen'");
     }
 
-    this->setPort(tokens[pos].content.c_str());
+    //this->set_ports(tokens[pos].content.c_str());
+
+    this->set_listen_addrs(tokens[pos].content.c_str());
 
     Utils::expect_semicolon(tokens, ++pos);
 }
@@ -392,7 +436,17 @@ void ServerConfig::parseLocation(std::vector<Token>& tokens, size_t& pos)
 void ServerConfig::print() const
 {
     std::cout << "  [Server Block]" << std::endl;
-    std::cout << "    Listen Port: " << this->_listen_port << std::endl;
+
+    /*for (size_t i = 0; i < this->_listen_ports.size(); ++i) 
+    {
+        std::cout << "listen_port " << i << " " <<  this->_listen_ports[i] << std::endl;
+    }*/
+
+    for (size_t i = 0; i < this->_listen_addrs.size(); ++i) 
+    {
+        std::cout << i << ": Host = " << this->_listen_addrs[i].first << "; Port number = " << this->_listen_addrs[i].second << std::endl;
+    }
+
     std::cout << "    Root: " << this->_root << std::endl;
 
     std::cout << "    Server Names: ";

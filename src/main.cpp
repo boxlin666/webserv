@@ -5,7 +5,6 @@
 
 #include "Cluster.hpp"
 #include "ConfigParser.hpp"
-#include "Server.hpp"
 
 int main(int argc, char** argv)
 {
@@ -18,26 +17,20 @@ int main(int argc, char** argv)
         // To complete config part
         (void)argc;
         (void)argv;
-        /*char *config_file = argv[1];
-        ConfigParser parser(config_file);*/
+        ConfigParser parser;
 
-        // ConfigParser parser;
-
-        // try {
-        //     // 1. 读取并解析
-        //     // parser.build_config_map(argv[1]);
-        //     // parser.print();
-        // }
+        try {
+             // 1. 读取并解析
+                parser.build_config_map(argv[1]);
+                parser.print();
+        }
         // // 3. 拦截我们在代码里抛出的所有异常
-        // catch (const std::exception& e) {
-        //     std::cerr << "Fatal Syntax Error: " << e.what() << std::endl;
-        // }
+        catch (const std::exception& e) {
+             std::cerr << "Fatal Syntax Error: " << e.what() << std::endl;
+        }
         Cluster webserv;
 
-        // TO DO LATER
-        // webserv.setup(parser);
-
-        webserv.setup();  // just temporary function should be replace by the one above
+        webserv.setup(parser);
         webserv.run();
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;

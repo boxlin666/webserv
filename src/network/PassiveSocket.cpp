@@ -1,6 +1,10 @@
 #include "PassiveSocket.hpp"
+#include "Utils.hpp" 
 
-PassiveSocket::PassiveSocket(int port) : _fd(-1), _port(port)
+PassiveSocket::PassiveSocket(const ServerConfig::ListenAddr &listen_addr):
+_fd(-1),
+_host(listen_addr.first),
+_port(listen_addr.second)
 {
     try {
         _init_socket();
@@ -8,7 +12,7 @@ PassiveSocket::PassiveSocket(int port) : _fd(-1), _port(port)
         _bind_and_listen();
     } catch (...) {
         if (this->_fd != -1) close(this->_fd);
-        throw;
+        throw ;
     }
 }
 
@@ -24,7 +28,7 @@ void PassiveSocket::_set_options()
     if (setsockopt(this->_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
         throw std::runtime_error("setsockopt failed");
     // 暂时注释掉这一行 用于测试
-    // if (fcntl(_fd, F_SETFL, O_NONBLOCK) < 0) throw std::runtime_error("fcntl non-block failed");
+    if (fcntl(_fd, F_SETFL, O_NONBLOCK) < 0) throw std::runtime_error("fcntl non-block failed");
 }
 
 void PassiveSocket::_bind_and_listen()
@@ -36,11 +40,9 @@ void PassiveSocket::_bind_and_listen()
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags    = AI_PASSIVE;
 
-    std::stringstream ss;
-    ss << this->_port;
-    std::string port_str = ss.str();
+    std::string port_str = Utils::toString(this->_port);
 
-    int status = getaddrinfo(NULL, port_str.c_str(), &hints, &result);
+    int status = getaddrinfo(this->_host.c_str(), port_str.c_str(), &hints, &result);
     if (status != 0) throw std::runtime_error("getaddrinfo: " + std::string(gai_strerror(status)));
 
     if (bind(this->_fd, result->ai_addr, result->ai_addrlen) < 0) {
@@ -60,6 +62,12 @@ int PassiveSocket::getFd() const {
 int PassiveSocket::getPort() const {
     return this->_port;
 }
+
+const std::string &PassiveSocket::get_host() const
+{
+    return (this->_host);
+}
+
 PassiveSocket::~PassiveSocket()
 {
     if (this->_fd != -1) {

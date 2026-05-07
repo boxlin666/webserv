@@ -8,13 +8,10 @@ void HttpRequest::reset() {
     _path.clear();
     _http_version.clear();
     _body.clear();
-    _body_content.clear();
-
     _headers.clear();
     _header_map.clear();
 
     _state = PARSE_REQUEST_LINE;
-    _body_len = 0;
     _content_length = 0;
     _chunk_size = 0;
     _is_chunked = false;
@@ -73,6 +70,8 @@ bool HttpRequest::parse_request_header(std::string& line)
     else
         value = "";
     _header_map[key] = value;
+    if (key == "Content-Length")
+        _content_length = strtoul(_header_map["Content-Length"].c_str(), NULL, 10);
     return true;
 }
 
@@ -80,8 +79,7 @@ bool HttpRequest::prepare_for_body()
 {
     if(_header_map.count("Content-Length"))
     {
-        _body_len = strtoul(_header_map["Content-Length"].c_str(), NULL, 10);
-        if(_body_len > 0) _state = PARSE_BODY;
+        if(_content_length > 0) _state = PARSE_BODY;
         else _state = PARSE_FINISHED;
     }
     else if (_header_map.count("Transfer-Encoding") && _header_map["Transfer-Encoding"] == "chunked") {
@@ -96,15 +94,15 @@ bool HttpRequest::prepare_for_body()
 
 bool HttpRequest::parse_body(std::string& input_data) {
     // 还需要读多少字节？
-    size_t remaining = _body_len - _body_content.size();
+    size_t remaining = _content_length - _body.size();
     
     // 能读多少就读多少
     size_t to_read = std::min(remaining, input_data.size());
     
-    _body_content.append(input_data.substr(0, to_read));
+    _body.append(input_data.substr(0, to_read));
     input_data.erase(0, to_read);
 
-    if (_body_content.size() == _body_len) {
+    if (_body.size() == _content_length) {
         _state = PARSE_FINISHED;
     }
     return true;
@@ -114,7 +112,8 @@ bool HttpRequest::parse(std::string& input_data)
 {
     while (_state != PARSE_ERROR && _state != PARSE_FINISHED) 
     {
-        if (_state == PARSE_REQUEST_LINE || _state == PARSE_HEADER) {
+        if (_state == PARSE_REQUEST_LINE || _state == PARSE_HEADER) 
+        {
             size_t pos = input_data.find("\r\n");
             if (pos == std::string::npos) break;
 
@@ -122,10 +121,17 @@ bool HttpRequest::parse(std::string& input_data)
             input_data.erase(0, pos + 2);  // 清除处理过的行以及CRLF
 
             if (_state == PARSE_REQUEST_LINE) {
-                if (line.empty()) continue;
+                if (line.empty()) continue; 
                 if (!parse_request_line(line)) _state = PARSE_ERROR;
             } else {
-                if (line.empty()) continue;
+                if (line.empty()) 
+                {
+                    if (_content_length > 0)
+                        _state = PARSE_BODY;
+                    else
+                        _state = PARSE_FINISHED;
+                    continue ;
+                }
                 if (!parse_request_header(line)) _state = PARSE_ERROR;
             }
         }
@@ -133,11 +139,19 @@ bool HttpRequest::parse(std::string& input_data)
         if (_state == PARSE_BODY) {
             // 根据 Content-Length 读取 Body
             size_t bytes_needed  = _content_length - _body.size();
+
+            std::cout << "bytes needed = "<< bytes_needed << std::endl;
+            std::cout << "content length = " << _content_length << std::endl;
+            std::cout << "body size = " << _body.size() << std::endl;
+            std::cout << "input_data.size = " << input_data.size() << std::endl;
+
             size_t bytes_to_copy = std::min(bytes_needed, input_data.size());
+            std::cout << "bytes to copy = " << bytes_to_copy << std::endl;
 
             _body.append(input_data.substr(0, bytes_to_copy));
             input_data.erase(0, bytes_to_copy);
 
+            std::cout << "_body = " <<  get_body() << std::endl;
             if (_body.size() == _content_length) _state = PARSE_FINISHED;
             break;  // 即使没读完也要跳出循环，等更多数据进入 input_data
         }
@@ -145,7 +159,7 @@ bool HttpRequest::parse(std::string& input_data)
         // TODO: PARSE_CHUNKED 逻辑
     } 
     
-    this->update_path(); 
+    this->update_path();
     return (_state != PARSE_ERROR);
 }
 
@@ -169,14 +183,9 @@ const std::string& HttpRequest::get_body() const
     return this->_body;
 }
 
-std::size_t HttpRequest::get_body_len()const
+std::size_t HttpRequest::get_body_len() const
 {
-    return this->_body_len;
-}
-
-const std::string& HttpRequest::get_body_content()const
-{
-    return this->_body_content;
+    return this->_body.length();
 }
 
 const std::string* HttpRequest::get_header(const std::string& key) const {
