@@ -13,12 +13,14 @@ class Cluster
 {
     private:
         std::map<int, Connection *> _connection_map;
-        std::map<int, PassiveSocket *> _socket_map;
-        std::vector <ServerConfig*> _virtual_servers;
+        std::map<int, PassiveSocket *> _socket_map; // (listen_fd , PassiveSocket ptr)
+        //std::vector <ServerConfig*> _virtual_servers;
+        std::map<int, std::vector<ServerConfig*> > _servers_map; //(Port Number, Server vector)
 
         std::vector<struct pollfd> _poll_fds;
 
         void    open_listener(const ConfigParser& config);
+        void    init_servers_map(const ConfigParser& config);
         void    init_poll_listen_fds();
         void    add_to_poll_fds(int fd); //helper function just to fill out the struct poll_fd (listen fd Or Client fd) 
 

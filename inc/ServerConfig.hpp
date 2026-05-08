@@ -21,6 +21,9 @@ class ServerConfig {
     const std::vector<ListenAddr>  &get_listen_addrs() const 
     { return this->_listen_addrs; }
 
+    const std::vector<std::string>  &get_servers_name() const 
+    { return this->_server_names; }
+
     const std::vector<location>& get_locations(void)const;
 
     typedef void (ServerConfig::*LocationHandler)(std::vector<Token>&, size_t&, location*);

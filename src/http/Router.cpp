@@ -27,6 +27,8 @@ const location* Router::find_location(const HttpRequest& req, const ServerConfig
     std::size_t longest_match_length = 0;
 
     //pre-requis (TO DO):: we should normalize the format of URI before the match process (remove "../.." "///" "//" extra)
+    if (!server.get_locations().empty())
+        return (NULL);
     for (it = server.get_locations().begin(); it != server.get_locations().end(); it++)
     {
         if (Router::is_valid_prefix_loc(it, req.get_path()))
@@ -50,6 +52,14 @@ std::string Router::build_full_path(const HttpRequest& req, const location *loc)
 
     if (!loc)
         return (full_path);
+    //===tempo=== TODO//
+    if (!loc)
+    {
+        full_path = "./www";
+        return (full_path);
+    }
+    //===tempo=== TODO//
+
     if (req.get_path() == "/")
         full_path = loc->root;
     else
