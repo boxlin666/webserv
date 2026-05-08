@@ -26,7 +26,7 @@ void HttpResponse::reset(void)
     this->_full_path.clear();
 }
 
-void HttpResponse::build(const HttpRequest& req, const ServerConfig& config)
+void HttpResponse::build(const HttpRequest& req, const ServerConfig& config, const std::string &full_path)
 {
     int ret;
 
@@ -38,9 +38,11 @@ void HttpResponse::build(const HttpRequest& req, const ServerConfig& config)
         //return ;
     }
 
+    (void)config;
     //2. path convert
-    this->_full_path = this->_build_full_path(req, config);
- 
+    //this->_full_path = this->_build_full_path(req, config);
+    this->_full_path = full_path;
+
     //3. check ressource (accessbility)
     ret = this->_check_resource(req);
 
