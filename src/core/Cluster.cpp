@@ -13,8 +13,8 @@ Cluster::~Cluster(void)
 
 void Cluster::setup(const ConfigParser& config)
 {
-    this->open_listener(config);
     this->init_servers_map(config);
+    this->open_listener(config);
     this->init_poll_listen_fds();
 
     std::cout << "set up finished!!!" << std::endl;
@@ -127,7 +127,7 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
     fcntl(client_fd, F_SETFL, O_NONBLOCK);
 
     // 3. 创建 Connection 对象并存入 map
-    Connection* conn = new Connection(client_fd, passive_socket);
+    Connection* conn = new Connection(client_fd, passive_socket, _servers_map);
     this->_connection_map.insert(std::make_pair(client_fd, conn));
 
     // 4. 将新的 FD 注册到 poll 监听列表中
@@ -193,7 +193,7 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
     if (conn.check_parse_finished()) {
         std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
         //开启路由匹配
-        //conn.set_matched_server();
+        conn.set_matched_server();
         //conn.process_router_match();
 
         //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）

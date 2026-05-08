@@ -17,6 +17,7 @@ class Connection
         std::string _out_buff;
         PassiveSocket *_matched_socket;
         ServerConfig *_matched_server;
+        const std::map<int, std::vector<ServerConfig*> >& _server_map;
 
         HttpRequest _request;
         RouterCtx  _route_ctx;
@@ -35,7 +36,7 @@ class Connection
         Connection& operator=(const Connection& other);
 
     public:
-        Connection(int client_fd, PassiveSocket *matched_socket);
+        Connection(int client_fd, PassiveSocket *matched_socket, const std::map<int, std::vector<ServerConfig*> >& server_map);
         ~Connection(void);
 
         int getFd(void)const;
@@ -49,7 +50,7 @@ class Connection
 
         bool handle_data(const char* raw_data, ssize_t size);
         bool check_parse_finished();
-        void set_matched_server();
+        bool set_matched_server();
         void process_router_match();
         void prepare_response();
 };
