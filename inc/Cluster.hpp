@@ -14,7 +14,6 @@ class Cluster
     private:
         std::map<int, Connection *> _connection_map;
         std::map<int, PassiveSocket *> _socket_map; // (listen_fd , PassiveSocket ptr)
-        //std::vector <ServerConfig*> _virtual_servers;
         std::map<int, std::vector<ServerConfig*> > _servers_map; //(Port Number, Server vector)
 
         std::vector<struct pollfd> _poll_fds;
