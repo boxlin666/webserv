@@ -68,6 +68,34 @@ bool Connection::check_parse_finished()
     return _request.get_state() == HttpRequest::PARSE_FINISHED;
 }
 
+/*void  Connection::set_matched_server()
+{
+    int port_num = this->_matched_socket->getPort();
+
+
+
+
+    std::map<std::string, std::string>::const_iterator it;
+    std::string _raw_data;
+
+    it = this->_request.get_header_map().find("Host");
+    if (it != this->_request.get_header_map().end())
+        _raw_data = it->second;
+    std::cout << "_raw_data " << _host  << std::endl;
+
+    std::stirng host;
+    std::string port_str;
+    int port;
+
+    std::size_t colon_pos = _raw_data.find(':');
+
+    port_str = _raw_data.substr(colon_pos + 1);
+    
+    string to Port
+
+    
+}*/
+
 void Connection::process_router_match()
 {
     if (this->_matched_server)

@@ -14,6 +14,7 @@ Cluster::~Cluster(void)
 void Cluster::setup(const ConfigParser& config)
 {
     this->open_listener(config);
+    this->init_servers_map(config);
     this->init_poll_listen_fds();
 
     std::cout << "set up finished!!!" << std::endl;
@@ -41,7 +42,7 @@ void Cluster::open_listener(const ConfigParser& config)
 
     for (set_it = set_listen_addrs.begin(); set_it != set_listen_addrs.end(); set_it++)
     {
-        try 
+        try
         {
             PassiveSocket* listener = new PassiveSocket(*set_it);
             this->_socket_map.insert(std::make_pair(listener->getFd(), listener));
@@ -53,6 +54,39 @@ void Cluster::open_listener(const ConfigParser& config)
     }
     if (this->_socket_map.empty())
         throw std::runtime_error("No listener could be opened, Webserv cannot start!");
+}
+
+void Cluster::init_servers_map(const ConfigParser& config)
+{
+    int port_num;
+
+    for (std::size_t k = 0; k < config.get_servers().size(); k++)
+    {
+        const std::vector<ServerConfig::ListenAddr> &listen_addrs = config.get_servers()[k]->get_listen_addrs();
+        for (std::size_t i = 0; i < listen_addrs.size(); i++)
+        {
+            port_num = listen_addrs[i].second;
+            this->_servers_map[port_num].push_back(config.get_servers()[k]);
+        }
+    }
+       std::cout << "=========INIT SERVER MAP TEST ========" << std::endl;
+
+    for (std::map<int, std::vector<ServerConfig*> >::iterator it = _servers_map.begin(); 
+        it != _servers_map.end(); ++it) 
+    {
+        std::cout << "Key = " << it->first << std::endl;
+        const std::vector<ServerConfig*> _servers = it->second;
+        for (std::size_t i = 0; i < _servers.size();i++)
+        {
+            const std::vector<std::string>  _names = it->second[i]->get_servers_name();
+            for (std::size_t j = 0; j < _names.size(); j++)
+            {
+                std::cout << " ServerConfig server name index[" << j << "]" << _names[j] << std::endl;
+            }
+        }
+        std::cout << std::endl;
+    }
+       std::cout << "=========INIT SERVER MAP TEST ========" << std::endl;
 }
 
 void Cluster::init_poll_listen_fds()
@@ -159,19 +193,15 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
     if (conn.check_parse_finished()) {
         std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
         //开启路由匹配
+        //conn.set_matched_server();
         //conn.process_router_match();
 
         //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）
 
-        //response = conn.prepare_response();
         conn.prepare_response();
-        std::cout << "REEESPOOOONS = " << conn.get_out_buff() << std::endl;
 
         // 核心切换：告诉 poll 我们现在想往这个 socket 写数据了
-        _poll_fds[poll_idx].events |= POLLOUT;
-
-        // 习惯性清理：既然请求解析完了，可以把该 FD 的 POLLIN 暂时关掉（可选）
-         _poll_fds[poll_idx].events &= ~POLLIN;
+        _poll_fds[poll_idx].events = POLLOUT; //暗示POLLIN暂时关闭！
     }
     return (true);
 }
@@ -185,9 +215,10 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
  
-    std::cout << "REEESPOOOONS = " << conn.get_out_buff() << std::endl;
     send(fd, conn.get_out_buff().c_str(), conn.get_out_buff().size(), 0);
 
+    //恢复POLLIN就绪事件，POLLOUT关闭,为下一次http request接收做准备
+    _poll_fds[poll_idx].events = POLLIN;
     this->close_connection(poll_idx);
     this->_poll_fds[poll_idx].fd = -1;
     return true;
@@ -210,10 +241,16 @@ void Cluster::run()
                 throw std::runtime_error(error_msg);
             }
         }
-
         for (size_t i = 0; i < _poll_fds.size(); ++i) 
         {
             if (_poll_fds[i].fd == -1) continue ;
+            // 先处理 POLLHUP (挂起) 或 POLLERR (错误), 出错直接跳过本次循环
+            if (_poll_fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) 
+            {
+                this->_poll_fds[i].fd = -1;
+                close_connection(i);
+                continue ;
+            }
             if (_poll_fds[i].revents & POLLIN) 
             {
                 if (_socket_map.count(_poll_fds[i].fd))
@@ -224,28 +261,15 @@ void Cluster::run()
                     {
                         this->_poll_fds[i].fd = -1;
                         close_connection(i);
-                        //i--;
                     }
-                    // 处理数据，如果返回 false 表示需要关闭连接
-                    /*if (handle_client_data(i) == false) 
-                    {
-                        close_connection(i);
-                        i--;  // 核心：抵消 erase 带来的索引偏移
-                    }*/
                 }
             }
-            if (_poll_fds[i].revents & POLLOUT)
+            if (_poll_fds[i].fd != -1 && (_poll_fds[i].revents & POLLOUT))
             {
                 this->handle_client_write_event(i);
             }
-            // 还可以处理 POLLHUP (挂起) 或 POLLERR (错误)
-            if (_poll_fds[i].revents & (POLLHUP | POLLERR)) 
-            {
-                this->_poll_fds[i].fd = -1;
-                close_connection(i);
-                //i--;
-            }
         }
+        //延迟删除被close 的fd, 防止在for循环内误删，数组非法访问
         this->cleanup_inactive_fds();
     }
 }

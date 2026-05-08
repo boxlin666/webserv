@@ -30,6 +30,7 @@ class Connection
         };
         State _state;
 
+
         Connection(const Connection& other);
         Connection& operator=(const Connection& other);
 
@@ -48,6 +49,7 @@ class Connection
 
         bool handle_data(const char* raw_data, ssize_t size);
         bool check_parse_finished();
+        void set_matched_server();
         void process_router_match();
         void prepare_response();
 };
