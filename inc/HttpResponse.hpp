@@ -80,7 +80,7 @@ class HttpResponse
         ~HttpResponse();
     
         // response = status line + header + body
-        void build(const HttpRequest& req, const ServerConfig& config);
+        void build(const HttpRequest& req, const ServerConfig& config, const std::string &full_path);
         const std::string &get_full_response()const;
 
         //reset function for each turn of RUN loop, to clean up the old content inside!!

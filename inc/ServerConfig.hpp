@@ -24,6 +24,9 @@ class ServerConfig {
     const std::vector<std::string>  &get_servers_name() const 
     { return this->_server_names; }
 
+    const std::string &get_root() const
+    { return this->_root; }
+
     const std::vector<location>& get_locations(void)const;
 
     typedef void (ServerConfig::*LocationHandler)(std::vector<Token>&, size_t&, location*);

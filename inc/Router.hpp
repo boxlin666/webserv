@@ -25,7 +25,7 @@ class Router
 
     private:
         static const location* find_location(const HttpRequest& req, const ServerConfig& server);
-        static std::string build_full_path(const HttpRequest& req, const location* loc);
+        static std::string build_full_path(const HttpRequest& req, const ServerConfig& server, const location* loc);
         static bool is_valid_prefix_loc(std::vector<location>::const_iterator it, const std::string &uri);
 
         Router(void);

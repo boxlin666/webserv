@@ -13,9 +13,9 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
     struct RouterCtx ctx;
 
     ctx.loc = find_location(req, server);
-    ctx.full_path = build_full_path(req, ctx.loc);
-    //std::cout << "URI = " << ctx.full_path << std::endl;
-    //std::cout << "location prefix = " << ctx.loc->_prefix << std::endl;
+    ctx.full_path = build_full_path(req, server, ctx.loc);
+    std::cout << "URI = " << ctx.full_path << std::endl;
+    std::cout << "location prefix = " << ctx.loc->_prefix << std::endl;
     return (ctx);
 }
 
@@ -27,7 +27,7 @@ const location* Router::find_location(const HttpRequest& req, const ServerConfig
     std::size_t longest_match_length = 0;
 
     //pre-requis (TO DO):: we should normalize the format of URI before the match process (remove "../.." "///" "//" extra)
-    if (!server.get_locations().empty())
+    if (server.get_locations().empty())
         return (NULL);
     for (it = server.get_locations().begin(); it != server.get_locations().end(); it++)
     {
@@ -46,20 +46,15 @@ const location* Router::find_location(const HttpRequest& req, const ServerConfig
     return (NULL);
 }
 
-std::string Router::build_full_path(const HttpRequest& req, const location *loc)
+std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& server, const location *loc)
 {
     std::string full_path;
 
     if (!loc)
-        return (full_path);
-    //===tempo=== TODO//
-    if (!loc)
     {
-        full_path = "./www";
+        full_path = server.get_root();
         return (full_path);
     }
-    //===tempo=== TODO//
-
     if (req.get_path() == "/")
         full_path = loc->root;
     else

@@ -123,11 +123,12 @@ void Connection::process_router_match()
 {
     if (this->_matched_server)
         this->_route_ctx = Router::build_router_context(this->_request, *(this->_matched_server));
+    std::cout << "full_path = " << this->_route_ctx.full_path << std::endl;
 }
 
 void Connection::prepare_response()
 {
-    this->_response.build(this->_request, *(this->_matched_server));
+    this->_response.build(this->_request, *(this->_matched_server), this->_route_ctx.full_path);
     this->_out_buff = this->_response.get_full_response(); 
     //return (this->_response.get_full_response());
 }
