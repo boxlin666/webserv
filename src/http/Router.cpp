@@ -14,8 +14,21 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
 
     ctx.loc = find_location(req, server);
     ctx.full_path = build_full_path(req, server, ctx.loc);
+    if (!ctx.loc)
+    {
+        ctx.final_root = server.get_root();
+        ctx.is_cgi_potential = false;
+    }
+    else
+    {
+        ctx.final_root = ctx.loc->root;
+        if (ctx.loc->_prefix == "/cgi-bin")
+            ctx.is_cgi_potential = true;
+    }
     std::cout << "URI = " << ctx.full_path << std::endl;
-    std::cout << "location prefix = " << ctx.loc->_prefix << std::endl;
+    std::cout << "final root = " << ctx.final_root << std::endl;
+    if (ctx.loc)
+        std::cout << "location prefix = " << ctx.loc->_prefix << std::endl;
     return (ctx);
 }
 

@@ -69,15 +69,6 @@ class HttpRequest {
     // 如果需要模拟 Chunked 传输
     void set_is_chunked(bool is_chunked) { _is_chunked = is_chunked; }
 
-    //临时变量 
-    std::vector<location> locations;
-    std::string router_path; //after http request has been completed
-    int loc_index; //note which index vector locations is related to this request!
-    //临时成员函数
-    void init_locations(void);
-    void update_path(void); //根据假的location结构体设置真实路径 
-    bool is_valid_prefix(std::vector<location>::iterator it);
-
    private:
     // request line 部分
     std::string _method;  // GET POST DELETE

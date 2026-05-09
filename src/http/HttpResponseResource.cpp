@@ -8,11 +8,14 @@ static bool check_method(const HttpRequest& req)
 { 
     std::vector<std::string>::const_iterator it;
 
-    for (it = req.locations[req.loc_index].methods.begin(); it != req.locations[req.loc_index].methods.end(); it++)
+    (void)it;
+    (void)req;
+    /*for (it = req.locations[req.loc_index].methods.begin(); it != req.locations[req.loc_index].methods.end(); it++)
     {
         if (req.get_method() == *it) return (true);
-    }
-    return (false);
+    }*/
+    //return (false);
+    return (true);
 }
 
 int HttpResponse::_check_request(const HttpRequest& req)const

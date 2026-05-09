@@ -12,9 +12,10 @@
 struct RouterCtx
 {
     const location* loc;
+    std::string final_root; //according to the location section
     std::string full_path;
-
-    RouterCtx(): loc(NULL), full_path(""){}
+    bool is_cgi_potential; //first check if cgi or not (but not enough, shoud double check in RequestHandler)
+    RouterCtx(): loc(NULL), final_root(""),full_path(""), is_cgi_potential(false){}
 };
 
 //stateless Router machine should not include ptr location and full_path data
