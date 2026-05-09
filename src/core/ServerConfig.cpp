@@ -6,21 +6,6 @@ ServerConfig::ServerConfig()
 
 ServerConfig::~ServerConfig() {}
 
-/*void ServerConfig::set_ports(const std::string& port_str)
-{
-    for (size_t i = 0; i < port_str.length(); ++i) {
-        if (!std::isdigit(port_str[i])) {
-            throw std::runtime_error("Invalid character in port: " + port_str);
-        }
-    }
-    long val = std::atol(port_str.c_str());
-
-    if (val < 0 || val > 65535) {
-        throw std::runtime_error("Port out of range [0-65535]: " + port_str);
-    }
-    this->_listen_ports.push_back(static_cast<int>(val));
-}*/
-
 int ServerConfig::string_to_port(const std::string& port_str)const
 {
     for (size_t i = 0; i < port_str.length(); ++i) {
@@ -55,6 +40,8 @@ void    ServerConfig::set_listen_addrs(const std::string& listen_data)
         port = this->string_to_port(port_str);
         //TODO check the host syntaxe format!!
         host = listen_data.substr(0, colon_pos);
+        if (host == "localhost")
+            host = "127.0.0.1";
     }
     this->_listen_addrs.push_back(std::make_pair(host, port));
 }

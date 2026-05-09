@@ -2,11 +2,12 @@
 # define CONNECTION_HPP
 
 #include <string>
+
 #include "PassiveSocket.hpp"
 #include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
-#include "Router.hpp"
+#include "RouterCtx.hpp"
 #include "RequestHandler.hpp"
 
 class Connection
@@ -23,6 +24,8 @@ class Connection
         RouterCtx  _route_ctx;
         RequestHandler _req_handler;
         HttpResponse _response;
+
+        int _status_code;
 
         //TO DO LATER (状态机)
         enum State 
