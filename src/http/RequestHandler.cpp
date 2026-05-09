@@ -4,7 +4,9 @@
 RequestHandler::RequestHandler():
 _full_path(""),
 _method_to_apply(""),
-_is_keep_alive(true) //by default we considere request be keep alive in HTTP/1.1
+_is_keep_alive(true), //by default we considere request be keep alive in HTTP/1.1
+_req_body(NULL),
+_req_body_len(0)
 {
 }
 
@@ -19,7 +21,7 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
     {
         if (req.get_content_length() > route_ctx.loc->client_max_body_size)
         {
-            status_code = BODY_TOO_LARGE
+            status_code = BODY_TOO_LARGE ;
             return ;
         }
     }
@@ -27,7 +29,7 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
     this->_method_to_apply = req.get_method();
 
     std::map<std::string, std::string>::const_iterator it;
-    it = req.get_header_map.find("Connection")
+    it = req.get_header_map().find("Connection");
     if (it != req.get_header_map.end())
     {
         if (it->second == "close")
@@ -35,7 +37,7 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
     }
     this->_req_body = req.get_body();
     this->_req_body_len = req.get_body_len();
-    status_code = this->_check_resource(req); 
+    status_code = this->check_resource(req); 
 }
 
 int RequestHandler::check_resource(const HttpRequest& req)
@@ -51,9 +53,9 @@ int RequestHandler::check_resource(const HttpRequest& req)
         return (SERVER_ERROR);
     }
     if (S_ISDIR(st.st_mode))
-        return (this->_process_directory(req));
+        return (this->process_directory(req));
     if (S_ISREG(st.st_mode))
-        return (this->_process_file(st));
+        return (this->process_file(st));
     return (NOT_FOUND);
 }
 
@@ -76,7 +78,7 @@ int RequestHandler::process_directory(const HttpRequest& req)
     }
     if (!S_ISREG(st_index.st_mode))
         return (NOT_FOUND);
-    return (this->_process_file(st_index));
+    return (this->process_file(st_index));
 }
 
 int RequestHandler::process_file(const struct stat& st)

@@ -20,7 +20,7 @@ class RequestHandler
         std::string _full_path;
         std::string _method_to_apply;
         bool _is_keep_alive;
-        std::string& _req_body;
+        std::string* _req_body;
         std::size_t _req_body_len;
 
         int check_resource(const HttpRequest& req);
