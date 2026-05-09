@@ -133,7 +133,7 @@ void Connection::process_router_match()
 
 void Connection::prepare_response()
 {
-    this->_response.build(this->_request, *(this->_matched_server), this->_route_ctx.full_path);
+    this->_response.build(this->_req_handler, this->_status_code);
     this->_out_buff = this->_response.get_full_response(); 
     //return (this->_response.get_full_response());
 }

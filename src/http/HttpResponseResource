@@ -18,7 +18,7 @@ static bool check_method(const HttpRequest& req)
     return (true);
 }
 
-int HttpResponse::_check_request(const HttpRequest& req)const
+/*int HttpResponse::_check_request(const HttpRequest& req)const
 {
     (void)_config;
     size_t  req_line_len = 0;
@@ -120,4 +120,4 @@ int HttpResponse::_process_file(const struct stat& st)
     this->_body_last_modif_date = Utils::formatHttpDate(st.st_mtime);
     this->_set_body_len(st.st_size);
     return (SUCCESS);
-}
+}*/

@@ -10,6 +10,8 @@
 //#include "Location.hpp"
 
 #define GLOBAL_MAX_ALLOWED 1048576
+#define URI_SIZE 8192
+#define MAX_HEADER_SIZE 8192
 
 class HttpRequest {
 
@@ -31,7 +33,7 @@ class HttpRequest {
     const std::string& get_version() const;
     const std::string& get_body() const;
     const std::string* get_header(const std::string& key) const;  // 方便查找特定头
-    const std::string& get_content_length() const;
+    std::size_t get_content_length() const;
     std::size_t get_body_len()const;
 
     //tempo add for compilation with response
@@ -88,8 +90,8 @@ class HttpRequest {
 
     // 记录当前状态
     e_request_state _state;
-    size_t              _content_length;
-    size_t              _chunk_size;    // 用于处理 chunked 传输
+    std::size_t              _content_length;
+    std::size_t              _chunk_size;    // 用于处理 chunked 传输
     bool                _is_chunked;
 
     int parse_request_line(std::string& line);

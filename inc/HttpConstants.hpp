@@ -11,8 +11,9 @@
 #define NO_LENGTH 411
 #define BODY_TOO_LARGE 413
 #define URI_TOO_LONG 414
+#define REQ_HEADER_TOO_LONG 431
 #define SERVER_ERROR 500
 #define NO_METHOD 501
 #define NO_HTTP_VERSION 505
 
-#endif
+#endif 

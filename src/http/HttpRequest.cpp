@@ -35,6 +35,7 @@ int    HttpRequest::parse_request_line(std::string& line)
 
     std::stringstream ss(line);
     std::string extra;
+    std::string req_line_len = 0;
 
     if (!(ss >> this->_method >> this->_path >> this->_http_version))
         return (BAD_REQUEST);
@@ -44,19 +45,29 @@ int    HttpRequest::parse_request_line(std::string& line)
         return (BAD_REQUEST);
     if (this->_method.empty())
         return (BAD_REQUEST);
-    if (this->_path.find("..") != std::string::npos) //不允许访问除了www以外的，他的上一级目录
+    if (this->_path.find("/../") != std::string::npos) //不允许访问除了www以外的，他的上一级目录
         return (BAD_REQUEST);
     if (this->_http_version != "HTTP/1.1")
         return (NO_HTTP_VERSION);
+    req_line_len = this->_method.length() + this->_path.length() + this->_http_version.length();
+    if (req_line_len > URI_SIZE)
+        return (URI_TOO_LONG);
     this->_state = PARSE_HEADER;
     return (SUCCESS);
 }
 
 int HttpRequest::validate_and_prepare_payload()
 {
+    std::size_t req_header_len = 0
+
+    for (std::map<std::string, std::string>::const_iterator it = this->_header_map.begin(); it != this->_header_map.end(); ++it)
+    {
+        req_header_len += it->first.length() + it->second.length() + 4; //CTRL
+    }
+    if (req_header_len > MAX_HEADER_SIZE)
+        return (REQ_HEADER_TOO_LONG);
     if (this->_header_map.find("Host") == this->_header_map.end())
         return (BAD_REQUEST);
-
     bool has_cl = this->_header_map.count("Content-Length");
     bool has_te = this->_header_map.count("Transfer-Encoding");
 
@@ -69,7 +80,7 @@ int HttpRequest::validate_and_prepare_payload()
     else if (has_te && this->_header_map["Transfer-Encoding"] == "chunked") 
         _state = PARSE_CHUNKED;
     else
-        _state = PARSE_FINISHED; 
+        _state = PARSE_FINISHED;
     return (SUCCESS);
 }
 
@@ -214,7 +225,7 @@ HttpRequest::e_request_state HttpRequest::get_state() const
     return this->_state;
 }
 
-const std::string &get_content_length()const
+const std::size_t get_content_length()const
 {
     return this->_content_length;
 }
