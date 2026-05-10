@@ -1,4 +1,5 @@
 #include "Connection.hpp"
+#include "Router.hpp"
 
 Connection::Connection(int client_fd, PassiveSocket *matched_socket, const std::map<int, std::vector<ServerConfig*> >& server_map)
 :_client_fd(client_fd),
@@ -7,7 +8,10 @@ _out_buff(""),
 _matched_socket(matched_socket),
 _server_map(server_map),
 _request(),
-_response()
+_route_ctx(),
+_req_handler(),
+_response(),
+_status_code(200)
 {
 }
 
@@ -49,7 +53,8 @@ bool    Connection::handle_data(const char* raw_data, ssize_t size)
     std::string _tmp_buff = raw_data;
 
     this->_in_buff.append(raw_data, size);
-    if(_request.parse(_tmp_buff) == false)
+    this->_status_code = _request.parse(_tmp_buff);
+    if(this->_status_code != SUCCESS)
     {
         // TODO: prepare error 400 
         // skip Router Match step
@@ -121,14 +126,25 @@ bool  Connection::set_matched_server()
 
 void Connection::process_router_match()
 {
+    if (this->_status_code != SUCCESS)
+        return ;
     if (this->_matched_server)
-        this->_route_ctx = Router::build_router_context(this->_request, *(this->_matched_server));
+        this->_route_ctx = Router::build_router_context(this->_request, *(this->_matched_server), _status_code);
     std::cout << "full_path = " << this->_route_ctx.full_path << std::endl;
+}
+
+void Connection::process_request_handler()
+{
+    if (this->_status_code != SUCCESS)
+        return ;
+    this->_req_handler.process_request_handler(this->_request, this->_route_ctx, _status_code);
 }
 
 void Connection::prepare_response()
 {
-    this->_response.build(this->_request, *(this->_matched_server), this->_route_ctx.full_path);
-    this->_out_buff = this->_response.get_full_response(); 
-    //return (this->_response.get_full_response());
+    std::cout << "FULL PATH" << this->_route_ctx.full_path << std::endl;
+    std::cout << "FULL PATH" << this->_req_handler.get_full_path() << std::endl;
+    this->_response.build(this->_req_handler, this->_status_code);
+    this->_out_buff = this->_response.get_full_response();
+    std::cout << "OUT BUFF = " << this->_out_buff << std::endl;
 }

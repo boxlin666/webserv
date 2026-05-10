@@ -27,6 +27,9 @@ class ServerConfig {
     const std::string &get_root() const
     { return this->_root; }
 
+    const std::vector<std::string> &get_methods()const
+    { return this->_methods; }
+
     const std::vector<location>& get_locations(void)const;
 
     typedef void (ServerConfig::*LocationHandler)(std::vector<Token>&, size_t&, location*);
@@ -48,7 +51,7 @@ class ServerConfig {
 
     std::vector<std::string> _server_names;
 
-    std::vector<ListenAddr> _listen_addrs; // host:port_number 必须成对出现，别弄成数组即可 （ex: 127.0.0.0:8080）
+    std::vector<ListenAddr> _listen_addrs; // host:port_number 必须成对出现（ex: 127.0.0.0:8080）
 
     std::vector<std::string>   _index;
     std::string                _root;
@@ -69,7 +72,6 @@ class ServerConfig {
     void                                   _init_handlers();  // 在构造函数中调用，初始化映射表
 
     void set_listen_addrs(const std::string& port_str);
-
 
     // 具体的指令处理器（小函数）
     void _handle_root(std::vector<Token>& tokens, size_t& pos, location* loc);

@@ -1,5 +1,7 @@
 #include "HttpRequest.hpp"
 #include <iostream>
+#include "HttpConstants.hpp"
+
 #define RED     "\033[31m"
 #define RESET   "\033[0m"
 
@@ -27,38 +29,71 @@ HttpRequest::HttpRequest() {
 HttpRequest::~HttpRequest() {
 }
 
-bool    HttpRequest::parse_request_line(std::string& line)
+int    HttpRequest::parse_request_line(std::string& line)
 {
-    if (line.empty()) return false;
+    if (line.empty()) return (BAD_REQUEST);
 
     std::stringstream ss(line);
     std::string extra;
+    std::size_t req_line_len = 0;
 
     if (!(ss >> this->_method >> this->_path >> this->_http_version))
-        return (false);
+        return (BAD_REQUEST);
     if (ss >> extra)
-        return (false);
-    if (this->_method != "GET" && this->_method != "POST" && this->_method != "DELETE")
-        return (false);
+        return (BAD_REQUEST);
     if (this->_path.empty() || this->_path[0] != '/')
-        return (false);
-    if (this->_path.find("..") != std::string::npos) //不允许访问除了www以外的，他的上一级目录
-        return (false); 
-    if (this->_http_version != "HTTP/1.1")
-        return (false);
+        return (BAD_REQUEST);
+    if (this->_method.empty())
+        return (BAD_REQUEST);
+    if (this->_path.find("/../") != std::string::npos) //不允许访问除了www以外的，他的上一级目录
+        return (BAD_REQUEST);
+    if (this->_http_version != "HTTP/1.0" && this->_http_version != "HTTP/1.1")
+        return (NO_HTTP_VERSION);
+    req_line_len = this->_method.length() + this->_path.length() + this->_http_version.length();
+    if (req_line_len > URI_SIZE)
+        return (URI_TOO_LONG);
     this->_state = PARSE_HEADER;
-    return (true);
+    return (SUCCESS);
 }
 
-bool HttpRequest::parse_request_header(std::string& line) 
+int HttpRequest::validate_and_prepare_payload()
+{
+    std::size_t req_header_len = 0;
+
+    for(std::map<std::string, std::string>::const_iterator it = this->_header_map.begin(); it != this->_header_map.end(); ++it)
+    {
+        req_header_len += it->first.length() + it->second.length() + 4; //CTRL
+    }
+    if (req_header_len > MAX_HEADER_SIZE)
+        return (REQ_HEADER_TOO_LONG);
+    if (this->_header_map.find("Host") == this->_header_map.end())
+        return (BAD_REQUEST);
+    bool has_cl = this->_header_map.count("Content-Length");
+    bool has_te = this->_header_map.count("Transfer-Encoding");
+
+    if (has_cl && has_te) return (BAD_REQUEST);
+
+    if (this->_method == "POST" && !has_cl && !has_te) return (NO_LENGTH);
+    
+    if (has_cl && this->_content_length > 0)
+        _state = PARSE_BODY;
+    else if (has_te && this->_header_map["Transfer-Encoding"] == "chunked") 
+        _state = PARSE_CHUNKED;
+    else
+        _state = PARSE_FINISHED;
+    return (SUCCESS);
+}
+
+int HttpRequest::parse_request_header(std::string& line) 
 {
     if (line.empty())
     {
-        return prepare_for_body();
+        int ret = validate_and_prepare_payload();
+        return (ret);
     }
 
     size_t colon_pos = line.find(':');
-    if (colon_pos == std::string::npos) return false;
+    if (colon_pos == std::string::npos) return (BAD_REQUEST);
 
     std::string key = line.substr(0, colon_pos);
     std::string value = line.substr(colon_pos + 1);
@@ -71,25 +106,15 @@ bool HttpRequest::parse_request_header(std::string& line)
         value = "";
     _header_map[key] = value;
     if (key == "Content-Length")
-        _content_length = strtoul(_header_map["Content-Length"].c_str(), NULL, 10);
-    return true;
-}
-
-bool HttpRequest::prepare_for_body()
-{
-    if(_header_map.count("Content-Length"))
     {
-        if(_content_length > 0) _state = PARSE_BODY;
-        else _state = PARSE_FINISHED;
+        _content_length = strtoul(_header_map["Content-Length"].c_str(), NULL, 10);
+        if (this->_content_length > GLOBAL_MAX_ALLOWED)
+        {
+            std::cout << "==============REQUEST PARSER ISSUE!!!=================" << std::endl;
+            return (BODY_TOO_LARGE);
+        }
     }
-    else if (_header_map.count("Transfer-Encoding") && _header_map["Transfer-Encoding"] == "chunked") {
-        _state = PARSE_CHUNKED; // TODO: 需要实现专门的 Chunked 解析逻辑
-    }
-    else {
-        // GET 请求通常没有 Body
-        _state = PARSE_FINISHED;
-    }
-    return true;
+    return (SUCCESS);
 }
 
 bool HttpRequest::parse_body(std::string& input_data) {
@@ -108,8 +133,10 @@ bool HttpRequest::parse_body(std::string& input_data) {
     return true;
 }
 
-bool HttpRequest::parse(std::string& input_data)
+int HttpRequest::parse(std::string& input_data)
 {
+    int ret = SUCCESS;
+
     while (_state != PARSE_ERROR && _state != PARSE_FINISHED) 
     {
         if (_state == PARSE_REQUEST_LINE || _state == PARSE_HEADER) 
@@ -121,46 +148,40 @@ bool HttpRequest::parse(std::string& input_data)
             input_data.erase(0, pos + 2);  // 清除处理过的行以及CRLF
 
             if (_state == PARSE_REQUEST_LINE) {
-                if (line.empty()) continue; 
-                if (!parse_request_line(line)) _state = PARSE_ERROR;
+                if (line.empty()) continue;
+                ret = parse_request_line(line);
+                if (ret != SUCCESS) _state = PARSE_ERROR;
             } else {
-                if (line.empty()) 
+                /*if (line.empty()) 
                 {
                     if (_content_length > 0)
                         _state = PARSE_BODY;
                     else
                         _state = PARSE_FINISHED;
                     continue ;
-                }
-                if (!parse_request_header(line)) _state = PARSE_ERROR;
+                }*/
+                ret = parse_request_header(line);
+                if (ret != SUCCESS) _state = PARSE_ERROR;
             }
         }
 
         if (_state == PARSE_BODY) {
             // 根据 Content-Length 读取 Body
-            size_t bytes_needed  = _content_length - _body.size();
-
-            std::cout << "bytes needed = "<< bytes_needed << std::endl;
-            std::cout << "content length = " << _content_length << std::endl;
-            std::cout << "body size = " << _body.size() << std::endl;
-            std::cout << "input_data.size = " << input_data.size() << std::endl;
-
+            /*size_t bytes_needed  = _content_length - _body.size();
             size_t bytes_to_copy = std::min(bytes_needed, input_data.size());
-            std::cout << "bytes to copy = " << bytes_to_copy << std::endl;
 
             _body.append(input_data.substr(0, bytes_to_copy));
             input_data.erase(0, bytes_to_copy);
 
-            std::cout << "_body = " <<  get_body() << std::endl;
-            if (_body.size() == _content_length) _state = PARSE_FINISHED;
+            if (_body.size() == _content_length) _state = PARSE_FINISHED;*/
+            parse_body(input_data);
             break;  // 即使没读完也要跳出循环，等更多数据进入 input_data
         }
 
         // TODO: PARSE_CHUNKED 逻辑
-    } 
-    
-    this->update_path();
-    return (_state != PARSE_ERROR);
+    }
+
+    return (ret);
 }
 
 const std::string& HttpRequest::get_method() const
@@ -205,4 +226,9 @@ const std::map<std::string, std::string>& HttpRequest::get_header_map() const
 HttpRequest::e_request_state HttpRequest::get_state() const
 {
     return this->_state;
+}
+
+std::size_t HttpRequest::get_content_length()const
+{
+    return this->_content_length;
 }

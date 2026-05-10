@@ -26,9 +26,10 @@ int HttpResponse::_handle_get(void)
     return (SUCCESS);
 }
 
-int HttpResponse::_handle_post(const HttpRequest& req)
+int HttpResponse::_handle_post(const RequestHandler& response_ctx)
 {
-    int fd;
+    (void)response_ctx;
+    /*int fd;
     ssize_t ret;
     size_t total_size;
     size_t byte_written;
@@ -37,15 +38,15 @@ int HttpResponse::_handle_post(const HttpRequest& req)
     fd = open(this->_full_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd == -1)
         return (PER_DENIED);
-    if (req.get_body_len() == 0)
+    if (response_ctx.get_res_body_len() == 0)
     {
         this->_body.clear();
         close(fd);
         return (CREATED);
     }
-    total_size = req.get_body_len();
+    total_size = response_ctx.get_body_len();
     byte_written = 0;
-    tmp_buff = req.get_body().data(); 
+    tmp_buff = response_ctx.get_body()->data(); 
     ret = 0;
     while (1)
     {
@@ -66,7 +67,7 @@ int HttpResponse::_handle_post(const HttpRequest& req)
         if (byte_written >= total_size)
             break ;
     }
-    close(fd);
+    close(fd);*/
     return (CREATED);
 }
 

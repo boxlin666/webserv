@@ -14,6 +14,7 @@
 
 #include "HttpRequest.hpp"
 #include "ServerConfig.hpp"
+#include "RequestHandler.hpp"
 #include "HttpConstants.hpp"
 #include "Utils.hpp"
 
@@ -33,7 +34,9 @@ class HttpResponse
         std::string _body;
         std::string _body_last_modif_date;
         std::size_t _body_len;
-
+        
+        bool keep_alive;
+        std::string method;
  
         std::string _full_response;
         
@@ -44,21 +47,18 @@ class HttpResponse
     HttpResponse(const HttpResponse& other);
     HttpResponse& operator=(const HttpResponse& other);
 
-    //Prerequis
-    int _check_request(const HttpRequest& req)const;
-    std::string _build_full_path(const HttpRequest& req, const ServerConfig& config)const;
-    int _check_resource(const HttpRequest& req);
-    int _process_directory(const HttpRequest& req);
-    int _process_file(const struct stat& st);
+    //Prepa input data
+
+    void _prepare_from_handler(const RequestHandler& response_ctx);
 
     //Method
     int _handle_get(void);
-    int _handle_post(const HttpRequest& req);
+    int _handle_post(const RequestHandler &response_ctx);
     int _handle_delete(void);
 
     //Reponse generator
-    void _prepare_response_data(const HttpRequest& req);
-    void _build_status_line(const HttpRequest& req);
+    void _prepare_response_data(void);
+    void _build_status_line(void);
     void _build_headers_map(void);
     void _add_header(const std::string& key, const std::string& value);
     std::string _generate_date(void)const;
@@ -80,7 +80,7 @@ class HttpResponse
         ~HttpResponse();
     
         // response = status line + header + body
-        void build(const HttpRequest& req, const ServerConfig& config, const std::string &full_path);
+        void build(const RequestHandler& response_ctx, const int &status_code);
         const std::string &get_full_response()const;
 
         //reset function for each turn of RUN loop, to clean up the old content inside!!
@@ -91,3 +91,7 @@ class HttpResponse
 };
 
 #endif
+
+
+
+

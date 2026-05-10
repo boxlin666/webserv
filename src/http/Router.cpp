@@ -1,6 +1,7 @@
 #include "Router.hpp"
 #include "HttpRequest.hpp"
 #include "ServerConfig.hpp"
+#include "HttpConstants.hpp"
 
 Router::Router(void)
 {}
@@ -8,14 +9,28 @@ Router::Router(void)
 Router::~Router(void)
 {}
 
-RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConfig& server)
+RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConfig& server, int& status_code)
 {
     struct RouterCtx ctx;
 
     ctx.loc = find_location(req, server);
     ctx.full_path = build_full_path(req, server, ctx.loc);
+    if (!ctx.loc)
+    {
+        ctx.final_root = server.get_root();
+        ctx.is_cgi_potential = false;
+    }
+    else
+    {
+        ctx.final_root = ctx.loc->root;
+        if (ctx.loc->_prefix == "/cgi-bin")
+            ctx.is_cgi_potential = true;
+    }
+    status_code = check_supported_method(req, server, ctx.loc);
     std::cout << "URI = " << ctx.full_path << std::endl;
-    std::cout << "location prefix = " << ctx.loc->_prefix << std::endl;
+    std::cout << "final root = " << ctx.final_root << std::endl;
+    if (ctx.loc)
+        std::cout << "location prefix = " << ctx.loc->_prefix << std::endl;
     return (ctx);
 }
 
@@ -44,6 +59,35 @@ const location* Router::find_location(const HttpRequest& req, const ServerConfig
     if (match_index != -1)
         return (&(server.get_locations()[match_index]));
     return (NULL);
+}
+
+int Router::check_supported_method(const HttpRequest&req, const ServerConfig& server, const location *loc)
+{
+    bool method_exist = false;
+    bool method_allow = false;
+
+    for (std::size_t i = 0; i < server.get_methods().size(); i++)
+    {
+        if (req.get_method() == server.get_methods()[i])
+        {
+            method_exist = true;
+            break ;
+        }
+    }
+    if (method_exist == false)
+        return (NO_METHOD);
+
+    for (std::size_t i = 0; i < loc->methods.size(); i++)
+    {
+        if (req.get_method() == loc->methods[i])
+        {
+            method_allow = true;
+            break ;
+        }
+    }
+    if (method_allow == false)
+        return (METHOD_NOT_ALLOWED);
+    return (SUCCESS);
 }
 
 std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& server, const location *loc)

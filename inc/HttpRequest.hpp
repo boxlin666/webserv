@@ -6,8 +6,18 @@
 #include <cstdlib>
 #include <sstream>
 
+#include <fcntl.h>
+#include <sys/stat.h> 
+#include <vector>
+#include <cstdio>
+#include <cerrno>
+
 //tempo
-#include "Location.hpp"
+//#include "Location.hpp"
+
+#define GLOBAL_MAX_ALLOWED 1048576
+#define URI_SIZE 8192
+#define MAX_HEADER_SIZE 8192
 
 class HttpRequest {
 
@@ -29,6 +39,7 @@ class HttpRequest {
     const std::string& get_version() const;
     const std::string& get_body() const;
     const std::string* get_header(const std::string& key) const;  // 方便查找特定头
+    std::size_t get_content_length() const;
     std::size_t get_body_len()const;
 
     //tempo add for compilation with response
@@ -38,7 +49,7 @@ class HttpRequest {
 
     void reset();
 
-    bool parse(std::string& input_data);
+    int parse(std::string& input_data);
 
     // --- 仅用于隔离测试的 Setter (Unit Test Helpers) ---
 
@@ -69,15 +80,6 @@ class HttpRequest {
     // 如果需要模拟 Chunked 传输
     void set_is_chunked(bool is_chunked) { _is_chunked = is_chunked; }
 
-    //临时变量 
-    std::vector<location> locations;
-    std::string router_path; //after http request has been completed
-    int loc_index; //note which index vector locations is related to this request!
-    //临时成员函数
-    void init_locations(void);
-    void update_path(void); //根据假的location结构体设置真实路径 
-    bool is_valid_prefix(std::vector<location>::iterator it);
-
    private:
     // request line 部分
     std::string _method;  // GET POST DELETE
@@ -94,15 +96,15 @@ class HttpRequest {
 
     // 记录当前状态
     e_request_state _state;
-    size_t              _content_length;
-    size_t              _chunk_size;    // 用于处理 chunked 传输
+    std::size_t              _content_length;
+    std::size_t              _chunk_size;    // 用于处理 chunked 传输
     bool                _is_chunked;
 
-    bool parse_request_line(std::string& line);
-    bool parse_request_header(std::string& line);
+    int parse_request_line(std::string& line);
+    int parse_request_header(std::string& line);
+    int validate_and_prepare_payload();
     bool parse_body(std::string& input_data);
-
-    bool prepare_for_body();
+ 
 
     HttpRequest(const HttpRequest& other);
     HttpRequest& operator=(const HttpRequest& other);

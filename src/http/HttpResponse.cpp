@@ -26,51 +26,61 @@ void HttpResponse::reset(void)
     this->_full_path.clear();
 }
 
-void HttpResponse::build(const HttpRequest& req, const ServerConfig& config, const std::string &full_path)
+void HttpResponse::build(const RequestHandler& response_ctx, const int &status_code)
 {
     int ret;
 
+    (void)ret;
     //1.prerequiste check! 
-    ret = this->_check_request(req);
+    /*ret = this->_check_request(req);
     if (ret != 200)
     {
         this->_set_status(ret);
         //return ;
-    }
+    }*/
 
-    (void)config;
+    //(void)config;
     //2. path convert
     //this->_full_path = this->_build_full_path(req, config);
-    this->_full_path = full_path;
+    this->_full_path = response_ctx.get_full_path();
+    this->_body_len = response_ctx.get_res_body_len();
+    this->_body_last_modif_date = response_ctx.get_body_last_modif_date();
+
+    std::cout << "_full path inside build" << _full_path << std::endl;
+    std::cout << "STATUS CODE = " << status_code << std::endl;
+    std::cout << "_body_len = " << _body_len << std::endl;
+    this->_status_code = status_code;
 
     //3. check ressource (accessbility)
-    ret = this->_check_resource(req);
+    /*ret = this->_check_resource(req);
 
-    if (ret != 200)
+    if (ret != 200):44
+
     {
         this->_set_status(ret);
         //return ;
-    }
+    }*/
    
     //4. handle method 
     if (this->_status_code == 200)
     {
-        if (req.get_method() == "GET")
+        if (response_ctx.get_method_to_apply() == "GET")
             ret = this->_handle_get();
-        else if (req.get_method() == "POST")
-            ret = this->_handle_post(req);
-        else if (req.get_method() == "DELETE")
+        else if (response_ctx.get_method_to_apply() == "POST")
+            ret = this->_handle_post(response_ctx);
+        else if (response_ctx.get_method_to_apply() == "DELETE")
             ret = this->_handle_delete();
     }
 
-    if (ret != 200)
+    /*if (ret != 200)
     {
         this->_set_status(ret);
         //return ;
-    }
+    }*/
     //std::cout << "ret = " << ret << std::endl;
     //5. prepare response data!
-    this->_prepare_response_data(req);
+    std::cout << "THIS STATUS CODE = " << _status_code << std::endl;
+    this->_prepare_response_data();
 
     //6. append all the elements together!
     this->_append_full_response();
