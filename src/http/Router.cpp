@@ -27,10 +27,14 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
             ctx.is_cgi_potential = true;
     }
     status_code = check_supported_method(req, server, ctx.loc);
-    std::cout << "URI = " << ctx.full_path << std::endl;
+    
+    std::cout << "final Physic path = " << ctx.full_path << std::endl;
     std::cout << "final root = " << ctx.final_root << std::endl;
     if (ctx.loc)
+    {
         std::cout << "location prefix = " << ctx.loc->_prefix << std::endl;
+        std::cout << "location root = " << ctx.loc->root << std::endl;
+    }
     return (ctx);
 }
 
@@ -93,6 +97,8 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
 std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& server, const location *loc)
 {
     std::string full_path;
+    std::string relative_path;
+    std::string prefix;
 
     if (!loc)
     {
@@ -102,7 +108,20 @@ std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& 
     if (req.get_path() == "/")
         full_path = loc->root;
     else
-        full_path = loc->root + req.get_path();
+    {
+        prefix =  loc->_prefix;
+        relative_path = req.get_path().substr(prefix.length());
+        std::cout << "relative path = " << relative_path << std::endl;
+        if (relative_path[0] == '/')
+            relative_path.erase(0, 1);
+        std::cout << "AFTER relative path = " << relative_path << std::endl;
+
+        if (loc->root[loc->root.length() - 1] == '/')
+            full_path = loc->root + relative_path;
+        else
+            full_path = loc->root + "/" + relative_path;
+    }
+    std::cout << "FULL PATH " << full_path << std::endl;
     return (full_path);
 }
 

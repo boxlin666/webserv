@@ -1,16 +1,16 @@
 #include "HttpResponse.hpp"
 #include "Utils.hpp"
 
-void HttpResponse::_prepare_response_data(void)
+void HttpResponse::_prepare_response_data(const HttpRequest& request)
 {
-    this->_build_status_line();
+    this->_build_status_line(request);
     this->_build_headers_map();
 }
 
-void HttpResponse::_build_status_line(void)
+void HttpResponse::_build_status_line(const HttpRequest& request)
 {
     std::string str_status_code = Utils::toString(this->_status_code);
-    this->_status_line = "HTTP/1.1 " + str_status_code + " " + this->_status_msg_map[this->_status_code] + "\r\n"; 
+    this->_status_line = request.get_version() + " " + str_status_code + " " + this->_status_msg_map[this->_status_code] + "\r\n"; 
 }
 
 void HttpResponse::_build_headers_map(void)

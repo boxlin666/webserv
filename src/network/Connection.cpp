@@ -130,7 +130,6 @@ void Connection::process_router_match()
         return ;
     if (this->_matched_server)
         this->_route_ctx = Router::build_router_context(this->_request, *(this->_matched_server), _status_code);
-    std::cout << "full_path = " << this->_route_ctx.full_path << std::endl;
 }
 
 void Connection::process_request_handler()
@@ -142,9 +141,6 @@ void Connection::process_request_handler()
 
 void Connection::prepare_response()
 {
-    std::cout << "FULL PATH" << this->_route_ctx.full_path << std::endl;
-    std::cout << "FULL PATH" << this->_req_handler.get_full_path() << std::endl;
-    this->_response.build(this->_req_handler, this->_status_code);
+    this->_response.build(this->_request, this->_req_handler, this->_status_code);
     this->_out_buff = this->_response.get_full_response();
-    std::cout << "OUT BUFF = " << this->_out_buff << std::endl;
 }

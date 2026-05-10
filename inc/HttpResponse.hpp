@@ -25,6 +25,11 @@ class HttpResponse
 {
     private:
         int _status_code;
+        std::string _body_last_modif_date;
+        std::size_t _body_len;
+        std::string _full_path;
+        bool keep_alive;
+
         std::string _status_line;
         static std::map<int, std::string> _status_msg_map;
 
@@ -32,17 +37,8 @@ class HttpResponse
 
         std::map<std::string, std::string> _headers_map;
         std::string _body;
-        std::string _body_last_modif_date;
-        std::size_t _body_len;
-        
-        bool keep_alive;
-        std::string method;
- 
-        std::string _full_response;
-        
-        std::string _full_path;
        
-        const ServerConfig* _config;
+        std::string _full_response;
 
     HttpResponse(const HttpResponse& other);
     HttpResponse& operator=(const HttpResponse& other);
@@ -53,12 +49,13 @@ class HttpResponse
 
     //Method
     int _handle_get(void);
-    int _handle_post(const RequestHandler &response_ctx);
+    int _handle_post(const HttpRequest &request, const RequestHandler &response_ctx);
     int _handle_delete(void);
+    int _handle_static_post(const HttpRequest &request);
 
     //Reponse generator
-    void _prepare_response_data(void);
-    void _build_status_line(void);
+    void _prepare_response_data(const HttpRequest &request);
+    void _build_status_line(const HttpRequest &request);
     void _build_headers_map(void);
     void _add_header(const std::string& key, const std::string& value);
     std::string _generate_date(void)const;
@@ -80,7 +77,7 @@ class HttpResponse
         ~HttpResponse();
     
         // response = status line + header + body
-        void build(const RequestHandler& response_ctx, const int &status_code);
+        void build(const HttpRequest& request,  const RequestHandler& response_ctx, int &status_code);
         const std::string &get_full_response()const;
 
         //reset function for each turn of RUN loop, to clean up the old content inside!!

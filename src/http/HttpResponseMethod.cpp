@@ -26,31 +26,36 @@ int HttpResponse::_handle_get(void)
     return (SUCCESS);
 }
 
-int HttpResponse::_handle_post(const RequestHandler& response_ctx)
+int HttpResponse::_handle_post(const HttpRequest& request, const RequestHandler& response_ctx) 
 {
+   
     (void)response_ctx;
-    /*int fd;
+
+    return (this->_handle_static_post(request));
+}
+
+int HttpResponse::_handle_static_post(const HttpRequest& request)
+{
+    int fd;
     ssize_t ret;
     size_t total_size;
     size_t byte_written;
-    const char *tmp_buff;
+    const std::string& req_body = request.get_body();
 
     fd = open(this->_full_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd == -1)
         return (PER_DENIED);
-    if (response_ctx.get_res_body_len() == 0)
+    total_size = request.get_body_len();
+    if (total_size == 0)
     {
-        this->_body.clear();
         close(fd);
         return (CREATED);
     }
-    total_size = response_ctx.get_body_len();
     byte_written = 0;
-    tmp_buff = response_ctx.get_body()->data(); 
     ret = 0;
-    while (1)
+    while (byte_written < total_size)
     {
-        ret = write(fd, tmp_buff + byte_written, total_size - byte_written);
+        ret = write(fd, req_body.data() + byte_written, total_size - byte_written);
         if (ret < 0)
         {
             if (errno == EINTR)
@@ -67,7 +72,7 @@ int HttpResponse::_handle_post(const RequestHandler& response_ctx)
         if (byte_written >= total_size)
             break ;
     }
-    close(fd);*/
+    close(fd);
     return (CREATED);
 }
 
