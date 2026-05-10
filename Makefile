@@ -66,3 +66,5 @@ fclean: clean
 re: fclean all
 
 .PHONY: all clean fclean re
+
+#curl -v -X POST http://localhost:8080/uploads/post_test --data-binary "@/home/yanzhao/post_test"
