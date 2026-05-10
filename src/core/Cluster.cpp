@@ -185,6 +185,10 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
         // 解析遇到严重错误 (如 400 Bad Request)
         // 标记该连接已准备好发送错误响应
         //彻底去掉POLLIN,当4xx(400 408 411 413 414)发生，只发送错误响应，然后关闭该客户端连接
+
+        conn.process_request_handler();
+        conn.prepare_response();
+
         _poll_fds[poll_idx].events = POLLOUT;
         return true;
     } 
@@ -195,9 +199,10 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
         //开启路由匹配
         conn.set_matched_server();
         conn.process_router_match();
+        conn.process_request_handler();
 
         //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）
-        
+       
         conn.prepare_response();
 
         // 核心切换：告诉 poll 我们现在想往这个 socket 写数据了

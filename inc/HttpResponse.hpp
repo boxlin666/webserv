@@ -47,13 +47,6 @@ class HttpResponse
     HttpResponse(const HttpResponse& other);
     HttpResponse& operator=(const HttpResponse& other);
 
-    //Prerequis
-    /*int _check_request(const HttpRequest& req)const;
-    std::string _build_full_path(const HttpRequest& req, const ServerConfig& config)const;
-    int _check_resource(const HttpRequest& req);
-    int _process_directory(const HttpRequest& req);
-    int _process_file(const struct stat& st);*/
-
     //Prepa input data
 
     void _prepare_from_handler(const RequestHandler& response_ctx);

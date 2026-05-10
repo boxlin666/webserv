@@ -19,11 +19,10 @@ def test_get_index():
 def test_404_not_found():
     """
     测试请求不存在的文件时，服务器是否返回 404
-
+    """
     response = requests.get(f"{BASE_URL}/non_existent_file.html")
     assert response.status_code == 404
-    """
-
+ 
 def test_method_not_allowed():
     """
     测试对静态文件使用不允许的 POST 方法（假设你的配置限制了方法）

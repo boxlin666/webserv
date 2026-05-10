@@ -6,6 +6,12 @@
 #include <cstdlib>
 #include <sstream>
 
+#include <fcntl.h>
+#include <sys/stat.h> 
+#include <vector>
+#include <cstdio>
+#include <cerrno>
+
 //tempo
 //#include "Location.hpp"
 

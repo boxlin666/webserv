@@ -35,7 +35,7 @@ int    HttpRequest::parse_request_line(std::string& line)
 
     std::stringstream ss(line);
     std::string extra;
-    std::string req_line_len = 0;
+    std::size_t req_line_len = 0;
 
     if (!(ss >> this->_method >> this->_path >> this->_http_version))
         return (BAD_REQUEST);
@@ -47,7 +47,7 @@ int    HttpRequest::parse_request_line(std::string& line)
         return (BAD_REQUEST);
     if (this->_path.find("/../") != std::string::npos) //不允许访问除了www以外的，他的上一级目录
         return (BAD_REQUEST);
-    if (this->_http_version != "HTTP/1.1")
+    if (this->_http_version != "HTTP/1.0" && this->_http_version != "HTTP/1.1")
         return (NO_HTTP_VERSION);
     req_line_len = this->_method.length() + this->_path.length() + this->_http_version.length();
     if (req_line_len > URI_SIZE)
@@ -58,9 +58,9 @@ int    HttpRequest::parse_request_line(std::string& line)
 
 int HttpRequest::validate_and_prepare_payload()
 {
-    std::size_t req_header_len = 0
+    std::size_t req_header_len = 0;
 
-    for (std::map<std::string, std::string>::const_iterator it = this->_header_map.begin(); it != this->_header_map.end(); ++it)
+    for(std::map<std::string, std::string>::const_iterator it = this->_header_map.begin(); it != this->_header_map.end(); ++it)
     {
         req_header_len += it->first.length() + it->second.length() + 4; //CTRL
     }
@@ -109,7 +109,10 @@ int HttpRequest::parse_request_header(std::string& line)
     {
         _content_length = strtoul(_header_map["Content-Length"].c_str(), NULL, 10);
         if (this->_content_length > GLOBAL_MAX_ALLOWED)
+        {
+            std::cout << "==============REQUEST PARSER ISSUE!!!=================" << std::endl;
             return (BODY_TOO_LARGE);
+        }
     }
     return (SUCCESS);
 }
@@ -149,14 +152,14 @@ int HttpRequest::parse(std::string& input_data)
                 ret = parse_request_line(line);
                 if (ret != SUCCESS) _state = PARSE_ERROR;
             } else {
-                if (line.empty()) 
+                /*if (line.empty()) 
                 {
                     if (_content_length > 0)
                         _state = PARSE_BODY;
                     else
                         _state = PARSE_FINISHED;
                     continue ;
-                }
+                }*/
                 ret = parse_request_header(line);
                 if (ret != SUCCESS) _state = PARSE_ERROR;
             }
@@ -171,7 +174,7 @@ int HttpRequest::parse(std::string& input_data)
             input_data.erase(0, bytes_to_copy);
 
             if (_body.size() == _content_length) _state = PARSE_FINISHED;*/
-            parse_body();
+            parse_body(input_data);
             break;  // 即使没读完也要跳出循环，等更多数据进入 input_data
         }
 
@@ -225,7 +228,7 @@ HttpRequest::e_request_state HttpRequest::get_state() const
     return this->_state;
 }
 
-const std::size_t get_content_length()const
+std::size_t HttpRequest::get_content_length()const
 {
     return this->_content_length;
 }

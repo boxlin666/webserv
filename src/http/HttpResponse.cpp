@@ -30,6 +30,7 @@ void HttpResponse::build(const RequestHandler& response_ctx, const int &status_c
 {
     int ret;
 
+    (void)ret;
     //1.prerequiste check! 
     /*ret = this->_check_request(req);
     if (ret != 200)
@@ -42,6 +43,12 @@ void HttpResponse::build(const RequestHandler& response_ctx, const int &status_c
     //2. path convert
     //this->_full_path = this->_build_full_path(req, config);
     this->_full_path = response_ctx.get_full_path();
+    this->_body_len = response_ctx.get_res_body_len();
+    this->_body_last_modif_date = response_ctx.get_body_last_modif_date();
+
+    std::cout << "_full path inside build" << _full_path << std::endl;
+    std::cout << "STATUS CODE = " << status_code << std::endl;
+    std::cout << "_body_len = " << _body_len << std::endl;
     this->_status_code = status_code;
 
     //3. check ressource (accessbility)
@@ -65,13 +72,14 @@ void HttpResponse::build(const RequestHandler& response_ctx, const int &status_c
             ret = this->_handle_delete();
     }
 
-    if (ret != 200)
+    /*if (ret != 200)
     {
         this->_set_status(ret);
         //return ;
-    }
+    }*/
     //std::cout << "ret = " << ret << std::endl;
     //5. prepare response data!
+    std::cout << "THIS STATUS CODE = " << _status_code << std::endl;
     this->_prepare_response_data();
 
     //6. append all the elements together!

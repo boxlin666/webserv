@@ -55,6 +55,7 @@ class Connection
         bool check_parse_finished();
         bool set_matched_server();
         void process_router_match();
+        void process_request_handler();
         void prepare_response();
 };
 
