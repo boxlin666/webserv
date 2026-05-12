@@ -132,7 +132,12 @@ void Connection::prepare_response()
     this->_out_buff = this->_response.get_full_response();
 }
 
-void Connection::set_state(int state)
+void Connection::set_state(State state)
 {
     this->_state = state;
+}
+
+Connection::State Connection::get_state(void)const
+{
+	return (this->_state);
 }
