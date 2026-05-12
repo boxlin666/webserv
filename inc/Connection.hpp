@@ -55,12 +55,15 @@ class Connection
         void set_out_buff(void);
 
         bool handle_data(const char* raw_data, ssize_t size);
-        void set_state(int state);
-        bool check_parse_finished();
+       	bool check_parse_finished();
         bool set_matched_server();
         void process_router_match();
         void process_request_handler();
         void prepare_response();
+
+	void set_state(State state);
+	Connection::State get_state(void)const;
+
 };
 
 #endif
