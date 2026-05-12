@@ -53,6 +53,7 @@ class Cluster
         //print test check!
         void    print_socket_map()const;
         void    print_pfds()const;
+        void    print_servers_map()const;
 };
 
 #endif

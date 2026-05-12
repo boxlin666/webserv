@@ -30,7 +30,10 @@ class Connection
         //TO DO LATER (状态机)
         enum State 
         {
-            READING, WRITING, CLOSED
+            WAITING,
+            READING, 
+            WRITING, 
+            CLOSED
         };
         State _state;
 
@@ -52,6 +55,7 @@ class Connection
         void set_out_buff(void);
 
         bool handle_data(const char* raw_data, ssize_t size);
+        void set_state(int state);
         bool check_parse_finished();
         bool set_matched_server();
         void process_router_match();
