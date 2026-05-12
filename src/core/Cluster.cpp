@@ -19,6 +19,7 @@ void Cluster::setup(const ConfigParser& config)
 
     std::cout << "set up finished!!!" << std::endl;
     this->print_socket_map();
+    this->print_servers_map();
     this->print_pfds();
 }
 
@@ -69,24 +70,6 @@ void Cluster::init_servers_map(const ConfigParser& config)
             this->_servers_map[port_num].push_back(config.get_servers()[k]);
         }
     }
-       std::cout << "=========INIT SERVER MAP TEST ========" << std::endl;
-
-    for (std::map<int, std::vector<ServerConfig*> >::iterator it = _servers_map.begin(); 
-        it != _servers_map.end(); ++it) 
-    {
-        std::cout << "Key = " << it->first << std::endl;
-        const std::vector<ServerConfig*> _servers = it->second;
-        for (std::size_t i = 0; i < _servers.size();i++)
-        {
-            const std::vector<std::string>  _names = it->second[i]->get_servers_name();
-            for (std::size_t j = 0; j < _names.size(); j++)
-            {
-                std::cout << " ServerConfig server name index[" << j << "]" << _names[j] << std::endl;
-            }
-        }
-        std::cout << std::endl;
-    }
-       std::cout << "=========INIT SERVER MAP TEST ========" << std::endl;
 }
 
 void Cluster::init_poll_listen_fds()
@@ -325,4 +308,25 @@ void    Cluster::print_pfds(void)const
             std::cout << "pfd.events = POLLIN ";
         std::cout << "pfd.fd = " << it->fd << " pfd.revents = " << it->revents << std::endl;
     }
+}
+
+void    Cluster::print_servers_map(void)const
+{
+    std::cout << "=========INIT SERVER MAP TEST ========" << std::endl;
+
+    for (std::map<int, std::vector<ServerConfig*> >::const_iterator it = _servers_map.begin(); it != _servers_map.end(); ++it) 
+    {
+        std::cout << "Key = " << it->first << std::endl;
+        const std::vector<ServerConfig*> _servers = it->second;
+        for (std::size_t i = 0; i < _servers.size();i++)
+        {
+            const std::vector<std::string>  _names = it->second[i]->get_servers_name();
+            for (std::size_t j = 0; j < _names.size(); j++)
+            {
+                std::cout << " ServerConfig server name index[" << j << "]" << _names[j] << std::endl;
+            }
+        }
+        std::cout << std::endl;
+    }
+       std::cout << "=========INIT SERVER MAP TEST ========" << std::endl;
 }

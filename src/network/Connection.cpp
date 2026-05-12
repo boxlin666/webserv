@@ -12,7 +12,8 @@ _request(),
 _route_ctx(),
 _req_handler(),
 _response(),
-_status_code(200)
+_status_code(200),
+_state(WAITING)
 {
 }
 
@@ -129,4 +130,9 @@ void Connection::prepare_response()
 {
     this->_response.build(this->_request, this->_req_handler, this->_status_code);
     this->_out_buff = this->_response.get_full_response();
+}
+
+void Connection::set_state(int state)
+{
+    this->_state = state;
 }
