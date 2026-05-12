@@ -18,7 +18,7 @@ class Connection
         std::string _out_buff;
         PassiveSocket *_matched_socket;
         ServerConfig *_matched_server;
-        const std::map<int, std::vector<ServerConfig*> >& _server_map;
+        const std::vector<ServerConfig*> &_servers;
 
         HttpRequest _request;
         RouterCtx  _route_ctx;
@@ -39,7 +39,7 @@ class Connection
         Connection& operator=(const Connection& other);
 
     public:
-        Connection(int client_fd, PassiveSocket *matched_socket, const std::map<int, std::vector<ServerConfig*> >& server_map);
+        Connection(int client_fd, PassiveSocket *matched_socket, const std::vector<ServerConfig*> &servers);
         ~Connection(void);
 
         int getFd(void)const;
