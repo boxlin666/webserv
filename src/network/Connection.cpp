@@ -1,12 +1,13 @@
 #include "Connection.hpp"
 #include "Router.hpp"
 
-Connection::Connection(int client_fd, PassiveSocket *matched_socket, const std::map<int, std::vector<ServerConfig*> >& server_map)
+Connection::Connection(int client_fd, PassiveSocket *matched_socket, const std::vector<ServerConfig*> &servers)
 :_client_fd(client_fd),
 _in_buff(""),
 _out_buff(""),
 _matched_socket(matched_socket),
-_server_map(server_map),
+_matched_server(NULL),
+_servers(servers),
 _request(),
 _route_ctx(),
 _req_handler(),
@@ -76,21 +77,6 @@ bool Connection::check_parse_finished()
 
 bool  Connection::set_matched_server()
 {
-    //Passive Socket info
-    int port_num = this->_matched_socket->getPort();
-    std::string host = this->_matched_socket->get_host();
-
-    std::map<int, std::vector<ServerConfig*> >::const_iterator server_map_it = this->_server_map.find(port_num);
-    const std::vector<ServerConfig*>* selected_servers = NULL;
-
-    if (server_map_it != this->_server_map.end())
-        selected_servers = &(server_map_it->second);
-    else
-    {
-        std::stringstream ss;
-        ss << "No matched server configuration for port [" << port_num << "] on " << host;
-        throw std::runtime_error(ss.str());
-    }
     //Get info from httpRequest
     std::map<std::string, std::string>::const_iterator req_header_it;
     std::string _raw_data;
@@ -107,20 +93,20 @@ bool  Connection::set_matched_server()
     else
         req_host = _raw_data.substr(0, std::string::npos);
     
-    for (std::size_t i = 0; i < (*selected_servers).size(); i++)
+    for (std::size_t i = 0; i < this->_servers.size(); i++)
     {
-        for (std::size_t j = 0; j < (*selected_servers)[i]->get_servers_name().size() ;j++)
+        for (std::size_t j = 0; j < this->_servers[i]->get_servers_name().size() ;j++)
         {
-            if (req_host == (*selected_servers)[i]->get_servers_name()[j])
+            if (req_host == this->_servers[i]->get_servers_name()[j])
             {
-                this->_matched_server = (*selected_servers)[i];
-                std::cout << (*selected_servers)[i]->get_servers_name()[j] << std::endl;
+                this->_matched_server = this->_servers[i];
+                std::cout << "selected server name is : "<< this->_servers[i]->get_servers_name()[j] << std::endl;
                 return (true);
             }
         }
     }
-    this->_matched_server = (*selected_servers)[0];//if no matched server, then select the 1st one associted with this port number by default!
-    std::cout << (*selected_servers)[0]->get_servers_name()[0] << std::endl;
+    this->_matched_server = this->_servers[0];//if no matched server, then select the 1st one associted with this port number by default!
+    std::cout << "selected default server name is : " << this->_servers[0]->get_servers_name()[0] << std::endl;
     return (true);
 }
 

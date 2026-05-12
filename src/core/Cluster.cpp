@@ -115,6 +115,8 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
     struct sockaddr_in client_addr;
     socklen_t          client_len = sizeof(client_addr);
     int                client_fd  = accept(listen_fd, (struct sockaddr*)&client_addr, &client_len);
+    std::map<int, std::vector<ServerConfig*> >::const_iterator it_servers;
+
     if (client_fd < 0) 
     {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -126,12 +128,22 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
     // 2. 设置非阻塞 (非常重要，否则后续 recv 会卡死)
     fcntl(client_fd, F_SETFL, O_NONBLOCK);
 
-    // 3. 创建 Connection 对象并存入 map
-    Connection* conn = new Connection(client_fd, passive_socket, _servers_map);
-    this->_connection_map.insert(std::make_pair(client_fd, conn));
+    it_servers = this->_servers_map.find(passive_socket->getPort());
 
-    // 4. 将新的 FD 注册到 poll 监听列表中
-    this->add_to_poll_fds(client_fd);
+    if (it_servers != this->_servers_map.end())
+    {
+        // 3. 创建 Connection 对象并存入 map
+        Connection* conn = new Connection(client_fd, passive_socket, it_servers->second);
+        this->_connection_map.insert(std::make_pair(client_fd, conn));
+
+        // 4. 将新的 FD 注册到 poll 监听列表中
+        this->add_to_poll_fds(client_fd);
+    }
+    else //几乎不可能，但是作为防御编程，还是写了这个检查和报错
+    {
+        std::cerr << "Warning: No configurtion found for port " << passive_socket->getPort() << std::endl;
+        close(client_fd);
+    }
 }
 
 /* * Cluster::close_connection

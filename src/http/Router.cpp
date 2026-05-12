@@ -69,6 +69,12 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
 {
     bool method_exist = false;
     bool method_allow = false;
+    const std::vector<std::string>* loc_methods = NULL;
+
+    if (loc)
+        loc_methods = &(loc->methods);
+    else
+        loc_methods = &(server.get_methods());
 
     for (std::size_t i = 0; i < server.get_methods().size(); i++)
     {
@@ -81,9 +87,9 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
     if (method_exist == false)
         return (NO_METHOD);
 
-    for (std::size_t i = 0; i < loc->methods.size(); i++)
+    for (std::size_t i = 0; i < loc_methods->size(); i++)
     {
-        if (req.get_method() == loc->methods[i])
+        if (req.get_method() == (*loc_methods)[i])
         {
             method_allow = true;
             break ;
