@@ -5,6 +5,7 @@
 
 #include "Cluster.hpp"
 #include "ConfigParser.hpp"
+#include "HttpResponse.hpp"
 
 int main(int argc, char** argv)
 {
@@ -29,6 +30,8 @@ int main(int argc, char** argv)
              std::cerr << "Fatal Syntax Error: " << e.what() << std::endl;
         }
         Cluster webserv;
+
+        HttpResponse::init_response_map(); //初始化映射关系 （错误码， 错误信息）
 
         webserv.setup(parser);
         webserv.run();

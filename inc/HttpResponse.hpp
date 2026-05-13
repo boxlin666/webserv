@@ -28,14 +28,15 @@ class HttpResponse
         std::string _body_last_modif_date;
         std::size_t _body_len;
         std::string _full_path;
-        bool keep_alive;
 
         std::string _status_line;
         static std::map<int, std::string> _status_msg_map;
 
         static std::map<std::string, std::string> _ext_map;
 
-        std::map<std::string, std::string> _headers_map;
+        typedef std::pair<std::string, std::string> HeaderPair;
+        std::vector<HeaderPair> _headers_vector;
+
         std::string _body;
        
         std::string _full_response;
@@ -56,8 +57,12 @@ class HttpResponse
     //Reponse generator
     void _prepare_response_data(const HttpRequest &request);
     void _build_status_line(const HttpRequest &request);
-    void _build_headers_map(void);
+    void _build_headers_map(const HttpRequest &request);
     void _add_header(const std::string& key, const std::string& value);
+
+    void _add_header_vector(const std::string& key, const std::string& value);
+
+
     std::string _generate_date(void)const;
     std::string _generate_content_type(void)const;
 
