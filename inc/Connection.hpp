@@ -9,6 +9,7 @@
 #include "HttpResponse.hpp"
 #include "RouterCtx.hpp"
 #include "RequestHandler.hpp"
+#include "CGIHandler.hpp"
 
 class Connection
 {
@@ -24,6 +25,7 @@ class Connection
         RouterCtx  _route_ctx;
         RequestHandler _req_handler;
         HttpResponse _response;
+        CGIHandler _cgi_handler;
 
         int _status_code;
 
