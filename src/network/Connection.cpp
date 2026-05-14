@@ -1,3 +1,5 @@
+#include <poll.h>
+
 #include "Connection.hpp"
 #include "Router.hpp"
 
@@ -50,25 +52,74 @@ void    Connection::set_out_buff(void)
     this->_out_buff = "HTTP/1.1 200 OK\r\n\r\n<h1>Hello from Server Class!</h1>";
 }
 
-bool    Connection::handle_data(const char* raw_data, ssize_t size)
+void Connection::handle_read_event(void)
 {
-    std::string _tmp_buff = raw_data;
+    //1. 读取数据
+    char    buffer[4096];
+    std::memset(buffer, 0, sizeof(buffer));
+    ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    this->_in_buff.append(raw_data, size);
-    this->_status_code = _request.parse(_tmp_buff);
-    if(this->_status_code != SUCCESS)
+    if (bytes_read <= 0) 
     {
-        // TODO: prepare error 400 
-        // skip Router Match step
-        // Go to the Request handler -> request Response
-        return false;
-    }
-   
-    if(_request.get_state() == HttpRequest::PARSE_FINISHED)
+        // bytes_read == 0: 客户端关闭; < 0: 读取错误
+        this->set_state(CLOSED);
+        return ;
+    } 
+
+    std::string tmp_buff = buffer; //tempo TODO update!!
+    this->append_in_buff(buffer, bytes_read);
+    this->set_state(READING);
+    this->_status_code = this->_request.parse(tmp_buff);
+ 
+    if (this->_status_code != SUCCESS)
     {
-        // TODO: process logic
+        this->prepare_response();
+        this->set_state(WRITING);
+        return ;
     }
-    return true;
+  
+
+    // 3. 检查解析是否完成
+    if (this->check_parse_finished()) {
+        std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
+        //开启路由匹配
+        this->set_matched_server();
+        this->process_router_match();
+        this->process_request_handler();
+
+        //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）
+       
+        this->prepare_response();
+        this->set_state(WRITING);
+    }
+}
+
+void Connection::handle_write_event(void)
+{
+    ssize_t bytes_send; 
+    
+    bytes_send = send(this->_client_fd, this->_out_buff.c_str(), this->_out_buff.size(), 0);
+
+    if (bytes_send < 0)
+    {
+        std::cerr << "Failed to send the http response on ..."  << std::endl;
+        this->_state = CLOSED;
+        return ;
+    }
+    else
+        this->_out_buff.erase(0, bytes_send);
+
+    if (this->_out_buff.empty())
+    {
+        if (this->_request.get_is_keep_alive() == false)
+        {
+            this->_state = CLOSED;
+        }
+        else if (this->_request.get_is_keep_alive() == true)
+        {
+            this->_state = WAITING;
+        }
+    }
 }
 
 bool Connection::check_parse_finished()
@@ -130,6 +181,7 @@ void Connection::prepare_response()
 {
     this->_response.build(this->_request, this->_req_handler, this->_status_code);
     this->_out_buff = this->_response.get_full_response();
+    std::cout << "out buff = "<< this->_out_buff << std::endl;
 }
 
 void Connection::set_state(State state)
@@ -140,4 +192,13 @@ void Connection::set_state(State state)
 Connection::State Connection::get_state(void)const
 {
 	return (this->_state);
+}
+
+short Connection::get_poll_events()const
+{
+    if (this->get_state() == READING || this->get_state() == WAITING) 
+        return (POLLIN);
+    else if (this->get_state() == WRITING)
+        return (POLLOUT);
+    return (0);
 }

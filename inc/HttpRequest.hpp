@@ -42,6 +42,8 @@ class HttpRequest {
     const std::string* get_header(const std::string& key) const;  // 方便查找特定头
     std::size_t get_content_length() const;
     std::size_t get_body_len()const;
+    bool get_is_keep_alive()const;
+
 
     //tempo add for compilation with response
     const std::map<std::string, std::string>& get_header_map()const;
@@ -90,6 +92,9 @@ class HttpRequest {
     std::map<std::string, std::string> _headers;
     std::string         _body;
     std::string         _querystring;
+
+    bool _is_keep_alive;
+
     // request header 部分
     //  _header_map["Host"] = "172.19.116.71" ; _header_map["User agent"] = "curl 8.5.0" ;
     //  _header_map["blabla"] = "BLABLA"

@@ -161,48 +161,16 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
 
-    // 2. 读取数据 (非阻塞设计)
-    char    buffer[4096];
-    std::memset(buffer, 0, sizeof(buffer));
-    ssize_t bytes_read = recv(fd, buffer, sizeof(buffer), 0);
+    conn.handle_read_event();
 
-    if (bytes_read <= 0) 
-    {
-        // bytes_read == 0: 客户端关闭; < 0: 读取错误
-        return false;
-    }
-    else
-        conn.append_in_buff(buffer, bytes_read);
+    short poll_event = conn.get_poll_events();
 
-    // 3. 驱动解析器
-    //TODO: replace buffer by _in_buff later
-    if (conn.handle_data(buffer, bytes_read) == false) {
-        // 解析遇到严重错误 (如 400 Bad Request)
-        // 标记该连接已准备好发送错误响应
-        //彻底去掉POLLIN,当4xx(400 408 411 413 414)发生，只发送错误响应，然后关闭该客户端连接
-
-        conn.process_request_handler();
-        conn.prepare_response();
-
+    if (poll_event == POLLIN)
+        _poll_fds[poll_idx].events = POLLIN;
+    else if (poll_event == POLLOUT)
         _poll_fds[poll_idx].events = POLLOUT;
-        return true;
-    } 
-
-    // 4. 检查解析是否完成
-    if (conn.check_parse_finished()) {
-        std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
-        //开启路由匹配
-        conn.set_matched_server();
-        conn.process_router_match();
-        conn.process_request_handler();
-
-        //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）
-       
-        conn.prepare_response();
-
-        // 核心切换：告诉 poll 我们现在想往这个 socket 写数据了
-        _poll_fds[poll_idx].events = POLLOUT; //暗示POLLIN暂时关闭！
-    }
+    else
+        return (false);
     return (true);
 }
 
@@ -215,12 +183,21 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
  
-    send(fd, conn.get_out_buff().c_str(), conn.get_out_buff().size(), 0);
+    conn.handle_write_event();
 
-    //恢复POLLIN就绪事件，POLLOUT关闭,为下一次http request接收做准备
-    _poll_fds[poll_idx].events = POLLIN;
-    this->close_connection(poll_idx);
-    this->_poll_fds[poll_idx].fd = -1;
+    short poll_event = conn.get_poll_events();
+
+    if (poll_event == POLLIN) //WAITING => keep-alive mode
+        _poll_fds[poll_idx].events = POLLIN;
+    else if (poll_event == POLLOUT) //WRITING => still writing (send http response msg)
+        _poll_fds[poll_idx].events = POLLOUT;
+    else
+    {
+        this->close_connection(poll_idx);
+        this->_poll_fds[poll_idx].fd = -1;
+    }
+    if (poll_event == POLLIN)
+        std::cout << "Here we have a POLLIN there!" << std::endl;
     return true;
 }
 

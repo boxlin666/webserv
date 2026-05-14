@@ -39,6 +39,11 @@ class Connection
         };
         State _state;
 
+        bool check_parse_finished();
+        bool set_matched_server();
+        void process_router_match();
+        void process_request_handler();
+        void prepare_response();
 
         Connection(const Connection& other);
         Connection& operator=(const Connection& other);
@@ -56,15 +61,13 @@ class Connection
         //Just a temporary function, we hard code the http response here...
         void set_out_buff(void);
 
-        bool handle_data(const char* raw_data, ssize_t size);
-       	bool check_parse_finished();
-        bool set_matched_server();
-        void process_router_match();
-        void process_request_handler();
-        void prepare_response();
+        void handle_read_event(void);
 
-	void set_state(State state);
-	Connection::State get_state(void)const;
+        void handle_write_event(void);
+	   
+        void set_state(State state);
+	    State get_state(void)const;
+        short get_poll_events()const;
 
 };
 
