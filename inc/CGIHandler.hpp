@@ -31,6 +31,8 @@ private:
     std::string _outBuffer;
     size_t      _bytesWritten;
 
+    void prepare_envmap(const HttpRequest& req, const RouterCtx& ctx);
+
 public:
     CGIHandler();
     ~CGIHandler();
