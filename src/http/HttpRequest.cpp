@@ -42,6 +42,14 @@ int    HttpRequest::parse_request_line(std::string& line)
         return (BAD_REQUEST);
     if (this->_path.empty() || this->_path[0] != '/')
         return (BAD_REQUEST);
+    std::size_t query_pos = this->_path.find('?');
+    if (query_pos != std::string::npos) {
+        this->_path = this->_path.substr(0, query_pos);
+        this->_querystring = this->_path.substr(query_pos + 1);
+    } else {
+        this->_path = this->_path;
+        this->_querystring = "";
+    }
     if (this->_method.empty())
         return (BAD_REQUEST);
     if (this->_path.find("/../") != std::string::npos) //不允许访问除了www以外的，他的上一级目录
@@ -182,6 +190,11 @@ const std::string& HttpRequest::get_method() const
 const std::string& HttpRequest::get_path() const
 {
     return this->_path;
+}
+
+const std::string& HttpRequest::get_querystring() const
+{
+    return this->_querystring;
 }
 
 const std::string& HttpRequest::get_version() const

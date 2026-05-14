@@ -36,6 +36,7 @@ class HttpRequest {
 
     const std::string& get_method() const;
     const std::string& get_path() const;
+    const std::string& get_querystring() const;
     const std::string& get_version() const;
     const std::string& get_body() const;
     const std::string* get_header(const std::string& key) const;  // 方便查找特定头
@@ -90,6 +91,7 @@ class HttpRequest {
     std::string _http_version;  // HTTP 1.1
     std::map<std::string, std::string> _headers;
     std::string         _body;
+    std::string         _querystring;
 
     bool _is_keep_alive;
 
