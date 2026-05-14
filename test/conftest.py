@@ -84,5 +84,5 @@ def manage_server():
     process.wait()
 
     # 删除生成的测试文件夹
-    if os.path.exists(youpi_path):
-        shutil.rmtree(youpi_path)
+    #if os.path.exists(youpi_path):
+        #shutil.rmtree(youpi_path)
