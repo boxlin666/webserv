@@ -96,7 +96,9 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
         }
     }
     if (method_allow == false)
+    {
         return (METHOD_NOT_ALLOWED);
+    }
     return (SUCCESS);
 }
 
