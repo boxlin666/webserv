@@ -28,10 +28,14 @@ class RequestHandler
         
     private:
         std::string _full_path;
+        std::string _parent_path;
         std::string _body_last_modif_date;
         std::size_t _res_body_len;
 
+        int extract_parent_path(void);
+
         int check_resource(const HttpRequest& req);
+        int validate_post_target(void)const;
         int process_directory(const HttpRequest& req);
         int process_file(const struct stat& st);
         RequestHandler(const RequestHandler& other);
