@@ -7,6 +7,10 @@
 #include <cstring>
 #include <cstdlib>
 #include <map>
+#include <unistd.h>
+
+#include "Router.hpp"
+#include "HttpRequest.hpp"
 
 class CGIHandler
 {
@@ -31,7 +35,7 @@ public:
     CGIHandler();
     ~CGIHandler();
 
-    bool init();
+    bool init(const HttpRequest& req, const RouterCtx& ctx);
     bool execute();
 
     void _mapToEnvp();
