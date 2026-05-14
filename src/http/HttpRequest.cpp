@@ -152,28 +152,12 @@ int HttpRequest::parse(std::string& input_data)
                 ret = parse_request_line(line);
                 if (ret != SUCCESS) _state = PARSE_ERROR;
             } else {
-                /*if (line.empty()) 
-                {
-                    if (_content_length > 0)
-                        _state = PARSE_BODY;
-                    else
-                        _state = PARSE_FINISHED;
-                    continue ;
-                }*/
                 ret = parse_request_header(line);
                 if (ret != SUCCESS) _state = PARSE_ERROR;
             }
         }
 
         if (_state == PARSE_BODY) {
-            // 根据 Content-Length 读取 Body
-            /*size_t bytes_needed  = _content_length - _body.size();
-            size_t bytes_to_copy = std::min(bytes_needed, input_data.size());
-
-            _body.append(input_data.substr(0, bytes_to_copy));
-            input_data.erase(0, bytes_to_copy);
-
-            if (_body.size() == _content_length) _state = PARSE_FINISHED;*/
             parse_body(input_data);
             break;  // 即使没读完也要跳出循环，等更多数据进入 input_data
         }

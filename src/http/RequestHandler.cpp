@@ -19,8 +19,8 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
     {
         if (req.get_content_length() > route_ctx.loc->client_max_body_size)
         { 
-            std::cout << "req content length = " << req.get_content_length() << std::endl;
-            std::cout << "==============Request Handler ISSUE!!!=================" << std::endl;
+            //std::cout << "req content length = " << req.get_content_length() << std::endl;
+            //std::cout << "==============Request Handler ISSUE!!!=================" << std::endl;
             status_code = BODY_TOO_LARGE ;
             return ;
         }
@@ -50,11 +50,12 @@ int RequestHandler::extract_parent_path(void)
 
 //Only works on the cmd below:
 // curl -v -X POST http://localhost:8080/uploads/post_test --data-binary "@/home/yanzhao/post_test"
+// Doesn't work on:
+//curl -v -F "file=@/home/yanzhao/post_test" http://localhost:8080/uploads (200, but no upload file created!) 
 int RequestHandler::validate_post_target()const
 {
     struct stat st;
 
-    std::cout << "PARENT PATH" << this->_parent_path << std::endl;
     if (stat(this->_parent_path.c_str(), &st) == -1)
     {
         if (errno == ENOENT)
@@ -84,6 +85,8 @@ int RequestHandler::check_resource(const HttpRequest& req)
     }
     if (S_ISDIR(st.st_mode))
     {
+        if (req.get_method() == "POST")
+            return (this->validate_post_target());
         return (this->process_directory(req));
     }
     if (S_ISREG(st.st_mode))
@@ -96,8 +99,6 @@ int RequestHandler::process_directory(const HttpRequest& req)
     char last_c;
     struct stat st_index;
 
-    //if (req.get_method() == "POST")
-        //return (SUCCESS);
     last_c = this->_full_path[this->_full_path.size() - 1];
     if (req.get_method() != "GET")
     {
