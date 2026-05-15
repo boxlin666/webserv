@@ -40,7 +40,7 @@ def test_method_not_allowed(manage_server):
 
 
 #========================= Configuration file 42.conf=========================================
-"""@pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
+@pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
 def test_fragmented_header(manage_server):
     
     #核心测试：模拟 Header 在传输过程中被切断 (Accept-Encodin + g: gzip)
@@ -99,5 +99,5 @@ def test_split_crlf_crlf(manage_server):
 
     response = s.recv(4096).decode()
     assert "HTTP/1.1 200 OK" in response
-    s.close()"""
+    s.close()
     
