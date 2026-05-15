@@ -3,79 +3,86 @@ import subprocess
 import time
 import os
 import socket
-import urllib.request
 import shutil
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # test 目录
-PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..")) # 项目根目录
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+
+def setup_test_env(project_root):
+    """
+    自动化创建测试环境，并设置严格的 Unix 权限
+    """
+    youpi_path = os.path.join(project_root, "YoupiBanane")
+    
+    # 1. 目录权限：0o755 (drwxr-xr-x) 确保服务器有权进入目录
+    os.makedirs(os.path.join(youpi_path, "nop"), mode=0o755, exist_ok=True)
+    os.makedirs(os.path.join(youpi_path, "Yeah"), mode=0o755, exist_ok=True)
+    # 显式确保父目录也是 755
+    os.chmod(youpi_path, 0o755)
+
+    # 2. 定义文件及其对应的权限要求
+    # 0o644: 普通读取 (rw-r--r--)
+    # 0o755: 可执行 (rwxr-xr-x) -> 针对 .bla 或 CGI 相关文件
+    test_files = {
+        "youpi.bad_extension": 0o644,
+        "youpi.bla": 0o755,  # 假设这是 CGI 脚本
+        "nop/youpi.bad_extension": 0o644,
+        "nop/other.pouic": 0o644,
+        "Yeah/not_happy.bad_extension": 0o644
+    }
+
+    for file_rel_path, mode in test_files.items():
+        full_path = os.path.join(youpi_path, file_rel_path)
+        # 创建文件
+        if not os.path.exists(full_path):
+            with open(full_path, 'a'):
+                os.utime(full_path, None)
+        # 显式设置权限（关键：不受本地 umask 影响）
+        os.chmod(full_path, mode)
 
 @pytest.fixture
 def manage_server(request):
-    """
-    通过 request.param 接收配置文件路径
-    如果不传参数，默认使用 './conf/default.conf'
-    """
-    # 1. 获取配置路径（如果调用时没给参数，使用默认值）
     config_rel_path = getattr(request, "param", "./conf/default.conf")
+    server_path = os.path.join(PROJECT_ROOT, "webserv")
+    config_path = os.path.join(PROJECT_ROOT, config_rel_path)
+
+    # --- 启动前准备 ---
+    # 确保 webserv 程序本身有执行权限 (GitHub Actions 必备)
+    if os.path.exists(server_path):
+        os.chmod(server_path, 0o755)
     
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.abspath(os.path.join(current_dir, ".."))
-    server_path = os.path.join(project_root, "webserv")
-    config_path = os.path.join(project_root, config_rel_path)
+    setup_test_env(PROJECT_ROOT)
 
-    # --- 自动化创建测试环境 (保持不变) ---
-    setup_test_env(project_root) # 建议把那堆 mkdir 封装成函数
-
-    # 2. 启动进程
+    # --- 启动进程 ---
     print(f"\n[Setup] Starting webserv with: {config_rel_path}")
     process = subprocess.Popen(
         [server_path, config_path], 
-        cwd=project_root,
+        cwd=PROJECT_ROOT,
         stdout=None, 
         stderr=None
     )
 
-    # 3. 轮询端口确认是否启动
+    # --- 轮询端口 ---
     timeout = 5
     start_time = time.time()
     opened = False
     while time.time() - start_time < timeout:
-        # 检查进程是否还没启动就挂了（针对 KO 测试非常重要）
-        if process.poll() is not None:
+        if process.poll() is not None: # 进程意外退出了
             break
             
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            # 注意：如果你的配置监听了不同端口，这里需要从 config 动态获取
             if s.connect_ex(('127.0.0.1', 8080)) == 0:
                 opened = True
                 break
         time.sleep(0.5)
 
-    # 注意：如果是为了测试“错误的配置”，我们可能预期 opened 为 False
-    # 这里我们把 process 返回给测试用例，让用例自己判断是否启动成功
     yield {"process": process, "opened": opened}
     
-    # --- 4. [Teardown] ---
+    # --- 清理 ---
     print(f"\n[Teardown] Stopping server ({config_rel_path})...")
     process.terminate()
     try:
         process.wait(timeout=2)
     except subprocess.TimeoutExpired:
         process.kill()
-
-def setup_test_env(project_root):
-    youpi_path = os.path.join(project_root, "YoupiBanane")
-    
-    # 仅在目录不存在时创建，不使用 rmtree
-    os.makedirs(os.path.join(youpi_path, "nop"), exist_ok=True)
-    os.makedirs(os.path.join(youpi_path, "Yeah"), exist_ok=True)
-    
-    # 使用 'a' (append) 模式创建文件，如果已存在则不会覆盖内容，只会更新时间戳
-    paths = [
-        "youpi.bad_extension", "youpi.bla", 
-        "nop/youpi.bad_extension", "nop/other.pouic",
-        "Yeah/not_happy.bad_extension"
-    ]
-    for p in paths:
-        full_path = os.path.join(youpi_path, p)
-        if not os.path.exists(full_path):
-            open(full_path, 'a').close()
