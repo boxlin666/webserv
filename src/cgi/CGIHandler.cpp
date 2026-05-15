@@ -105,7 +105,107 @@ void CGIHandler::_clearEnvp()
 
 std::string CGIHandler::getRawResponse()
 {
-    std::string res;
+    return _outBuffer;
+}
 
-    return res;
+void CGIHandler::sendToScript() {
+    if (_inBuffer.empty()) {
+        // 数据写完了，主动关闭写端，脚本才会收到 EOF 从而停止读取
+        if (_pipeIn[1] != -1) {
+            close(_pipeIn[1]);
+            _pipeIn[1] = -1;
+        }
+        return;
+    }
+
+    // 尝试写入数据
+    ssize_t bytes_sent = write(_pipeIn[1], _inBuffer.c_str(), _inBuffer.size());
+
+    if (bytes_sent > 0) {
+        // 移除已经发送的部分
+        _inBuffer.erase(0, bytes_sent);
+        _bytesWritten += bytes_sent;
+        
+        // 如果发完了，记得关掉管道，告诉脚本“没数据了”
+        if (_inBuffer.empty()) {
+            close(_pipeIn[1]);
+            _pipeIn[1] = -1;
+        }
+    } else if (bytes_sent == -1) {
+        // 如果 errno 是 EAGAIN，说明管道满了，等下次 POLLOUT 再写
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            _isExited = true; // 发生严重错误
+        }
+    }
+}
+
+void CGIHandler::receiveFromScript() {
+    char buffer[8192]; // 8K 缓冲区
+    ssize_t bytes_read = read(_pipeOut[0], buffer, sizeof(buffer));
+
+    if (bytes_read > 0) {
+        // 把读到的东西存进 _outBuffer
+        _outBuffer.append(buffer, bytes_read);
+    } else if (bytes_read == 0) {
+        // 脚本关闭了输出端，说明执行完毕并输出了所有内容
+        _isExited = true; 
+        if (_pipeOut[0] != -1) {
+            close(_pipeOut[0]);
+            _pipeOut[0] = -1;
+        }
+    } else {
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            _isExited = true;
+        }
+    }
+}
+
+int CGIHandler::getPid() const
+{
+    return _pid;
+}
+
+int CGIHandler::getReadFd() const
+{
+    return _pipeOut[0];
+}
+
+int CGIHandler::getWriteFd() const
+{
+    return _pipeIn[1];
+}
+
+bool CGIHandler::isTimeout() const
+{
+    if (_pid <= 0 || _isExited) return false;
+
+    time_t currentTime = std::time(NULL);
+    // 假设超时时间是 30 秒，你可以定义在配置文件或宏里
+    if (currentTime - _startTime > 30) {
+        return true;
+    }
+    return false;
+}
+
+bool CGIHandler::isFinished()
+{
+    if (_isExited) return true; // 已经处理过了，直接返回
+    if (_pid <= 0) return false;
+
+    int status;
+    // WNOHANG 表示：如果子进程没结束，立即返回 0，不阻塞
+    pid_t result = waitpid(_pid, &status, WNOHANG);
+
+    if (result == _pid) {
+        // 子进程已退出
+        _isExited = true;
+        return true;
+    } else if (result == 0) {
+        // 子进程还在跑
+        return false;
+    } else {
+        // 发生错误（例如进程被意外杀掉）
+        _isExited = true;
+        return true;
+    }
 }

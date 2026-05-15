@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <map>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #include "Router.hpp"
 #include "HttpRequest.hpp"
@@ -32,6 +33,8 @@ private:
     size_t      _bytesWritten;
 
     void prepare_envmap(const HttpRequest& req, const RouterCtx& ctx);
+    CGIHandler(const CGIHandler& other);
+    CGIHandler& operator=(const CGIHandler& other);
 
 public:
     CGIHandler();
@@ -45,10 +48,11 @@ public:
     void sendToScript();
     void receiveFromScript();
 
+    int getPid() const;
     int getReadFd() const;
     int getWriteFd() const;
     bool isTimeout() const;
-    bool isFinished() const;
+    bool isFinished();
 
     std::string getRawResponse();
 
