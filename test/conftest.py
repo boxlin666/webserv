@@ -24,11 +24,11 @@ def setup_test_env(project_root):
     # 0o644: 普通读取 (rw-r--r--)
     # 0o755: 可执行 (rwxr-xr-x) -> 针对 .bla 或 CGI 相关文件
     test_files = {
-        "youpi.bad_extension": 0o777,
-        "youpi.bla": 0o777,  # 假设这是 CGI 脚本
-        "nop/youpi.bad_extension": 0o777,
-        "nop/other.pouic": 0o777,
-        "Yeah/not_happy.bad_extension": 0o777
+        "youpi.bad_extension": 0o644,
+        "youpi.bla": 0o755,  # 假设这是 CGI 脚本
+        "nop/youpi.bad_extension": 0o644,
+        "nop/other.pouic": 0o644,
+        "Yeah/not_happy.bad_extension": 0o644
     }
 
     for file_rel_path, mode in test_files.items():
@@ -49,7 +49,7 @@ def manage_server(request):
     # --- 启动前准备 ---
     # 确保 webserv 程序本身有执行权限 (GitHub Actions 必备)
     if os.path.exists(server_path):
-        os.chmod(server_path, 0o777)
+        os.chmod(server_path, 0o755)
     
     setup_test_env(PROJECT_ROOT)
 
