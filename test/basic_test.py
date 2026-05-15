@@ -6,7 +6,9 @@ import time
 # 配置你的服务器地址
 BASE_URL = "http://localhost:8080"
 
-def test_get_index():
+#========================= Configuration file default.conf=========================================
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_get_index(manage_server):
     """
     测试基本的 GET 请求是否能正常获取主页
     """ 
@@ -18,14 +20,16 @@ def test_get_index():
     except requests.exceptons.ConnectionError:
         pytest.fail("无法连接到服务器，请确保 webserv 已启动。") 
 
-def test_404_not_found():
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_404_not_found(manage_server):
     """
     测试请求不存在的文件时，服务器是否返回 404
     """
     response = requests.get(f"{BASE_URL}/non_existent_file.html")
     assert response.status_code == 404
- 
-def test_method_not_allowed():
+
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_method_not_allowed(manage_server):
     """
     测试对静态文件使用不允许的 POST 方法（假设你的配置限制了方法）
     """
@@ -34,11 +38,13 @@ def test_method_not_allowed():
     # 根据你的配置，可能是 405 Method Not Allowed
     assert response.status_code == 405
 
-"""
-def test_fragmented_header():
+
+#========================= Configuration file 42.conf=========================================
+@pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
+def test_fragmented_header(manage_server):
     
-    核心测试：模拟 Header 在传输过程中被切断 (Accept-Encodin + g: gzip)
-    测试服务器的 in_buff 拼接能力。
+    #核心测试：模拟 Header 在传输过程中被切断 (Accept-Encodin + g: gzip)
+    #测试服务器的 in_buff 拼接能力。
     
     host = "127.0.0.1"
     port = 8080
@@ -50,7 +56,7 @@ def test_fragmented_header():
 
     # 2. 发送第一部分：故意在字段名中间切断
     part1 = (
-        "GET /index.html HTTP/1.1\r\n"
+        "GET / HTTP/1.1\r\n"
         "Host: 127.0.0.1:8080\r\n"
         "User-Agent: Go-http-client/1.1\r\n"
         "Accept-Encodin"  # 故意截断
@@ -75,9 +81,10 @@ def test_fragmented_header():
     finally:
         s.close()
 
-def test_split_crlf_crlf():
+@pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
+def test_split_crlf_crlf(manage_server):
     
-    进阶测试：模拟 Header 的结束标志 \r\n\r\n 被切断的情况
+    #进阶测试：模拟 Header 的结束标志 \r\n\r\n 被切断的情况
     
     host = "127.0.0.1"
     port = 8080
@@ -85,7 +92,7 @@ def test_split_crlf_crlf():
     s.connect((host, port))
 
     # 发送全部 Header 及其最后一个 \r
-    s.send(b"GET /index.html HTTP/1.1\r\nHost: localhost\r\n\r")
+    s.send(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r")
     time.sleep(0.2)
     # 发送剩下的 \n\r\n
     s.send(b"\n\r\n")
@@ -93,4 +100,4 @@ def test_split_crlf_crlf():
     response = s.recv(4096).decode()
     assert "HTTP/1.1 200 OK" in response
     s.close()
-    """
+    

@@ -34,10 +34,10 @@ class RequestHandler
 
         int extract_parent_path(void);
 
-        int check_resource(const HttpRequest& req);
+        int check_resource(const HttpRequest& req, const RouterCtx &route_ctx);
         int validate_post_target(void)const;
-        int process_directory(const HttpRequest& req);
-        int process_file(const struct stat& st);
+        int process_directory(const HttpRequest& req, const RouterCtx &router_ctx);
+        int process_file(const struct stat& st, const std::string& tmp_full_path);
         RequestHandler(const RequestHandler& other);
         RequestHandler& operator=(const RequestHandler& other);
 

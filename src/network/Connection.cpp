@@ -70,8 +70,9 @@ void Connection::handle_read_event(void)
     std::string tmp_buff = buffer; //tempo TODO update!!
     this->append_in_buff(buffer, bytes_read);
     this->set_state(READING);
-    this->_status_code = this->_request.parse(tmp_buff);
- 
+    //this->_status_code = this->_request.parse(tmp_buff);
+    this->_status_code = this->_request.parse(this->_in_buff);
+
     if (this->_status_code != SUCCESS)
     {
         this->prepare_response();
