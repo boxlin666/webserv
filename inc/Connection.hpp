@@ -28,6 +28,7 @@ class Connection
         CGIHandler _cgi_handler;
 
         int _status_code;
+        bool _cgi_active;
 
         //TO DO LATER (状态机)
         enum State 
@@ -69,6 +70,9 @@ class Connection
 	    State get_state(void)const;
         short get_poll_events()const;
 
+        bool has_cgi();
+        int get_cgi_read_fd() const;
+        void handle_cgi_read();
 };
 
 #endif

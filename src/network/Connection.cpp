@@ -203,3 +203,45 @@ short Connection::get_poll_events()const
         return (POLLOUT);
     return (0);
 }
+
+bool Connection::has_cgi()
+{
+    return (this->_cgi_handler.getPid() != -1 && !this->_cgi_handler.isFinished());
+}
+
+int Connection::get_cgi_read_fd() const
+{
+    return this->_cgi_handler.getReadFd();
+}
+
+void Connection::handle_cgi_read()
+{
+    char buffer[4096];
+    int  fd = _cgi_handler.getReadFd();
+    
+    // 从管道读取数据
+    ssize_t bytes_read = read(fd, buffer, sizeof(buffer));
+
+    if (bytes_read > 0)
+    {
+        _out_buff.append(buffer, bytes_read);
+    }
+    else if (bytes_read == 0)
+    {
+        _cgi_active = false;
+        
+        _state = WRITING;
+        
+        // TODO: 清理管道映射
+        // _cgi.closePipes(); 
+    }
+    else
+    {
+        // 如果是 EAGAIN 表示现在没数据了（非阻塞常见情况），直接返回等下次 poll
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
+        {
+            // TODO: senderror
+            _status_code = 500;
+        }
+    }
+}
