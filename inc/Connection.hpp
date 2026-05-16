@@ -10,49 +10,26 @@
 #include "RouterCtx.hpp"
 #include "RequestHandler.hpp"
 #include "CGIHandler.hpp"
+#include "HttpConstants.hpp"
+#include "Cluster.hpp"
+
+class Cluster;
 
 class Connection
 {
-    private:
-        int _client_fd;
-        std::string _in_buff;
-        std::string _out_buff;
-        PassiveSocket *_matched_socket;
-        ServerConfig *_matched_server;
-        const std::vector<ServerConfig*> &_servers;
+    public:
+        Connection(int client_fd, PassiveSocket *matched_socket, const std::vector<ServerConfig*> &servers, Cluster *cluster);
+        ~Connection(void);
 
-        HttpRequest _request;
-        RouterCtx  _route_ctx;
-        RequestHandler _req_handler;
-        HttpResponse _response;
-        CGIHandler _cgi_handler;
-
-        int _status_code;
-        bool _cgi_active;
-
-        //TO DO LATER (状态机)
         enum State 
         {
             WAITING,
-            READING, 
-            WRITING, 
+            READING_REQ,
+            CGI_WRITE,
+            CGI_READ, 
+            WRITING_RESP, 
             CLOSED
         };
-        State _state;
-
-        bool check_parse_finished();
-        bool set_matched_server();
-        void process_router_match();
-        void process_request_handler();
-        void prepare_response();
-
-        Connection(const Connection& other);
-        Connection& operator=(const Connection& other);
-
-    public:
-        Connection(int client_fd, PassiveSocket *matched_socket, const std::vector<ServerConfig*> &servers);
-        ~Connection(void);
-
         int getFd(void)const;
         const std::string &get_in_buff(void)const;
         const std::string &get_out_buff(void)const;
@@ -73,6 +50,41 @@ class Connection
         bool has_cgi();
         int get_cgi_read_fd() const;
         void handle_cgi_read();
+        void register_cgi_pipe_to_poll(int fd, short events);
+    
+    private:
+        int _client_fd;
+        std::string _in_buff;
+        std::string _out_buff;
+        PassiveSocket *_matched_socket;
+        ServerConfig *_matched_server;
+        const std::vector<ServerConfig*> &_servers;
+
+        Cluster *_cluster;
+        HttpRequest _request;
+        RouterCtx  _route_ctx;
+        RequestHandler _req_handler;
+        HttpResponse _response;
+        CGIHandler _cgi_handler;
+
+        int _status_code;
+        bool _cgi_active;
+
+        State _state;
+
+        bool check_parse_finished();
+        bool set_matched_server();
+        void process_router_match();
+        void process_request_handler();
+        void prepare_response();
+        void handle_request_dispatch();
+        void execute_cgi_pipeline();
+
+        void _finalize_cgi_success(int cgi_fd);
+        void _handle_cgi_read_error(int cgi_fd);
+        Connection(const Connection& other);
+        Connection& operator=(const Connection& other);
+
 };
 
 #endif

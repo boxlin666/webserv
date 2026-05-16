@@ -90,6 +90,8 @@ class HttpResponse
 
         //init static data for any connection http response
         static void init_response_map();
+
+        void build_from_cgi(const std::string& cgi_output);
 };
 
 #endif

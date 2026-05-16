@@ -9,12 +9,15 @@
 #include "Connection.hpp"
 #include "ServerConfig.hpp"
 
+class Connection;
+
 class Cluster
 {
     private:
         std::map<int, Connection *> _connection_map;
         std::map<int, PassiveSocket *> _socket_map; // (listen_fd , PassiveSocket ptr)
         std::map<int, std::vector<ServerConfig*> > _servers_map; //(Port Number, Server vector)
+        std::map<int, Connection*> _cgi_fd_map;
 
         std::vector<struct pollfd> _poll_fds;
 
@@ -29,6 +32,10 @@ class Cluster
         bool    handle_client_data(size_t poll_idx);
         bool    handle_client_read_event(size_t poll_idx);
         bool    handle_client_write_event(size_t poll_idx);
+
+        void    _process_poll_errors(size_t index);
+        void    _dispatch_read_event(size_t index);
+        void    _dispatch_write_event(size_t index);
 
         static bool    is_invalid_fd(const struct pollfd& pfd);
         void    cleanup_inactive_fds();
@@ -48,12 +55,14 @@ class Cluster
         void    run(void);
 
         // void send 分片发送
-
-
         //print test check!
         void    print_socket_map()const;
         void    print_pfds()const;
         void    print_servers_map()const;
+
+        void register_cgi_fd(int fd, short events, Connection* conn);
+        void update_client_events(int client_fd, short new_events);
+        void remove_fd_from_poll(int fd);
 };
 
 #endif
