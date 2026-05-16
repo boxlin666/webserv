@@ -85,7 +85,7 @@ def test_fragmented_header(manage_server):
 def test_split_crlf_crlf(manage_server):
     
     #进阶测试：模拟 Header 的结束标志 \r\n\r\n 被切断的情况
-    
+
     host = "127.0.0.1"
     port = 8080
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -100,4 +100,59 @@ def test_split_crlf_crlf(manage_server):
     response = s.recv(4096).decode()
     assert "HTTP/1.1 200 OK" in response
     s.close()
+
+@pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
+@pytest.mark.skip(
+    reason="TODO: 暂不启用。服务器对不完整 Chunked 的超时打断存在僵死 Bug，待 C++ 状态机重构后开启"
+)
+def test_fragmented_chunked_with_timeout(manage_server):
+    """
+    防卡死+超时打断测试：
+    在碎碎片发送中故意停顿，并利用 s.settimeout() 确保 pytest 绝对不卡死。
+    """
+    host = "127.0.0.1"
+    port = 8080
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
+    # 【防卡死第一道防线】设置客户端自身的网络超时为 2 秒
+    # 这样无论是 connect 还是后续的 recv，超过 2 秒没反应就会弹错，绝不卡死
+    s.settimeout(2.0)
+    s.connect((host, port))
+
+    # 1. 开始发送细碎的 Header
+    s.send(b"POST / HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nTransfer-Encoding: chunked\r\nContent-")
+    time.sleep(0.1)
+    s.send(b"Type: test/file\r\n\r\n") # 完成 Header
+    time.sleep(0.1)
+
+    # 2. 发送 Last Chunk 的大小 0
+    s.send(b"0")
+    
+    # ==================== 【超时测试注入点】 ====================
+    # 故意在这里不发最后的 \r\n\r\n，并且死等 3.0 秒。
+    # 如果服务器有垃圾回收机制，这 3 秒内它应该已经把我们踢了。
+    time.sleep(3.0)
+    # ==========================================================
+
+    try:
+        # 3. 试探性地补发最后的换行符（如果服务器已经断开，这里通常会报 BrokenPipe）
+        s.send(b"\r\n\r\n")
+        
+        # 4. 接收响应
+        # 如果服务器没有超时机制，它此时收到 \r\n\r\n 会立刻吐出 200 OK
+        response = s.recv(4096).decode()
+        
+        # 如果能走到这，说明服务器等了 3 秒都没触发超时，依然坚挺地给了 200 OK，说明服务器超时机制有 Bug！
+        assert "408" in response or "400" in response, f"【Bug】服务器太温柔了，等了3秒都没打断我，还回了：{response}"
+
+    except (socket.timeout):
+        # 如果触发了 socket.timeout，说明发送 \r\n\r\n 成功了，但服务器超时后装死不回消息
+        # 或者是我们客户端自身的 2.0 秒防卡死保护生效了。
+        pytest.fail("服务器在超时后处于僵死状态（既不关闭连接，也不回408），导致客户端recv超时")
+
+    except (ConnectionResetError, BrokenPipeError):
+        # 完美的防御反应！说明服务器在接收到 \r\n\r\n 之前，就已经在底层 close(fd) 了。
+        # 导致我们 send 或 recv 直接被系统拒绝。测试通过！
+        pass
+    finally:
+        s.close()
