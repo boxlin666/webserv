@@ -1,5 +1,8 @@
-#include "HttpRequest.hpp"
+#include <cstdlib>
 #include <iostream>
+#include <climits>
+
+#include "HttpRequest.hpp"
 #include "HttpConstants.hpp"
 
 #define RED     "\033[31m"
@@ -14,6 +17,7 @@ void HttpRequest::reset() {
     _header_map.clear();
 
     _state = PARSE_REQUEST_LINE;
+    _chunk_state = CHUNK_NONE;
     _content_length = 0;
     _chunk_size = 0;
     _is_keep_alive = true; //in HTTP/1.1, by default, keep alive is true!
@@ -85,7 +89,11 @@ int HttpRequest::validate_and_prepare_payload()
     if (has_cl && this->_content_length > 0)
         _state = PARSE_BODY;
     else if (has_te && this->_header_map["Transfer-Encoding"] == "chunked") 
+    {
         _state = PARSE_CHUNKED;
+        _chunk_state = CHUNK_START;
+        this->_is_chunked = true;
+    }
     else
         _state = PARSE_FINISHED;
     return (SUCCESS);
@@ -147,6 +155,88 @@ bool HttpRequest::parse_body(std::string& input_data) {
     return true;
 }
 
+bool HttpRequest::parse_chunk_size(std::string &chunk_size_str)
+{
+    if (chunk_size_str.empty())
+        return (false);
+    unsigned long result = 0;
+    char *endptr;
+
+    result = strtoul(chunk_size_str.c_str(), &endptr, 16);
+    if (*endptr != '\0')
+        return (false);
+    if (result == ULONG_MAX)
+        return (false);
+
+    this->_chunk_size = static_cast<std::size_t>(result);
+    return (true);
+}
+
+bool HttpRequest::parse_chunked_body(std::string& input_data) 
+{
+    std::size_t pos = 0;
+    std::string chunk_size_str("");
+
+    if (_chunk_state == CHUNK_NONE)
+        return false;
+    while (input_data.size() > 0)
+    {
+        switch (_chunk_state)
+        {
+            case CHUNK_START:
+            {
+                this->_chunk_state = CHUNK_SIZE;
+                this->_chunk_size = 0;
+                break ;
+            }
+
+            case CHUNK_SIZE:
+            {
+                pos = input_data.find("\r\n");
+                if (pos == std::string::npos) return (true); //假设继续等待chunked size CTRL 信息
+                chunk_size_str = input_data.substr(0, pos);
+                if (parse_chunk_size(chunk_size_str) == false) //非法传入的chunk size 或者是unsigned long 整数溢出
+                    return (false);
+                input_data.erase(0, pos + 2);
+                if (this->_chunk_size == 0)
+                    this->_chunk_state = CHUNK_FINISHED;
+                else
+                    this->_chunk_state = CHUNK_DATA;
+                break ;
+            }
+            
+            case CHUNK_DATA:
+            {
+                pos = input_data.find("\r\n", this->_chunk_size);
+                if (pos == std::string::npos) return (true); //假设本次收到的信息里没有\r\n，我们等待下次的信息
+                if (pos != this->_chunk_size) return (false);//发送字符个数和chunk size 不符合
+                _body.append(input_data.substr(0, this->_chunk_size));
+                input_data.erase(0, this->_chunk_size + 2); //删除被传入的字符和"\r\n"
+                this->_chunk_size = 0;
+                this->_chunk_state = CHUNK_SIZE;
+                break ;
+            }
+            
+            case CHUNK_FINISHED:
+            {
+                pos = input_data.find("\r\n", this->_chunk_size);
+                if (pos == 0)
+                {
+                    input_data.erase(0, 2);
+                    this->_state = PARSE_FINISHED;
+                }
+                break ;
+            }
+
+            case CHUNK_NONE:
+            {
+                return (false);
+            }
+        }
+    }
+    return (true);
+}
+
 int HttpRequest::parse(std::string& input_data)
 {
     int ret = SUCCESS;
@@ -176,10 +266,13 @@ int HttpRequest::parse(std::string& input_data)
             parse_body(input_data);
             break;  // 即使没读完也要跳出循环，等更多数据进入 input_data
         }
-
+         
         // TODO: PARSE_CHUNKED 逻辑
+        if (_state == PARSE_CHUNKED) {
+            parse_chunked_body(input_data);
+            break;
+        }
     }
-
     return (ret);
 }
 
