@@ -30,6 +30,9 @@ class ServerConfig {
     const std::vector<std::string> &get_methods()const
     { return this->_methods; }
 
+    const std::vector<std::string> &get_index()const
+    { return this->_index; }
+
     const std::vector<location>& get_locations(void)const;
 
     typedef void (ServerConfig::*LocationHandler)(std::vector<Token>&, size_t&, location*);

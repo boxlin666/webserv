@@ -13,6 +13,7 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
 {
     struct RouterCtx ctx;
 
+    ctx.server = &server;
     ctx.loc = find_location(req, server);
     ctx.full_path = build_full_path(req, server, ctx.loc);
     if (!ctx.loc)
@@ -96,7 +97,9 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
         }
     }
     if (method_allow == false)
+    {
         return (METHOD_NOT_ALLOWED);
+    }
     return (SUCCESS);
 }
 

@@ -50,7 +50,10 @@ void Connection::handle_read_event(void)
     std::memset(buffer, 0, sizeof(buffer));
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read <= 0) {
+    std::cout << "BUFFER INFO :\n"  << buffer << "\n" << std::endl;
+    if (bytes_read <= 0) 
+    {
+        // bytes_read == 0: 客户端关闭; < 0: 读取错误
         this->set_state(CLOSED);
         return;
     }
