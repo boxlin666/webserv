@@ -16,4 +16,5 @@
 #define NO_METHOD 501
 #define NO_HTTP_VERSION 505
 
+#define TRIGGER_CGI 1001
 #endif 

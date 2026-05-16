@@ -20,12 +20,19 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
     if (access(_binPath.c_str(), X_OK) != 0) { return false; }
 
     // 2. 填充环境变量
+    char* raw_path = std::getenv("PATH");
+
+    if (raw_path != NULL) {
+        _envMap["PATH"] = std::string(raw_path);
+    } else {
+        // 防御性编程：万一系统真的没设 PATH，给个安全的默认值
+        _envMap["PATH"] = "/usr/bin:/bin:/usr/local/bin";
+    }
     _envMap["REQUEST_METHOD"]    = req.get_method();
     _envMap["QUERY_STRING"]      = req.get_querystring();
     _envMap["SCRIPT_FILENAME"]   = _scriptPath;  // 脚本绝对路径
     _envMap["GATEWAY_INTERFACE"] = "CGI/1.1";
     _envMap["SERVER_PROTOCOL"]   = "HTTP/1.1";
-
     // 数字转字符串
     std::stringstream ss;
     ss << req.get_content_length();
@@ -43,6 +50,11 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
 
 bool CGIHandler::execute()
 {
+    if (this->_binPath.empty() || this->_scriptPath.empty()) {
+        std::cerr << "[CGI Error] Cannot execute: _binPath or _scriptPath is EMPTY!" << std::endl;
+        return false;  // 或者抛出异常，或者让状态机切到 500 错误
+    }
+
     if (pipe(_pipeIn) < 0 || pipe(_pipeOut) < 0) return false;
     _pid = fork();
     if (_pid < 0) return false;
@@ -58,18 +70,33 @@ bool CGIHandler::execute()
         close(_pipeOut[1]);
 
         char* args[3];
-        args[0] = (char*)_binPath.c_str();
-        args[1] = (char*)_scriptPath.c_str();
-        args[2] = NULL;
 
-        execve(_binPath.c_str(), args, _envp);
-        std::cerr << "Execve failed!" << std::endl;
+        // 🌟 使用 c_str() 配合 strdup 动态拷贝类成员路径，彻底消除 C++ 的类型转换警告
+        args[0] = strdup(this->_binPath.c_str());     // 解释器路径，例如 "/usr/bin/python3"
+        args[1] = strdup(this->_scriptPath.c_str());  // 脚本路径，例如 "./www/cgi-scripts/test.py"
+        args[2] = NULL;                               // 严格以 NULL 结尾
+
+        // 3. 拦截防御：万一传入的路径为空，或者 strdup 失败
+        if (args[0] == NULL || args[1] == NULL) {
+            std::cerr << "[CGI Child Error] Dynamic strdup failed." << std::endl;
+            free(args[0]);
+            free(args[1]);
+            exit(1);
+        }
+        // 第一个参数用绝对路径，第三个参数用真实的系统环境
+        execve(args[0], args, _envp);
+        std::cerr << "========================================" << std::endl;
+        std::cerr << "[CGI ERROR] Execve failed!" << std::endl;
+        std::cerr << "错误原因 (Reason): " << strerror(errno) << std::endl;
+        std::cerr << "错误代码 (Errno): " << errno << std::endl;
+        std::cerr << "========================================" << std::endl;
         exit(1);
-    }
-    else { // 父进程
+    } else {  // 父进程
         // 立即关闭父进程不需要的端
-        close(_pipeIn[0]);  _pipeIn[0] = -1;
-        close(_pipeOut[1]); _pipeOut[1] = -1;
+        close(_pipeIn[0]);
+        _pipeIn[0] = -1;
+        close(_pipeOut[1]);
+        _pipeOut[1] = -1;
 
         // 设置为非阻塞
         fcntl(_pipeIn[1], F_SETFL, O_NONBLOCK);
@@ -104,11 +131,10 @@ void CGIHandler::_clearEnvp()
 }
 
 std::string CGIHandler::getRawResponse()
-{
-    return _outBuffer;
-}
+{ return _outBuffer; }
 
-void CGIHandler::sendToScript() {
+void CGIHandler::sendToScript()
+{
     if (_inBuffer.empty()) {
         // 数据写完了，主动关闭写端，脚本才会收到 EOF 从而停止读取
         if (_pipeIn[1] != -1) {
@@ -125,7 +151,7 @@ void CGIHandler::sendToScript() {
         // 移除已经发送的部分
         _inBuffer.erase(0, bytes_sent);
         _bytesWritten += bytes_sent;
-        
+
         // 如果发完了，记得关掉管道，告诉脚本“没数据了”
         if (_inBuffer.empty()) {
             close(_pipeIn[1]);
@@ -134,13 +160,14 @@ void CGIHandler::sendToScript() {
     } else if (bytes_sent == -1) {
         // 如果 errno 是 EAGAIN，说明管道满了，等下次 POLLOUT 再写
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            _isExited = true; // 发生严重错误
+            _isExited = true;  // 发生严重错误
         }
     }
 }
 
-void CGIHandler::receiveFromScript() {
-    char buffer[8192]; // 8K 缓冲区
+void CGIHandler::receiveFromScript()
+{
+    char    buffer[8192];  // 8K 缓冲区
     ssize_t bytes_read = read(_pipeOut[0], buffer, sizeof(buffer));
 
     if (bytes_read > 0) {
@@ -148,32 +175,24 @@ void CGIHandler::receiveFromScript() {
         _outBuffer.append(buffer, bytes_read);
     } else if (bytes_read == 0) {
         // 脚本关闭了输出端，说明执行完毕并输出了所有内容
-        _isExited = true; 
+        _isExited = true;
         if (_pipeOut[0] != -1) {
             close(_pipeOut[0]);
             _pipeOut[0] = -1;
         }
     } else {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            _isExited = true;
-        }
+        if (errno != EAGAIN && errno != EWOULDBLOCK) { _isExited = true; }
     }
 }
 
 int CGIHandler::getPid() const
-{
-    return _pid;
-}
+{ return _pid; }
 
 int CGIHandler::getReadFd() const
-{
-    return _pipeOut[0];
-}
+{ return _pipeOut[0]; }
 
 int CGIHandler::getWriteFd() const
-{
-    return _pipeIn[1];
-}
+{ return _pipeIn[1]; }
 
 bool CGIHandler::isTimeout() const
 {
@@ -181,15 +200,13 @@ bool CGIHandler::isTimeout() const
 
     time_t currentTime = std::time(NULL);
     // 假设超时时间是 30 秒，你可以定义在配置文件或宏里
-    if (currentTime - _startTime > 30) {
-        return true;
-    }
+    if (currentTime - _startTime > 30) { return true; }
     return false;
 }
 
 bool CGIHandler::isFinished()
 {
-    if (_isExited) return true; // 已经处理过了，直接返回
+    if (_isExited) return true;  // 已经处理过了，直接返回
     if (_pid <= 0) return false;
 
     int status;
@@ -207,5 +224,30 @@ bool CGIHandler::isFinished()
         // 发生错误（例如进程被意外杀掉）
         _isExited = true;
         return true;
+    }
+}
+
+void CGIHandler::close_pipes()
+{
+    // 🌟 原则：关闭前必须校验 FD 是否合法（>= 0），关闭后立刻重置为 -1
+
+    // 1. 关闭输入管道（父写子读）
+    if (this->_pipeIn[0] != -1) {
+        close(this->_pipeIn[0]);
+        this->_pipeIn[0] = -1;
+    }
+    if (this->_pipeIn[1] != -1) {
+        close(this->_pipeIn[1]);
+        this->_pipeIn[1] = -1;
+    }
+
+    // 2. 关闭输出管道（子写父读）
+    if (this->_pipeOut[0] != -1) {
+        close(this->_pipeOut[0]);
+        this->_pipeOut[0] = -1;
+    }
+    if (this->_pipeOut[1] != -1) {
+        close(this->_pipeOut[1]);
+        this->_pipeOut[1] = -1;
     }
 }

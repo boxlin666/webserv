@@ -55,7 +55,7 @@ public:
     bool isFinished();
 
     std::string getRawResponse();
-
+    void close_pipes();
 };
 
 #endif

@@ -3,13 +3,14 @@
 #include "Connection.hpp"
 #include "Router.hpp"
 
-Connection::Connection(int client_fd, PassiveSocket *matched_socket, const std::vector<ServerConfig*> &servers)
+Connection::Connection(int client_fd, PassiveSocket *matched_socket, const std::vector<ServerConfig*> &servers, Cluster *cluster)
 :_client_fd(client_fd),
 _in_buff(""),
 _out_buff(""),
 _matched_socket(matched_socket),
 _matched_server(NULL),
 _servers(servers),
+_cluster(cluster),
 _request(),
 _route_ctx(),
 _req_handler(),
@@ -66,31 +67,69 @@ void Connection::handle_read_event(void)
         return ;
     } 
 
-    std::string tmp_buff = buffer; //tempo TODO update!!
+    // 2. 协议解析层
     this->append_in_buff(buffer, bytes_read);
-    this->set_state(READING);
-    this->_status_code = this->_request.parse(tmp_buff);
+    this->set_state(READING_REQ);
+
+    std::string current_chunk(buffer, bytes_read); 
+    this->_status_code = this->_request.parse(current_chunk);
  
-    if (this->_status_code != SUCCESS)
-    {
+    if (this->_status_code != SUCCESS) {
         this->prepare_response();
-        this->set_state(WRITING);
-        return ;
+        this->set_state(WRITING_RESP);
+        return;
     }
   
-
-    // 3. 检查解析是否完成
+    // 3. 业务分发层：解析完成后，将复杂的路由和 CGI 决策抽离出去
     if (this->check_parse_finished()) {
-        std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
-        //开启路由匹配
-        this->set_matched_server();
-        this->process_router_match();
-        this->process_request_handler();
+        this->handle_request_dispatch();
+    }
+}
 
-        //     // 构建响应内容（根据 GET/POST 路径去找文件或跑 CGI）
-       
+void Connection::handle_request_dispatch()
+{
+    std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
+    
+    this->set_matched_server();
+    this->process_router_match();
+    this->process_request_handler();
+
+    // 判断是否命中 CGI 分流
+    if (this->_status_code == TRIGGER_CGI || this->_route_ctx.is_cgi_potential)
+    {
+        this->execute_cgi_pipeline();
+    }
+    else
+    {
         this->prepare_response();
-        this->set_state(WRITING);
+        this->set_state(WRITING_RESP);
+    }
+}
+
+void Connection::execute_cgi_pipeline()
+{
+    std::cout << "[Server] CGI detected. Initiating Child Process..." << std::endl;
+    
+    if (this->_cgi_handler.init(this->_request, this->_route_ctx) == false || this->_cgi_handler.execute() == false) {
+        this->_status_code = SERVER_ERROR; // 500
+        this->prepare_response();
+        this->_state = WRITING_RESP;
+        return;
+    }
+
+    this->_cgi_active = true;
+
+    if (this->_request.get_method() == "POST" && this->_request.get_body().length() > 0) 
+    {
+        this->_state = CGI_WRITE;
+        // 🌟 这一步非常重要！通知大管家开始监听向 Python 喂数据的写管道
+        this->register_cgi_pipe_to_poll(this->_cgi_handler.getWriteFd(), POLLOUT);
+    } 
+    else 
+    {
+        this->_state = CGI_READ;
+        // 🌟 通知大管家开始监听准备读取 Python 输出的读管道
+        this->register_cgi_pipe_to_poll(this->_cgi_handler.getReadFd(), POLLIN);
     }
 }
 
@@ -98,6 +137,9 @@ void Connection::handle_write_event(void)
 {
     ssize_t bytes_send; 
     
+    // 🌟 打印 1：看看进这个函数时，缓冲区里有多少数据要发
+    std::cout << "[Debug] handle_write_event called. Buff size to send: " << this->_out_buff.size() << std::endl;
+
     bytes_send = send(this->_client_fd, this->_out_buff.c_str(), this->_out_buff.size(), 0);
 
     if (bytes_send < 0)
@@ -106,17 +148,24 @@ void Connection::handle_write_event(void)
         this->_state = CLOSED;
         return ;
     }
-    else
+    else {
+        // 🌟 打印 2：看看实际发了多少字节
+        std::cout << "[Debug] send() actually sent: " << bytes_send << " bytes." << std::endl;
         this->_out_buff.erase(0, bytes_send);
+    }
 
     if (this->_out_buff.empty())
     {
-        if (this->_request.get_is_keep_alive() == false)
+        // 🌟 增加判定：如果响应报文里包含了 "Connection: close"，或者请求本身就不支持长连接
+        if (this->_request.get_is_keep_alive() == false || 
+            this->_response.get_full_response().find("Connection: close") != std::string::npos)
         {
+            std::cout << "[Debug] Short connection detected. Switching to CLOSED." << std::endl;
             this->_state = CLOSED;
         }
-        else if (this->_request.get_is_keep_alive() == true)
+        else
         {
+            std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
             this->_state = WAITING;
         }
     }
@@ -174,7 +223,26 @@ void Connection::process_request_handler()
 {
     if (this->_status_code != SUCCESS)
         return ;
+
     this->_req_handler.process_request_handler(this->_request, this->_route_ctx, _status_code);
+    
+    if (_status_code != SUCCESS) {
+        this->prepare_response();
+        this->_state = WRITING_RESP;
+        return;
+    }
+
+    if (_route_ctx.is_cgi_potential) 
+    {
+        // 职责分离：既然是 CGI，立刻移交给专门的 CGI 流水线去处理，这里光荣退场！
+        this->execute_cgi_pipeline();
+    }
+    else 
+    {
+        // 职责分离：普通静态文件（GET 个图片或 HTML），走普通的响应组装
+        this->prepare_response();
+        this->_state = WRITING_RESP;
+    }
 }
 
 void Connection::prepare_response()
@@ -194,13 +262,18 @@ Connection::State Connection::get_state(void)const
 	return (this->_state);
 }
 
-short Connection::get_poll_events()const
+short Connection::get_poll_events() const
 {
-    if (this->get_state() == READING || this->get_state() == WAITING) 
-        return (POLLIN);
-    else if (this->get_state() == WRITING)
-        return (POLLOUT);
-    return (0);
+    // 如果连接处于等待新请求、或者正在读取请求的状态，我们需要监听读（POLLIN）
+    if (this->_state == WAITING || this->_state == READING_REQ)
+        return POLLIN;
+        
+    // 如果连接处于正在向客户端写响应、或者正在往 CGI 喂数据的状态，我们需要监听写（POLLOUT）
+    if (this->_state == WRITING_RESP || this->_state == CGI_WRITE)
+        return POLLOUT;
+        
+    // 其他状态（比如 CLOSED 或者正在等待 CGI 读管道），让客户端 Socket 保持不监听任何读写事件
+    return 0; 
 }
 
 bool Connection::has_cgi()
@@ -215,32 +288,74 @@ int Connection::get_cgi_read_fd() const
 
 void Connection::handle_cgi_read()
 {
-    char buffer[4096];
-    int  fd = _cgi_handler.getReadFd();
-    
-    // 从管道读取数据
-    ssize_t bytes_read = read(fd, buffer, sizeof(buffer));
+    char    buf[4096];
+    int     cgi_fd = this->get_cgi_read_fd(); 
 
-    if (bytes_read > 0)
+    ssize_t bytes = read(cgi_fd, buf, sizeof(buf) - 1);
+
+    if (bytes > 0) 
     {
-        _out_buff.append(buffer, bytes_read);
+        buf[bytes] = '\0';
+        this->_out_buff.append(buf, bytes);
     }
-    else if (bytes_read == 0)
+    else if (bytes == 0) 
     {
-        _cgi_active = false;
-        
-        _state = WRITING;
-        
-        // TODO: 清理管道映射
-        // _cgi.closePipes(); 
+        // 🌟 职责分离：一脚踢给成功处理函数
+        this->_finalize_cgi_success(cgi_fd);
     }
-    else
+    else 
     {
-        // 如果是 EAGAIN 表示现在没数据了（非阻塞常见情况），直接返回等下次 poll
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
-        {
-            // TODO: senderror
-            _status_code = 500;
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            // 🌟 职责分离：一脚踢给错误处理函数
+            this->_handle_cgi_read_error(cgi_fd);
         }
     }
+}
+
+void Connection::_finalize_cgi_success(int cgi_fd)
+{
+    std::cout << "[Server] CGI Process finished writing all data." << std::endl;
+
+    // 1. 专业组装 HTTP 报文
+    this->_response.build_from_cgi(this->_out_buff);
+    this->_out_buff = this->_response.get_full_response();
+
+    // 2. 子进程清理（收尸防止僵尸进程）
+    int status;
+    waitpid(this->_cgi_handler.getPid(), &status, WNOHANG);
+
+    // 3. 核心解耦：先安全从 poll 中撤销，再关闭管道，防止 FD 复用串流
+    this->_cluster->remove_fd_from_poll(cgi_fd);
+    this->_cgi_handler.close_pipes(); 
+    this->_cgi_active = false;
+
+    // 4. 驱动状态机进入发送响应阶段
+    this->_state = WRITING_RESP;
+    this->_cluster->update_client_events(this->_client_fd, POLLOUT);
+    
+    std::cout << "[Server] Switched client socket to POLLOUT." << std::endl;
+}
+
+void Connection::_handle_cgi_read_error(int cgi_fd)
+{
+    std::cerr << "[Server Error] CGI read error, errno = " << errno << std::endl;
+    
+    // 1. 组装标准的 500 错误响应体
+    this->_status_code = SERVER_ERROR; 
+    this->prepare_response(); 
+    this->_out_buff = this->_response.get_full_response();
+    
+    // 2. 清理 poll 队列及管道资源
+    this->_cluster->remove_fd_from_poll(cgi_fd);
+    this->_cgi_handler.close_pipes();
+    this->_cgi_active = false;
+
+    // 3. 哪怕出错了，也要把 500 页面传回给客户端
+    this->_state = WRITING_RESP;
+    this->_cluster->update_client_events(this->_client_fd, POLLOUT);
+}
+
+void Connection::register_cgi_pipe_to_poll(int fd, short events)
+{
+    this->_cluster->register_cgi_fd(fd, events, this);
 }

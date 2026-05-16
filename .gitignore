@@ -9,3 +9,4 @@ learning/
 .venv
 .pytest_cache
 test/__pycache__/
+.vscode
