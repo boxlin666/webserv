@@ -151,6 +151,7 @@ int HttpRequest::parse(std::string& input_data)
 {
     int ret = SUCCESS;
 
+    std::cout << "INPUT DATA: \n" << input_data << "\n"<< std::endl;
     while (_state != PARSE_ERROR && _state != PARSE_FINISHED) 
     {
         if (_state == PARSE_REQUEST_LINE || _state == PARSE_HEADER) 
