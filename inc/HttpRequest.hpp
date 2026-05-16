@@ -31,6 +31,14 @@ class HttpRequest {
         PARSE_ERROR
     };
 
+    enum e_chunk_state{
+        CHUNK_NONE,
+        CHUNK_START,
+        CHUNK_SIZE,
+        CHUNK_DATA,
+        CHUNK_FINISHED
+    };
+
     HttpRequest(void);
     ~HttpRequest(void);
 
@@ -102,6 +110,7 @@ class HttpRequest {
 
     // 记录当前状态
     e_request_state _state;
+    e_chunk_state _chunk_state;
     std::size_t              _content_length;
     std::size_t              _chunk_size;    // 用于处理 chunked 传输
     bool                _is_chunked;
@@ -110,7 +119,9 @@ class HttpRequest {
     int parse_request_header(std::string& line);
     int validate_and_prepare_payload();
     bool parse_body(std::string& input_data);
- 
+    bool parse_chunked_body(std::string& input_data);
+
+    bool parse_chunk_size(std::string &chunk_size_str);
 
     HttpRequest(const HttpRequest& other);
     HttpRequest& operator=(const HttpRequest& other);

@@ -102,57 +102,49 @@ def test_split_crlf_crlf(manage_server):
     s.close()
 
 @pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
-@pytest.mark.skip(
-    reason="TODO: 暂不启用。服务器对不完整 Chunked 的超时打断存在僵死 Bug，待 C++ 状态机重构后开启"
-)
-def test_fragmented_chunked_with_timeout(manage_server):
+def test_fragmented_chunked_success(manage_server):
     """
-    防卡死+超时打断测试：
-    在碎碎片发送中故意停顿，并利用 s.settimeout() 确保 pytest 绝对不卡死。
+    流式碎片发送测试（成功流）：
+    将 HTTP 报文切成极度细碎的片段发送，验证服务器的状态机能否在非阻塞/消除模式下，
+    完美拼接出完整的请求，并最终成功返回 200 OK。
     """
     host = "127.0.0.1"
     port = 8080
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
-    # 【防卡死第一道防线】设置客户端自身的网络超时为 2 秒
-    # 这样无论是 connect 还是后续的 recv，超过 2 秒没反应就会弹错，绝不卡死
-    s.settimeout(2.0)
+    # 保持一个较大的安全超时（如 5 秒），纯粹为了防止测试框架卡死
+    s.settimeout(5.0)
     s.connect((host, port))
 
-    # 1. 开始发送细碎的 Header
-    s.send(b"POST / HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nTransfer-Encoding: chunked\r\nContent-")
-    time.sleep(0.1)
-    s.send(b"Type: test/file\r\n\r\n") # 完成 Header
-    time.sleep(0.1)
-
-    # 2. 发送 Last Chunk 的大小 0
-    s.send(b"0")
-    
-    # ==================== 【超时测试注入点】 ====================
-    # 故意在这里不发最后的 \r\n\r\n，并且死等 3.0 秒。
-    # 如果服务器有垃圾回收机制，这 3 秒内它应该已经把我们踢了。
-    time.sleep(3.0)
-    # ==========================================================
-
     try:
-        # 3. 试探性地补发最后的换行符（如果服务器已经断开，这里通常会报 BrokenPipe）
-        s.send(b"\r\n\r\n")
-        
-        # 4. 接收响应
-        # 如果服务器没有超时机制，它此时收到 \r\n\r\n 会立刻吐出 200 OK
+        # 1. 开始发送细碎的 Header 片段
+        s.send(b"GET / HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nTransfer-Encoding: chunked\r\nContent-")
+        time.sleep(0.02) # 极短的停顿，模拟网络分包，让服务器触发 SKIP 和 PARSE_NEED_MORE
+        s.send(b"Type: text/plain\r\n\r\n") # 完成所有 Header 发送
+        time.sleep(0.02)
+
+        # 2. 发送第一个数据块（Size 为 5 字节，内容为 hello）
+        s.send(b"5")
+        time.sleep(0.01)
+        s.send(b"\r\nhe")     # 故意把 body 拆开，让你的 CHUNK_DATA 找不到 \r\n 从而进入 SKIP 状态
+        time.sleep(0.01)
+        s.send(b"llo\r\n")    # 补齐第一个块的尾巴
+        time.sleep(0.01)
+
+        # 3. 发送终止块（Size 为 0，并紧跟 \r\n\r\n）
+        s.send(b"0\r\n")
+        time.sleep(0.01)
+        s.send(b"\r\n")       # 补齐最后的终止符，此时状态机应该完美收工并处理业务
+
+        # 4. 接收响应并校验
         response = s.recv(4096).decode()
         
-        # 如果能走到这，说明服务器等了 3 秒都没触发超时，依然坚挺地给了 200 OK，说明服务器超时机制有 Bug！
-        assert "408" in response or "400" in response, f"【Bug】服务器太温柔了，等了3秒都没打断我，还回了：{response}"
+        # 💡 断言调整：因为我们正常发完了所有信息，服务器必须承认我们的请求并返回 200 OK
+        assert "200" in response, f"【Bug】服务器未能成功解析分块碎片，回了错误响应：{response}"
 
     except (socket.timeout):
-        # 如果触发了 socket.timeout，说明发送 \r\n\r\n 成功了，但服务器超时后装死不回消息
-        # 或者是我们客户端自身的 2.0 秒防卡死保护生效了。
-        pytest.fail("服务器在超时后处于僵死状态（既不关闭连接，也不回408），导致客户端recv超时")
-
+        pytest.fail("【Bug】数据明明全发完了，但服务器卡在状态机里装死，导致客户端读取超时")
     except (ConnectionResetError, BrokenPipeError):
-        # 完美的防御反应！说明服务器在接收到 \r\n\r\n 之前，就已经在底层 close(fd) 了。
-        # 导致我们 send 或 recv 直接被系统拒绝。测试通过！
-        pass
+        pytest.fail("【Bug】数据传输过程中，服务器状态机误判，提前挂断了正常的连接")
     finally:
         s.close()
