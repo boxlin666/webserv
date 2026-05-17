@@ -89,10 +89,17 @@ void Connection::handle_request_dispatch()
     this->process_router_match();
     this->process_request_handler();
 
-    // 判断是否命中 CGI 分流
-    if (this->_status_code == TRIGGER_CGI || this->_route_ctx.is_cgi_potential) {
+    if (_status_code != SUCCESS) {
+        this->prepare_response();
+        this->set_state(WRITING_RESP);
+        return;
+    }
+
+    if (_route_ctx.is_cgi_potential) {
+        // 职责分离：既然是 CGI，立刻移交给专门的 CGI 流水线去处理，这里光荣退场！
         this->execute_cgi_pipeline();
     } else {
+        // 职责分离：普通静态文件（GET 个图片或 HTML），走普通的响应组装
         this->prepare_response();
         this->set_state(WRITING_RESP);
     }
