@@ -51,7 +51,7 @@ int    HttpRequest::parse_request_line(std::string& line)
         this->_path = this->_path.substr(0, query_pos);
         this->_querystring = this->_path.substr(query_pos + 1);
     } else {
-        this->_path = this->_path;
+        //this->_path = this->_path;
         this->_querystring = "";
     }
     if (this->_method.empty())
