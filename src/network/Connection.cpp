@@ -62,11 +62,6 @@ void Connection::handle_read_event(void)
     this->append_in_buff(buffer, bytes_read);
     this->set_state(READING_REQ);
 
-    if (this->_in_buff.find("\r\n\r\n") == std::string::npos) {
-        std::cout << "[Debug] CRLF_CRLF not found yet. Keeping reading..." << std::endl;
-        return;
-    }
-
     // 3. 协议解析层
     this->_status_code = this->_request.parse(this->_in_buff);
 
@@ -219,15 +214,6 @@ void Connection::process_request_handler()
         this->prepare_response();
         this->_state = WRITING_RESP;
         return;
-    }
-
-    if (_route_ctx.is_cgi_potential) {
-        // 职责分离：既然是 CGI，立刻移交给专门的 CGI 流水线去处理，这里光荣退场！
-        this->execute_cgi_pipeline();
-    } else {
-        // 职责分离：普通静态文件（GET 个图片或 HTML），走普通的响应组装
-        this->prepare_response();
-        this->_state = WRITING_RESP;
     }
 }
 

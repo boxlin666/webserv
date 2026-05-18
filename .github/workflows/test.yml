@@ -22,6 +22,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+    # 2. 安装并设置你指定版本的 Python 环境（推荐的做法）
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # 这里可以换成你需要测试的任意 Python 版本
+
+      # 3. 核心：打印 Python 解释器的路径
+      - name: Print Python Interpreter Path
+        run: |
+          echo "=== 方法 1：使用系统 which 命令 ==="
+          which python
+          which python3
+          
+          echo "=== 方法 2：让 Python 打印自身绝对路径（最精准） ==="
+          python -c "import sys; print(sys.executable)"
+          
+          echo "=== 方法 3：查看当前的 Python 版本 ==="
+          python --version
+
       - name: Install Build Essentials
         run: |
           sudo apt update
