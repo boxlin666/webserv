@@ -62,11 +62,6 @@ void Connection::handle_read_event(void)
     this->append_in_buff(buffer, bytes_read);
     this->set_state(READING_REQ);
 
-    if (this->_in_buff.find("\r\n\r\n") == std::string::npos) {
-        std::cout << "[Debug] CRLF_CRLF not found yet. Keeping reading..." << std::endl;
-        return;
-    }
-
     // 3. 协议解析层
     this->_status_code = this->_request.parse(this->_in_buff);
 
