@@ -103,6 +103,29 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
     return (SUCCESS);
 }
 
+//TODO
+/*int Router::check_cgi_request(const HttpRequest& req, const location *loc)const
+{
+    std::string tmp_uri = req.get_full_path();
+
+    if (!loc)
+    {
+        is_cgi_potential = false;
+        return (SUCCESS);
+    }
+    if (loc->cgi_path.empty() || loc->cgi_ext.empty())
+        return (BAD_REQUEST);
+
+    std::size_t dot_pos = 0;
+    dot_pos = tmp_uri.rfind('.');
+    if (dot_pos == std::string::npos) return (BAD_REQUEST);
+    std::string actual_ext = tmp_uri.substr(dot_pos);
+    if (actual_ext != loc->cgi_ext)
+        return (PER_DENIED);
+    if () 
+
+}*/
+
 std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& server, const location *loc)
 {
     std::string full_path;

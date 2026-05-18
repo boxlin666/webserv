@@ -14,10 +14,11 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
         return false;
     }
 
-    // 1. 物理检查
-    struct stat s;
+    //其实已经在RequestHandler 阶段被检查过了，一旦发现ko,直接报错，不会流入CGIHandler::init内部
+    // 1. 物理检查 
+    /*struct stat s;
     if (stat(_scriptPath.c_str(), &s) != 0 || !S_ISREG(s.st_mode)) { return false; }
-    if (access(_binPath.c_str(), X_OK) != 0) { return false; }
+    if (access(_binPath.c_str(), X_OK) != 0) { return false; }*/
 
     // 2. 填充环境变量
     char* raw_path = std::getenv("PATH");
