@@ -34,6 +34,14 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
         return ;
     }
     status_code = this->check_resource(req, route_ctx);
+    //status_code = this->check_cgi_bin_path(route_ctx);
+}
+
+int RequestHandler::check_cgi_bin_path(const RouterCtx &route_ctx)const
+{
+    if (access(route_ctx.loc->cgi_path.c_str(), X_OK) != 0)
+        return (SERVER_ERROR);
+    return (SUCCESS);
 }
 
 int RequestHandler::extract_parent_path(void)

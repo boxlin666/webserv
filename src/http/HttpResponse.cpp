@@ -30,8 +30,13 @@ void HttpResponse::build(const HttpRequest& request, const RequestHandler& respo
 
     this->_status_code = status_code;
     this->_body_last_modif_date = response_ctx.get_body_last_modif_date(); 
-    //this->_body_last_modif_date = response_ctx.get_body_last_modif_date();
-    this->_body_len = response_ctx.get_res_body_len();
+    
+    //TODO: if status code is not SUCCESS, redefine the content length according to the nb of bytes inside error page html
+    if (status_code == SUCCESS)
+        this->_body_len = response_ctx.get_res_body_len();
+    std::cout << "_BODY_LEN = " << this->_body_len << std::endl;
+    std::cout << "_BODY_CONTENT = " << this->_body << std::endl;
+ 
     this->_full_path = response_ctx.get_full_path();
 
     if (this->_status_code == 200)

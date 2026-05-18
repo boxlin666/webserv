@@ -34,6 +34,7 @@ class RequestHandler
 
         int extract_parent_path(void);
 
+        int check_cgi_bin_path(const RouterCtx &route_ctx)const;
         int check_resource(const HttpRequest& req, const RouterCtx &route_ctx);
         int validate_post_target(void)const;
         int process_directory(const HttpRequest& req, const RouterCtx &router_ctx);
