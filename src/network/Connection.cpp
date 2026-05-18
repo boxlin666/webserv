@@ -215,15 +215,6 @@ void Connection::process_request_handler()
         this->_state = WRITING_RESP;
         return;
     }
-
-    if (_route_ctx.is_cgi_potential) {
-        // 职责分离：既然是 CGI，立刻移交给专门的 CGI 流水线去处理，这里光荣退场！
-        this->execute_cgi_pipeline();
-    } else {
-        // 职责分离：普通静态文件（GET 个图片或 HTML），走普通的响应组装
-        this->prepare_response();
-        this->_state = WRITING_RESP;
-    }
 }
 
 void Connection::prepare_response()
