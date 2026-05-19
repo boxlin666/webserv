@@ -36,10 +36,11 @@ void HttpResponse::build(const HttpRequest& request, const RequestHandler& respo
         this->_body_len = response_ctx.get_res_body_len();
     std::cout << "_BODY_LEN = " << this->_body_len << std::endl;
     std::cout << "_BODY_CONTENT = " << this->_body << std::endl;
- 
-    this->_full_path = response_ctx.get_full_path();
 
-    if (this->_status_code == 200)
+    if (this->_status_code == SUCCESS)
+        this->_full_path = response_ctx.get_full_path();
+
+    if (this->_status_code == SUCCESS)
     {
         if (request.get_method() == "GET")
             ret = this->_handle_get();

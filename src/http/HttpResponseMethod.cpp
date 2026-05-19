@@ -41,15 +41,31 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
     size_t total_size;
     size_t byte_written;
     const std::string& req_body = request.get_body();
+    bool is_overwrite = false;
 
-    fd = open(this->_full_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    fd = open(this->_full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
     if (fd == -1)
-        return (PER_DENIED);
+    {
+        if (errno == EEXIST)
+        {
+            is_overwrite = true;
+            fd = open(this->_full_path.c_str(), O_WRONLY | O_EXCL, 0644);
+            if (fd == -1)
+            {
+                if (errno == EACCES) return (PER_DENIED);
+                return (SERVER_ERROR);
+            }
+        }
+        else if (errno == EACCES) return (PER_DENIED);
+        else if (errno == ENOENT) return (NOT_FOUND);
+        else return (SERVER_ERROR);
+    }
+    if (!is_overwrite) this->_status_code = CREATED;
     total_size = request.get_body_len();
     if (total_size == 0)
     {
         close(fd);
-        return (CREATED);
+        return (_status_code);
     }
     byte_written = 0;
     ret = 0;
@@ -73,7 +89,7 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
             break ;
     }
     close(fd);
-    return (CREATED);
+    return (_status_code);
 }
 
 int HttpResponse::_handle_delete(void)

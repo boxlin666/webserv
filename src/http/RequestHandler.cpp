@@ -4,7 +4,8 @@
 RequestHandler::RequestHandler():
 _full_path(""),
 _body_last_modif_date(""),
-_res_body_len(0)
+_res_body_len(0),
+_is_auto_index(false)
 {
 }
 
@@ -18,9 +19,7 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
     if (route_ctx.loc)    
     {
         if (req.get_content_length() > route_ctx.loc->client_max_body_size)
-        { 
-            //std::cout << "req content length = " << req.get_content_length() << std::endl;
-            //std::cout << "==============Request Handler ISSUE!!!=================" << std::endl;
+        {
             status_code = BODY_TOO_LARGE ;
             return ;
         }
@@ -33,38 +32,27 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
         status_code = ret;
         return ;
     }
-    status_code = this->check_resource(req, route_ctx);
-    //status_code = this->check_cgi_bin_path(route_ctx);
+    status_code = this->dispatch_resource_check(req, route_ctx);
 }
 
-int RequestHandler::check_cgi_bin_path(const RouterCtx &route_ctx)const
+int RequestHandler::dispatch_resource_check(const HttpRequest& req, const RouterCtx& route_ctx)
 {
-    if (access(route_ctx.loc->cgi_path.c_str(), X_OK) != 0)
-        return (SERVER_ERROR);
-    return (SUCCESS);
+    if (req.get_method() == "GET" || req.get_method() == "DELETE" || (req.get_method() == "POST" && route_ctx.is_cgi_potential))
+    {
+        return (this->existing_resource_validator(route_ctx));
+    }
+    else if (req.get_method() == "POST" && !route_ctx.is_cgi_potential)
+    {
+        return (this->creatable_resource_validator());
+    }
+    return (NO_METHOD);
 }
 
-int RequestHandler::extract_parent_path(void)
-{
-    std::size_t pos;
-
-    //we suppos that _full_path has already been normalized before...
-    pos = this->_full_path.find_last_of('/');
-    if (pos == std::string::npos)
-        return (BAD_REQUEST);
-    this->_parent_path = this->_full_path.substr(0, pos);
-    return (SUCCESS);
-}
-
-//Only works on the cmd below:
-// curl -v -X POST http://localhost:8080/uploads/post_test --data-binary "@/home/yanzhao/post_test"
-// Doesn't work on:
-//curl -v -F "file=@/home/yanzhao/post_test" http://localhost:8080/uploads (200, but no upload file created!) 
-int RequestHandler::validate_post_target()const
+int RequestHandler::existing_resource_validator(const RouterCtx& route_ctx)
 {
     struct stat st;
 
-    if (stat(this->_parent_path.c_str(), &st) == -1)
+    if (stat(this->_full_path.c_str(), &st) == -1)
     {
         if (errno == ENOENT)
             return (NOT_FOUND);
@@ -73,49 +61,73 @@ int RequestHandler::validate_post_target()const
         return (SERVER_ERROR);
     }
     if (S_ISDIR(st.st_mode))
-        return (SUCCESS);
-    return (NOT_FOUND);
-}
-
-int RequestHandler::check_resource(const HttpRequest& req, const RouterCtx& route_ctx)
-{
-    struct stat st;
-
-    if (stat(this->_full_path.c_str(), &st) == -1)
-    {
-        if (req.get_method() == "POST")
-            return (this->validate_post_target());
-         if (errno == ENOENT)
-            return (NOT_FOUND);
-        else if (errno == EACCES)
-            return (PER_DENIED);
-        return (SERVER_ERROR);
-    }
-    if (S_ISDIR(st.st_mode))
-    {
-        if (req.get_method() == "POST")
-            return (this->validate_post_target());
-        return (this->process_directory(req, route_ctx));
-    }
+        return (this->process_directory(route_ctx));
     if (S_ISREG(st.st_mode))
         return (this->process_file(st, this->_full_path));
     return (NOT_FOUND);
 }
 
-int RequestHandler::process_directory(const HttpRequest& req, const RouterCtx& route_ctx)
+//Only for "POST static file!!"
+int RequestHandler::creatable_resource_validator(void)
+{
+    struct stat st;
+    struct stat st_parent;
+    int ret = 0;
+
+    //if we POST a file whose filename has already been recoginized by webserv.
+    if (stat(this->_full_path.c_str(), &st) == 0)
+    {
+        if (S_ISDIR(st.st_mode))
+            return (PER_DENIED);
+        if (access(this->_full_path.c_str(), W_OK) != 0)
+            return (PER_DENIED);
+        return (SUCCESS); //only if request is to overwrite an existing writable file inside server class
+    }
+  
+    //if we POST a file whose filename has not been recoginized by webserv yet.
+    ret = this->extract_parent_path();
+    if (ret != SUCCESS)
+        return (ret);
+
+    if (stat(this->_parent_path.c_str(), &st_parent) == -1)
+    {
+        if (errno == ENOENT)
+            return (NOT_FOUND);
+        else if (errno == EACCES)
+            return (PER_DENIED);
+        return (SERVER_ERROR);
+    }
+    if (!S_ISDIR(st_parent.st_mode)) //KO if _parent_path is not a real parent directory
+        return (PER_DENIED);
+    if (access(this->_parent_path.c_str(), W_OK) != 0) //We can not write inside this directory
+        return (PER_DENIED);
+    return (SUCCESS);
+}
+
+int RequestHandler::extract_parent_path(void)
+{
+    std::size_t pos;
+
+    //we suppose that _full_path has already been normalized before...
+    pos = this->_full_path.find_last_of('/');
+    if (pos == std::string::npos)
+        return (BAD_REQUEST);
+    else if (pos == 0)
+        this->_parent_path = "/";
+    else
+        this->_parent_path = this->_full_path.substr(0, pos);
+    return (SUCCESS);
+}
+
+int RequestHandler::process_directory(const RouterCtx& route_ctx)
 {
     char last_c;
     struct stat st_index;
     std::string index_file_name;
 
     last_c = this->_full_path[this->_full_path.size() - 1];
-    if (req.get_method() != "GET")
-    {
-        return (METHOD_NOT_ALLOWED);
-    }
     if (last_c != '/')
         this->_full_path += "/";
-    //this->_full_path += "index.html";
 
     std::vector<std::string> index;
 
@@ -128,12 +140,7 @@ int RequestHandler::process_directory(const HttpRequest& req, const RouterCtx& r
     {
         std::string tmp_full_path = this->_full_path + index[i];
         if (stat(tmp_full_path.c_str(), &st_index) == -1)
-        {
-            /*if (errno == ENOENT)
-                return (NOT_FOUND);
-            return (PER_DENIED);*/
             continue ;
-        }
         if (!S_ISREG(st_index.st_mode))
             continue ;
         if (this->process_file(st_index, tmp_full_path) != SUCCESS)
@@ -144,18 +151,13 @@ int RequestHandler::process_directory(const HttpRequest& req, const RouterCtx& r
             return (SUCCESS);
         }
     }
-    //TODO check autoindex!
-    return (PER_DENIED);
 
-    /*if (stat(this->_full_path.c_str(), &st_index) == -1)
+    if (route_ctx.loc->autoindex == true)
     {
-        if (errno == ENOENT)
-            return (NOT_FOUND);
-        return (PER_DENIED);
+        this->_is_auto_index = true;
+        return (SUCCESS);
     }
-    if (!S_ISREG(st_index.st_mode))
-        return (NOT_FOUND);
-    return (this->process_file(st_index));*/
+    return (PER_DENIED);
 }
 
 int RequestHandler::process_file(const struct stat& st, const std::string &input_path)

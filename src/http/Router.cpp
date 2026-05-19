@@ -16,18 +16,22 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
     ctx.server = &server;
     ctx.loc = find_location(req, server);
     ctx.full_path = build_full_path(req, server, ctx.loc);
+
     if (!ctx.loc)
-    {
         ctx.final_root = server.get_root();
-        ctx.is_cgi_potential = false;
-    }
     else
     {
         ctx.final_root = ctx.loc->root;
         if (ctx.loc->_prefix == "/cgi-bin")
-            ctx.is_cgi_potential = true;
+        {
+            if (ctx.loc->cgi_path.empty() || ctx.loc->cgi_ext.empty()) 
+                status_code = NOT_FOUND;
+            else
+                ctx.is_cgi_potential = true;
+        }
     }
-    status_code = check_supported_method(req, server, ctx.loc);
+    if (status_code == SUCCESS)
+        status_code = check_supported_method(req, server, ctx.loc);
     
     std::cout << "final Physic path = " << ctx.full_path << std::endl;
     std::cout << "final root = " << ctx.final_root << std::endl;
@@ -102,29 +106,6 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
     }
     return (SUCCESS);
 }
-
-//TODO
-/*int Router::check_cgi_request(const HttpRequest& req, const location *loc)const
-{
-    std::string tmp_uri = req.get_full_path();
-
-    if (!loc)
-    {
-        is_cgi_potential = false;
-        return (SUCCESS);
-    }
-    if (loc->cgi_path.empty() || loc->cgi_ext.empty())
-        return (BAD_REQUEST);
-
-    std::size_t dot_pos = 0;
-    dot_pos = tmp_uri.rfind('.');
-    if (dot_pos == std::string::npos) return (BAD_REQUEST);
-    std::string actual_ext = tmp_uri.substr(dot_pos);
-    if (actual_ext != loc->cgi_ext)
-        return (PER_DENIED);
-    if () 
-
-}*/
 
 std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& server, const location *loc)
 {

@@ -2,6 +2,7 @@ import requests
 import pytest
 import socket
 import time
+import os
 
 # 配置你的服务器地址
 BASE_URL = "http://localhost:8080"
@@ -38,6 +39,93 @@ def test_method_not_allowed(manage_server):
     # 根据你的配置，可能是 405 Method Not Allowed
     assert response.status_code == 405
 
+SERVER_WEB_ROOT = "./www"
+
+def get_physical_path(url_path):
+    """
+    辅助函数：将 URL 路径转换为本地磁盘的物理路径
+    例如: f"{BASE_URL}/uploads/file.txt" -> "./www/uploads/file.txt"
+    """
+    relative_path = url_path.replace(BASE_URL, "").lstrip("/")
+    return os.path.join(SERVER_WEB_ROOT, relative_path)
+
+@pytest.fixture
+def cleanup_files():
+    """
+    自动化清理神器：收集测试中产生的文件，并在结束后全部扬了
+    """
+    files_to_clean = []
+    # yield 把控制权交还给测试用例
+    yield files_to_clean
+    
+    # 【测试结束后的清理阶段】
+    print("\n--- 开始清理测试生成的残留文件 ---")
+    for file_path in files_to_clean:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                print(f" 成功删除残留文件: {file_path}")
+            except Exception as e:
+                print(f"❌ 无法删除文件 {file_path}: {e}")
+
+
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_post_new_static_file(manage_server, cleanup_files):
+    """
+    测试场景一：新建静态文件 (201 Created) -> 结束后自动删除
+    """
+    target_url = f"{BASE_URL}/uploads/new_test_file.txt"
+    payload = "Hello Webserv 42 project! This is binary raw data post."
+    
+    # 注册这个文件，等下测试完了它会被自动删除
+    cleanup_files.append(get_physical_path(target_url))
+    
+    try:
+        response = requests.post(target_url, data=payload)
+        assert response.status_code == 201
+        assert "Content-Length" in response.headers
+        
+    except requests.exceptions.ConnectionError:
+        pytest.fail("无法连接到服务器，请确保 webserv 已启动。")
+
+
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_post_overwrite_static_file(manage_server, cleanup_files):
+    """
+    测试场景二：覆盖旧文件 (200 OK) -> 结束后自动删除
+    """
+    target_url = f"{BASE_URL}/uploads/overwrite_test.txt"
+    
+    # 注册这个文件，完事了一并清除
+    cleanup_files.append(get_physical_path(target_url))
+    
+    try:
+        # 1. 第一次创建
+        res1 = requests.post(target_url, data="First content")
+        assert res1.status_code == 201
+        
+        # 2. 第二次覆盖
+        res2 = requests.post(target_url, data="Second fresh content")
+        assert res2.status_code == 200
+        
+    except requests.exceptions.ConnectionError:
+        pytest.fail("无法连接到服务器，请确保 webserv 已启动。")
+
+
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_post_conflict_with_directory(manage_server):
+    """
+    测试场景三：往已有目录路径直接写入实体文件 (403 Forbidden)
+    由于这个操作会被你的 C++ 代码在门口拦截，【根本不会在磁盘上生成新文件】，所以不需要清理
+    """
+    target_url = f"{BASE_URL}/uploads/"
+    
+    try:
+        response = requests.post(target_url, data="Dangerous data")
+        assert response.status_code == 403
+        
+    except requests.exceptions.ConnectionError:
+        pytest.fail("无法连接到服务器，请确保 webserv 已启动。")
 
 #========================= Configuration file 42.conf=========================================
 @pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)

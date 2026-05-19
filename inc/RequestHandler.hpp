@@ -31,17 +31,18 @@ class RequestHandler
         std::string _parent_path;
         std::string _body_last_modif_date;
         std::size_t _res_body_len;
+        bool _is_auto_index;
 
+        int dispatch_resource_check(const HttpRequest& req, const RouterCtx &route_ctx);
+        int existing_resource_validator(const RouterCtx &route_ctx);
+        int creatable_resource_validator(void);
+
+        int process_directory(const RouterCtx &router_ctx);
+        int process_file(const struct stat& st, const std::string& tmp_full_path);
         int extract_parent_path(void);
 
-        int check_cgi_bin_path(const RouterCtx &route_ctx)const;
-        int check_resource(const HttpRequest& req, const RouterCtx &route_ctx);
-        int validate_post_target(void)const;
-        int process_directory(const HttpRequest& req, const RouterCtx &router_ctx);
-        int process_file(const struct stat& st, const std::string& tmp_full_path);
         RequestHandler(const RequestHandler& other);
         RequestHandler& operator=(const RequestHandler& other);
-
 };
 
 #endif
