@@ -96,6 +96,7 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
     {
         if (req.get_method() == (*loc_methods)[i])
         {
+	    std::cout << (*loc_methods)[i] << std::endl;
             method_allow = true;
             break ;
         }

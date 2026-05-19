@@ -153,6 +153,8 @@ void Connection::handle_write_event(void)
             this->_state = CLOSED;
         } else {
             std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
+	    this->_request.reset();
+	    this->_response.reset();
             this->_state = WAITING;
         }
     }
