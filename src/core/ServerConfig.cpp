@@ -152,6 +152,8 @@ void ServerConfig::_handle_listen(std::vector<Token>& tokens, size_t& pos, locat
 
 void ServerConfig::_handle_server_name(std::vector<Token>& tokens, size_t& pos, location* loc)
 {
+    int current_line = 0;
+
     if (loc != NULL) {
         throw std::runtime_error(
             "Syntax error: 'server_name' directive is not allowed in location block");
@@ -161,24 +163,31 @@ void ServerConfig::_handle_server_name(std::vector<Token>& tokens, size_t& pos, 
         throw std::runtime_error("Syntax error: Missing value for 'server_name'");
     }
 
+    current_line = tokens[pos + 1].line;
+
     // 循环读取多个域名 (如 server_name a.com b.com;)
-    while (++pos < tokens.size() && tokens[pos].content != ";") {
+    while (++pos < tokens.size() && tokens[pos].content != ";" && tokens[pos].line == current_line) {
         this->_server_names.push_back(tokens[pos].content);
     }
 
-    if (pos >= tokens.size()) {
+    //和expect_semocolon 逻辑上有点重复 暂时备注了 有需要再去掉备注
+    /*if (pos >= tokens.size()) {
         throw std::runtime_error("Syntax error: Missing ';' after server_name");
-    }
+    }*/
     Utils::expect_semicolon(tokens, pos);
 }
 
 void ServerConfig::_handle_index(std::vector<Token>& tokens, size_t& pos, location* loc)
 {
+    int current_line = 0;
+
     if (pos + 1 >= tokens.size() || tokens[pos + 1].content == ";") {
         throw std::runtime_error("Syntax error: Missing value for 'index'");
     }
 
-    while (++pos < tokens.size() && tokens[pos].content != ";") {
+    current_line  = tokens[pos + 1].line;
+
+    while (++pos < tokens.size() && tokens[pos].content != ";" && tokens[pos].line == current_line) {
         if (loc == NULL) {
             this->_index.push_back(tokens[pos].content);
         } else {
@@ -254,11 +263,15 @@ void ServerConfig::_handle_client_max_body_size(std::vector<Token>& tokens, size
 
 void ServerConfig::_handle_methods(std::vector<Token>& tokens, size_t& pos, location* loc)
 {
+    int current_line = 0;
+
     if (pos + 1 >= tokens.size() || tokens[pos + 1].content == ";") {
         throw std::runtime_error("Syntax error: Missing value for 'methods'");
     }
 
-    while (++pos < tokens.size() && tokens[pos].content != ";") {
+    current_line = tokens[pos + 1].line;
+
+    while (++pos < tokens.size() && tokens[pos].content != ";" && tokens[pos].line == current_line) {
         if (loc == NULL) {
             this->_methods.push_back(tokens[pos].content);
         } else {

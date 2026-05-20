@@ -15,7 +15,7 @@
 //tempo
 //#include "Location.hpp"
 
-#define GLOBAL_MAX_ALLOWED 1048576
+#define GLOBAL_MAX_ALLOWED 1000000000
 #define URI_SIZE 8192
 #define MAX_HEADER_SIZE 8192
 
