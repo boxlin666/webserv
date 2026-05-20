@@ -73,7 +73,17 @@ void Connection::handle_read_event(void)
     }
 
     // 4. 业务分发层
-    if (this->check_parse_finished()) { this->handle_request_dispatch(); }
+    if (this->_status_code == SUCCESS) {
+    // 检查：如果解析完 Header 发现没有 Body（例如 Content-Length 为 0 的 POST）
+    if (this->_request.get_method() == "POST" && this->_request.get_content_length() == 0) {
+        this->handle_request_dispatch(); // 立即跳转到业务层
+        return;
+    }
+    
+    if (this->check_parse_finished()) { 
+        this->handle_request_dispatch(); 
+    }
+}
 }
 
 void Connection::handle_request_dispatch()

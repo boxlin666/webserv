@@ -157,7 +157,7 @@ int RequestHandler::process_directory(const RouterCtx& route_ctx)
         this->_is_auto_index = true;
         return (SUCCESS);
     }
-    return (PER_DENIED);
+    return (NOT_FOUND);
 }
 
 int RequestHandler::process_file(const struct stat& st, const std::string &input_path)

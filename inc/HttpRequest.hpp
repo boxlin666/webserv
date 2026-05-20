@@ -93,7 +93,7 @@ class HttpRequest {
 
    private:
     // request line 部分
-    std::string _method;  // GET POST DELETE
+    std::string _method;  // GET POST DELETE HEAD
     std::string _path;
 
     std::string _http_version;  // HTTP 1.1

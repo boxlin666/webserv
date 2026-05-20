@@ -42,7 +42,7 @@ void HttpResponse::build(const HttpRequest& request, const RequestHandler& respo
 
     if (this->_status_code == SUCCESS)
     {
-        if (request.get_method() == "GET")
+        if (request.get_method() == "GET" || request.get_method() == "HEAD")
             ret = this->_handle_get();
         else if (request.get_method() == "POST")
             ret = this->_handle_post(request, response_ctx);
@@ -54,6 +54,10 @@ void HttpResponse::build(const HttpRequest& request, const RequestHandler& respo
  
     this->_prepare_response_data(request);
 
+    // if (request.get_method() == "HEAD")
+    // {
+    //     this->_body.clear();
+    // }
     //6. append all the elements together!
     this->_append_full_response();
 }
