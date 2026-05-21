@@ -197,6 +197,7 @@ bool HttpRequest::parse_chunked_body(std::string& input_data)
                 if (parse_chunk_size(chunk_size_str) == false) //非法传入的chunk size 或者是unsigned long 整数溢出
                     return (false);
                 input_data.erase(0, pos + 2);
+                std::cout << "CHUNK_SIZE = " << _chunk_size << std::endl;
                 if (this->_chunk_size == 0)
                     this->_chunk_state = CHUNK_FINISHED;
                 else
@@ -217,11 +218,16 @@ bool HttpRequest::parse_chunked_body(std::string& input_data)
             }
             
             case CHUNK_FINISHED:
-            {
-                pos = input_data.find("\r\n", this->_chunk_size);
-                if (pos == 0)
+            { 
+                if (input_data == "\r\n")
                 {
-                    input_data.erase(0, 2);
+                    input_data.erase(0,2);
+                    this->_state = PARSE_FINISHED;
+                }
+                else if (input_data == "\r") //TODO： 加入超时判断条件才可进入这个特殊情景!!!
+                {
+                    //TODO： 超时操作，如果我们只收到"\r"但是没有收到全部的“\r\n”, 那么在x seconds内，我们需要强制把他设置成 PARSE FINISHED
+                    input_data.erase(0, 1);
                     this->_state = PARSE_FINISHED;
                 }
                 break ;
