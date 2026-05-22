@@ -130,6 +130,7 @@ void Connection::execute_cgi_pipeline()
 
 void Connection::handle_write_event(void)
 {
+    if (this->_out_buff.empty()) return;
     ssize_t bytes_send;
 
     // 🌟 打印 1：看看进这个函数时，缓冲区里有多少数据要发
@@ -139,6 +140,10 @@ void Connection::handle_write_event(void)
     bytes_send = send(this->_client_fd, this->_out_buff.c_str(), this->_out_buff.size(), 0);
 
     if (bytes_send < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            // 只是暂时的无法写入，此时不应关闭连接，而是留在当前状态，等待下一次事件触发
+            return; 
+        }
         std::cerr << "Failed to send the http response on ..." << std::endl;
         this->_state = CLOSED;
         return;
@@ -154,10 +159,11 @@ void Connection::handle_write_event(void)
             this->_response.get_full_response().find("Connection: close") != std::string::npos) {
             std::cout << "[Debug] Short connection detected. Switching to CLOSED." << std::endl;
             this->_state = CLOSED;
-        } else {
+        } 
+        else {
             std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
-	    this->_request.reset();
-	    this->_response.reset();
+	        this->_request.reset();
+	        this->_response.reset();
             this->_state = WAITING;
         }
     }
