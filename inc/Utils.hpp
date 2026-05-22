@@ -26,6 +26,8 @@ class Utils
         static void expect_semicolon(const std::vector<Token>& tokens, size_t& pos);
 };
 
+void debug_request_msg_print(const std::string &variable, const std::string &content);
+
 #include "Utils.tpp"
 
 #endif

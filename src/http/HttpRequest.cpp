@@ -4,6 +4,7 @@
 
 #include "HttpRequest.hpp"
 #include "HttpConstants.hpp"
+#include "Utils.hpp"
 
 #define RED     "\033[31m"
 #define RESET   "\033[0m"
@@ -246,7 +247,10 @@ int HttpRequest::parse(std::string& input_data)
 {
     int ret = SUCCESS;
 
-    std::cout << "INPUT DATA: \n" << input_data << "\n"<< std::endl;
+    //tempo debug msg don't remove it now pls!
+    debug_request_msg_print("INPUT DATA", input_data);
+    //tempo debug msg don't remove it now pls!
+
     while (_state != PARSE_ERROR && _state != PARSE_FINISHED) 
     {
         if (_state == PARSE_REQUEST_LINE || _state == PARSE_HEADER) 

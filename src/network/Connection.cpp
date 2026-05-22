@@ -3,6 +3,7 @@
 #include <poll.h>
 
 #include "Router.hpp"
+#include "Utils.hpp"
 
 Connection::Connection(int client_fd, PassiveSocket* matched_socket,
                        const std::vector<ServerConfig*>& servers, Cluster* cluster)
@@ -51,6 +52,14 @@ void Connection::handle_read_event(void) {
         this->set_state(CLOSED);
         return;
     }
+
+    buffer[bytes_read] = '\0';
+
+    //tempo debug msg don't remove it now pls!
+    std::string tmp_buff(buffer);
+    debug_request_msg_print("BUFFER INFO", tmp_buff);
+    //tempo debug msg don't remove it now pls!
+
 
     // 1. 数据必须累积到 Connection 的 _in_buff
     this->append_in_buff(buffer, bytes_read);
