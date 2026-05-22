@@ -252,7 +252,9 @@ void Connection::prepare_response()
 {
     this->_response.build(this->_request, this->_req_handler, this->_status_code);
     this->_out_buff = this->_response.get_full_response();
-    std::cout << "out buff = " << this->_out_buff << std::endl;
+
+    //tempo print debug, don't remove it now!
+    debug_request_msg_print("OUT BUFF", this->_out_buff);
 }
 
 void Connection::set_state(State state)
