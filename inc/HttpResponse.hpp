@@ -62,7 +62,6 @@ class HttpResponse
 
     void _add_header_vector(const std::string& key, const std::string& value);
 
-
     std::string _generate_date(void)const;
     std::string _generate_content_type(void)const;
 

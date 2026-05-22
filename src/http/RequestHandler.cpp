@@ -25,12 +25,24 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
         }
     }
     this->_full_path = route_ctx.full_path;
-
+    this->_is_cgi_mode = route_ctx.is_cgi_potential;
     int ret = extract_parent_path();
     if (ret != SUCCESS)
     {
         status_code = ret;
         return ;
+    }
+    if (req.get_method() == "POST")
+    {
+        // 这里是处理上传/表单的关键
+        // 你需要在这里决定如何处理 POST 数据，并更新 _res_body_len
+        // 比如：如果存为文件，调用你的文件写入逻辑；如果成功，设定一个简单的成功页面长度
+        this->_body = req.get_body(); // 确保你有这个成员变量
+        
+        // 2. 同步 Body 长度（这直接影响你后续的 Content-Length header）
+        this->_set_res_body_len(this->_body.length());
+        
+        std::cout << "[Debug] Handler synced body. Size: " << this->_res_body_len << std::endl;
     }
     status_code = this->dispatch_resource_check(req, route_ctx);
 }
@@ -182,6 +194,17 @@ const std::string &RequestHandler::get_full_path()const
 std::size_t RequestHandler::get_res_body_len()const
 {
     return (this->_res_body_len);
+}
+
+// TODO: just for test
+std::string RequestHandler::get_body()const
+{
+    return (this->_body);
+}
+
+bool RequestHandler::is_cgi_mode()const
+{
+    return (this->_is_cgi_mode);
 }
 
 const std::string &RequestHandler::get_body_last_modif_date()const

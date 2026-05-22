@@ -28,9 +28,15 @@ int HttpResponse::_handle_get(void)
 
 int HttpResponse::_handle_post(const HttpRequest& request, const RequestHandler& response_ctx) 
 {
-   
-    (void)response_ctx;
-
+    // 如果是 CGI 逻辑，通常在 Dispatcher 阶段已经处理过了
+    // 如果你在这里捕获到了 POST，说明是静态上传或未匹配 CGI
+    
+    // 检查是否有上传文件的限制或其它逻辑
+    if (response_ctx.is_cgi_mode()) // 假设你有这样一个判断方法
+    {
+        //return this->_handle_cgi_post(request, response_ctx);
+    }
+    
     return (this->_handle_static_post(request));
 }
 
