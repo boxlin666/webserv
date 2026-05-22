@@ -43,40 +43,32 @@ void Connection::append_in_buff(const char* tmp_buff, ssize_t recv_len)
 void Connection::set_out_buff(void)
 { this->_out_buff = "HTTP/1.1 200 OK\r\n\r\n<h1>Hello from Server Class!</h1>"; }
 
-void Connection::handle_read_event(void)
-{
-    // 1. 读取数据
+void Connection::handle_read_event(void) {
     char buffer[4096];
-    std::memset(buffer, 0, sizeof(buffer));
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    std::cout << "BUFFER INFO :\n"  << buffer << "\n" << std::endl;
-    if (bytes_read <= 0) 
-    {
-        // bytes_read == 0: 客户端关闭; < 0: 读取错误
+    if (bytes_read <= 0) {
         this->set_state(CLOSED);
         return;
     }
 
-    // 2. 协议积攒层
+    // 1. 数据必须累积到 Connection 的 _in_buff
     this->append_in_buff(buffer, bytes_read);
-    this->set_state(READING_REQ);
 
-    // 3. 协议解析层
+    // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
     this->_status_code = this->_request.parse(this->_in_buff);
 
-    if (this->_status_code != SUCCESS) {
-        std::cout << "[Debug] Parsing failed! Status code: " << this->_status_code << std::endl;
-        this->prepare_response();
-        this->set_state(WRITING_RESP);
-        return;
-    }
-    
+    // 3. 这里的关键：检查是否真的“请求完成”
+    // 不要只依赖 _status_code，必须检查数据完整性
     if (this->check_parse_finished()) { 
-        this->handle_request_dispatch(); 
+        std::cout << "[Debug] Request is fully complete, body size: " 
+                  << _request.get_body().length() << std::endl;
+        this->handle_request_dispatch(); // 只有这时才处理
+    } else {
+        // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
+        std::cout << "[Debug] Waiting for more body data..." << std::endl;
     }
 }
-
 
 void Connection::handle_request_dispatch()
 {
@@ -162,8 +154,34 @@ void Connection::handle_write_event(void)
     }
 }
 
-bool Connection::check_parse_finished()
-{ return _request.get_state() == HttpRequest::PARSE_FINISHED; }
+bool Connection::check_parse_finished() 
+{
+    // 1. 基础状态校验
+    if (this->_request.get_state() != HttpRequest::PARSE_FINISHED) {
+        return false;
+    }
+
+    // 2. 契约校验 (Contract Validation)
+    // 检查是否有 Content-Length 头部，如果有，确保 Body 已经读取完整
+    // 这里处理 POST, PUT 等带有 payload 的请求
+    if (this->_request.get_method() == "POST" || this->_request.get_method() == "PUT") {
+        
+        size_t expected_len = this->_request.get_content_length();
+        size_t actual_len = this->_request.get_body().length();
+        
+        // 如果期望长度大于已读长度，说明数据还在路上，或者解析器过早进入了 FINISHED
+        if (actual_len < expected_len) {
+            // 这是一个重要的安全断言：如果还没读够，绝不能进入下一步
+            // 此时应该保持状态或继续等待读取
+            return false;
+        }
+    }
+
+    // 3. (可选) Chunked 校验
+    // 如果你已经支持了 Chunked，这里应该检查是否有结束符 "0\r\n\r\n"
+    
+    return true;
+}
 
 bool Connection::set_matched_server()
 {

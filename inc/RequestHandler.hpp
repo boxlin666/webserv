@@ -19,19 +19,23 @@ class RequestHandler
 
         void process_request_handler(const HttpRequest &req, const RouterCtx &route_ctx, int &status_code);
         /*const std::string &get_method_to_apply()const;*/
-        const std::string &get_full_path()const;
+        const std::string &get_full_path() const;
         //const std::string *get_req_body()const;
         //std::size_t get_req_body_len()const;
-        std::size_t get_res_body_len()const;
+        std::size_t get_res_body_len() const;
+        std::string get_body() const;
+        bool is_cgi_mode() const;
         void _set_res_body_len(size_t body_len);
         const std::string &get_body_last_modif_date()const;
         
     private:
         std::string _full_path;
         std::string _parent_path;
+        std::string _body;
         std::string _body_last_modif_date;
         std::size_t _res_body_len;
         bool _is_auto_index;
+        bool _is_cgi_mode;
 
         int dispatch_resource_check(const HttpRequest& req, const RouterCtx &route_ctx);
         int existing_resource_validator(const RouterCtx &route_ctx);
