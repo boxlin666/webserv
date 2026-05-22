@@ -22,12 +22,20 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
     else
     {
         ctx.final_root = ctx.loc->root;
-        if (ctx.loc->_prefix == "/cgi-bin")
+        if (!ctx.loc->cgi_path.empty() && !ctx.loc->cgi_ext.empty()) 
         {
-            if (ctx.loc->cgi_path.empty() || ctx.loc->cgi_ext.empty()) 
-                status_code = NOT_FOUND;
-            else
-                ctx.is_cgi_potential = true;
+            std::size_t pos = ctx.full_path.find_last_of('/');
+            if (pos != std::string::npos)
+            {
+                std::string file_name = ctx.full_path.substr(pos + 1, ctx.full_path.length());
+                pos = file_name.find_last_of('.');
+                if (pos != std::string::npos)
+                {
+                    std::string file_name_ext = file_name.substr(pos, file_name.length()); 
+                    if (file_name_ext == ctx.loc->cgi_ext)
+                        ctx.is_cgi_potential = true;
+                }
+            }
         }
     }
     if (status_code == SUCCESS)
