@@ -153,7 +153,7 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
 
     if (conn.has_cgi() && fd == conn.get_cgi_read_fd()) 
     {
-        conn.handle_cgi_read(); // 内部调用 cgi.receiveFromScript()
+        conn.handle_cgi_read();
     }
     else 
     {
@@ -185,15 +185,15 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
 
     short poll_event = conn.get_poll_events();
 
-    if (poll_event == POLLIN)  // WAITING => keep-alive mode
-        _poll_fds[poll_idx].events = POLLIN;
-    else if (poll_event == POLLOUT)  // WRITING => still writing (send http response msg)
-        _poll_fds[poll_idx].events = POLLOUT;
-    else {
+    if (!conn.get_out_buff().empty()) {
+        poll_event |= POLLOUT;
+    }
+
+    if (conn.get_state() == Connection::CLOSED){
         this->close_connection(poll_idx);
         this->_poll_fds[poll_idx].fd = -1;
     }
-    if (poll_event == POLLIN) std::cout << "Here we have a POLLIN there!" << std::endl;
+    _poll_fds[poll_idx].events = poll_event;
     return true;
 }
 

@@ -10,3 +10,5 @@ learning/
 .pytest_cache
 test/__pycache__/
 .vscode
+tmp/
+YoupiBanane/
