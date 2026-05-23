@@ -124,15 +124,6 @@ void Connection::execute_cgi_pipeline()
     } else {
         this->_state = CGI_READ;
         // 🌟 通知大管家开始监听准备读取 Python 输出的读管道
-        /*if (this->_request.get_method() == "GET" && this->_request.get_body().length() == 0)
-        {
-            const int &cgi_write_fd = this->_cgi_handler.getWriteFd();
-            if (cgi_write_fd != -1)
-            {
-                close(cgi_write_fd);
-                //cgi_write_fd = -1;
-            }
-        }*/ 
         this->register_cgi_pipe_to_poll(this->_cgi_handler.getReadFd(), POLLIN);
     }
 }
