@@ -2,7 +2,7 @@
 
 CGIHandler::CGIHandler() : _envp(NULL) {}
 
-CGIHandler::~CGIHandler() {}
+CGIHandler::~CGIHandler() {_clearEnvp();}
 
 bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
 {
