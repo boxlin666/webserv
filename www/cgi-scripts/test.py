@@ -2,11 +2,9 @@
 import sys
 import os
 
-print("Content-Type: text/plain\r\n\r\n")
-# 读取 POST 的 Body 内容
-content_length = int(os.environ.get('CONTENT_LENGTH', 0))
-if content_length > 0:
-    body = sys.stdin.read(content_length)
-    print(f"Received POST body: {body}")
-else:
-    print("No body received.")
+# 1. 强制刷新输出
+sys.stdout.reconfigure(line_buffering=False, write_through=True)
+
+# 2. 输出符合标准的 Header
+# 注意：空行后面必须紧跟 Body
+print("Status: 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 12\r\n\r\nHello World!")
