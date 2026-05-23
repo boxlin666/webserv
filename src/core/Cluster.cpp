@@ -300,18 +300,17 @@ void Cluster::_dispatch_write_event(size_t index)
 
     // 情况 A: 属于 CGI 写管道
     if (this->_cgi_fd_map.count(fd)) {
-        // Connection* conn = _cgi_fd_map[fd];
+        // std::cout << "[DEBUG] CGI writes here" << std::endl;
+        Connection* conn = _cgi_fd_map[fd];
         
         // 🌟 坑位留空/或调用你的写处理（比如未来你可以加一个 conn->handle_cgi_write()）
         // 如果目前只跑 GET，它绝对不会进到这里来
         // 暂时可以先写成如果写完了就断开：
-        /*
         conn->handle_cgi_write(); 
         if (conn->get_state() != Connection::CGI_WRITE) {
             this->_poll_fds[index].fd = -1;
             this->_cgi_fd_map.erase(fd);
         }
-        */
     }
     // 情况 B: 属于普通的客户端 Socket
     else {

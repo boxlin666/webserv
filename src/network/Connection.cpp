@@ -308,6 +308,11 @@ void Connection::handle_cgi_read()
     }
 }
 
+void Connection::handle_cgi_write()
+{
+    _cgi_handler.sendToScript();
+}
+
 void Connection::_finalize_cgi_success(int cgi_fd)
 {
     std::cout << "[Server] CGI Process finished writing all data." << std::endl;

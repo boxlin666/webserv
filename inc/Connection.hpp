@@ -50,6 +50,7 @@ class Connection
         bool has_cgi();
         int get_cgi_read_fd() const;
         void handle_cgi_read();
+        void handle_cgi_write();
         void register_cgi_pipe_to_poll(int fd, short events);
     
     private:
