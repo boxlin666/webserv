@@ -17,7 +17,7 @@ class CGIHandler
 {
 private:
     pid_t       _pid;
-    time_t      _startTime;
+    time_t      _last_activity_time;
     bool        _isExited;
     std::map<std::string, std::string> _envMap;
 
@@ -51,6 +51,7 @@ public:
     int getPid() const;
     int getReadFd() const;
     int getWriteFd() const;
+    void updateTime();
     bool isTimeout() const;
     bool isFinished();
 

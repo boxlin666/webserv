@@ -28,7 +28,8 @@ class Connection
             CGI_WRITE,
             CGI_READ, 
             WRITING_RESP, 
-            CLOSED
+            CLOSED,
+            ERROR
         };
         int getFd(void)const;
         const std::string &get_in_buff(void)const;
@@ -52,7 +53,9 @@ class Connection
         void handle_cgi_read();
         void handle_cgi_write();
         void register_cgi_pipe_to_poll(int fd, short events);
-    
+
+        bool isCGITimedOut() const ;
+        void updateCGIActivity() ;
     private:
         int _client_fd;
         std::string _in_buff;
