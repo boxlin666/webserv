@@ -108,7 +108,7 @@ void Connection::execute_cgi_pipeline()
     std::cout << "[Server] CGI detected. Initiating Child Process..." << std::endl;
 
     if (this->_cgi_handler.init(this->_request, this->_route_ctx) == false ||
-        this->_cgi_handler.execute() == false) {
+        this->_cgi_handler.execute(this->_request) == false) {
         this->_status_code = SERVER_ERROR;  // 500
         this->prepare_response();
         this->_state = WRITING_RESP;
@@ -322,7 +322,7 @@ void Connection::_finalize_cgi_success(int cgi_fd)
 
     // 3. 核心解耦：先安全从 poll 中撤销，再关闭管道，防止 FD 复用串流
     this->_cluster->remove_fd_from_poll(cgi_fd);
-    this->_cgi_handler.close_pipes();
+    this->_cgi_handler.close_all_pipes();
     this->_cgi_active = false;
 
     // 4. 驱动状态机进入发送响应阶段
@@ -343,7 +343,7 @@ void Connection::_handle_cgi_read_error(int cgi_fd)
 
     // 2. 清理 poll 队列及管道资源
     this->_cluster->remove_fd_from_poll(cgi_fd);
-    this->_cgi_handler.close_pipes();
+    this->_cgi_handler.close_all_pipes();
     this->_cgi_active = false;
 
     // 3. 哪怕出错了，也要把 500 页面传回给客户端

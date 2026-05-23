@@ -266,6 +266,9 @@ void Cluster::_dispatch_read_event(size_t index)
 
     // 情况 A: 属于 CGI 读管道
     if (this->_cgi_fd_map.count(fd)) {
+
+        std::cout << "I AM INSIDE DISPATCH READ EVENT FOR CGI FD READ" << std::endl;
+
         Connection* conn = _cgi_fd_map[fd];
         
         // 🌟 核心替换：调用你现有的 handle_cgi_read() 
