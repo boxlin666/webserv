@@ -288,24 +288,38 @@ int Connection::get_cgi_read_fd() const
 { return this->_cgi_handler.getReadFd(); }
 
 void Connection::handle_cgi_read()
-{
+{ 
     char buf[4096];
     int  cgi_fd = this->get_cgi_read_fd();
 
     ssize_t bytes = read(cgi_fd, buf, sizeof(buf) - 1);
 
-    if (bytes > 0) {
+    std::cout << "CGI_FD = " << cgi_fd << std::endl;
+    std::cout << "BYTES = " << bytes << std::endl;
+
+    std::cout << "ERRNO = " << errno << " (" << strerror(errno) << ")" << std::endl;
+
+    if (bytes > 0) {            // 🌟 职责分离：一脚踢给错误处理函数
+            std::cout << "你在里面 不是EAGAIN EWOUDLBLOCK？" << std::endl;
         buf[bytes] = '\0';
         this->_out_buff.append(buf, bytes);
     } else if (bytes == 0) {
         // 🌟 职责分离：一脚踢给成功处理函数
         this->_finalize_cgi_success(cgi_fd);
     } else {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            // 🌟 职责分离：一脚踢给错误处理函数
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+           this->_finalize_cgi_success(cgi_fd);
+        }
+        else if (errno != EAGAIN && errno != EWOULDBLOCK) {
             this->_handle_cgi_read_error(cgi_fd);
         }
     }
+}
+
+void Connection::handle_cgi_write()
+{
+    _cgi_handler.sendToScript();
 }
 
 void Connection::_finalize_cgi_success(int cgi_fd)
