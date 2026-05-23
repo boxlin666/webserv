@@ -1,8 +1,8 @@
 #include "CGIHandler.hpp"
 
-CGIHandler::CGIHandler() {}
+CGIHandler::CGIHandler() : _envp(NULL) {}
 
-CGIHandler::~CGIHandler() {}
+CGIHandler::~CGIHandler() {_clearEnvp();}
 
 bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
 {
@@ -14,8 +14,8 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
         return false;
     }
 
-    //其实已经在RequestHandler 阶段被检查过了，一旦发现ko,直接报错，不会流入CGIHandler::init内部
-    // 1. 物理检查 
+    // 其实已经在RequestHandler 阶段被检查过了，一旦发现ko,直接报错，不会流入CGIHandler::init内部
+    //  1. 物理检查
     /*struct stat s;
     if (stat(_scriptPath.c_str(), &s) != 0 || !S_ISREG(s.st_mode)) { return false; }
     if (access(_binPath.c_str(), X_OK) != 0) { return false; }*/
@@ -32,7 +32,7 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
     _envMap["REQUEST_METHOD"]    = req.get_method();
     _envMap["QUERY_STRING"]      = req.get_querystring();
     _envMap["SCRIPT_FILENAME"]   = _scriptPath;  // 脚本绝对路径
-    _envMap["PATH_INFO"] = req.get_path();
+    _envMap["PATH_INFO"]         = req.get_path();
     _envMap["GATEWAY_INTERFACE"] = "CGI/1.1";
     _envMap["SERVER_PROTOCOL"]   = "HTTP/1.1";
     // 数字转字符串
@@ -102,10 +102,8 @@ bool CGIHandler::execute(const HttpRequest& req)
         close_unused_pipes(req);
 
         // 设置为非阻塞
-        if (_pipeIn[1] != -1)
-            fcntl(_pipeIn[1], F_SETFL, O_NONBLOCK);
-        if (_pipeOut[0] != -1)
-            fcntl(_pipeOut[0], F_SETFL, O_NONBLOCK);
+        if (_pipeIn[1] != -1) fcntl(_pipeIn[1], F_SETFL, O_NONBLOCK);
+        if (_pipeOut[0] != -1) fcntl(_pipeOut[0], F_SETFL, O_NONBLOCK);
 
         updateTime();
     }
@@ -119,10 +117,8 @@ void CGIHandler::close_unused_pipes(const HttpRequest& req)
     close(_pipeOut[1]);
     _pipeOut[1] = -1;
 
-    if (req.get_method() == "GET" && req.get_body().length() == 0)
-    {
-        if (_pipeIn[1] != -1)
-        {
+    if (req.get_method() == "GET" && req.get_body().length() == 0) {
+        if (_pipeIn[1] != -1) {
             close(_pipeIn[1]);
             _pipeIn[1] = -1;
         }
@@ -146,9 +142,11 @@ void CGIHandler::_mapToEnvp()
 void CGIHandler::_clearEnvp()
 {
     if (_envp) {
-        for (int i = 0; _envp[i] != NULL; i++) { free(_envp[i]); }
+        for (int i = 0; _envp[i] != NULL; i++) {
+            free(_envp[i]);
+            _envp[i] = NULL;
+        }
         delete[] _envp;
-        _envp = NULL;
     }
 }
 
@@ -218,9 +216,7 @@ int CGIHandler::getWriteFd() const
 { return _pipeIn[1]; }
 
 void CGIHandler::updateTime()
-{
-    _last_activity_time = std::time(NULL);
-}
+{ _last_activity_time = std::time(NULL); }
 
 bool CGIHandler::isTimeout() const
 {
