@@ -32,6 +32,7 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
     _envMap["REQUEST_METHOD"]    = req.get_method();
     _envMap["QUERY_STRING"]      = req.get_querystring();
     _envMap["SCRIPT_FILENAME"]   = _scriptPath;  // 脚本绝对路径
+    _envMap["PATH_INFO"] = req.get_path();
     _envMap["GATEWAY_INTERFACE"] = "CGI/1.1";
     _envMap["SERVER_PROTOCOL"]   = "HTTP/1.1";
     // 数字转字符串
@@ -49,7 +50,7 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
     return true;
 }
 
-bool CGIHandler::execute()
+bool CGIHandler::execute(const HttpRequest& req)
 {
     if (this->_binPath.empty() || this->_scriptPath.empty()) {
         std::cerr << "[CGI Error] Cannot execute: _binPath or _scriptPath is EMPTY!" << std::endl;
@@ -94,18 +95,38 @@ bool CGIHandler::execute()
         exit(1);
     } else {  // 父进程
         // 立即关闭父进程不需要的端
-        close(_pipeIn[0]);
+        /*close(_pipeIn[0]);
         _pipeIn[0] = -1;
         close(_pipeOut[1]);
-        _pipeOut[1] = -1;
+        _pipeOut[1] = -1;*/
+        close_unused_pipes(req);
 
         // 设置为非阻塞
-        fcntl(_pipeIn[1], F_SETFL, O_NONBLOCK);
-        fcntl(_pipeOut[0], F_SETFL, O_NONBLOCK);
+        if (_pipeIn[1] != -1)
+            fcntl(_pipeIn[1], F_SETFL, O_NONBLOCK);
+        if (_pipeOut[0] != -1)
+            fcntl(_pipeOut[0], F_SETFL, O_NONBLOCK);
 
         _startTime = std::time(NULL);
     }
     return true;
+}
+
+void CGIHandler::close_unused_pipes(const HttpRequest& req)
+{
+    close(_pipeIn[0]);
+    _pipeIn[0] = -1;
+    close(_pipeOut[1]);
+    _pipeOut[1] = -1;
+
+    if (req.get_method() == "GET" && req.get_body().length() == 0)
+    {
+        if (_pipeIn[1] != -1)
+        {
+            close(_pipeIn[1]);
+            _pipeIn[1] = -1;
+        }
+    }
 }
 
 void CGIHandler::_mapToEnvp()
@@ -228,7 +249,7 @@ bool CGIHandler::isFinished()
     }
 }
 
-void CGIHandler::close_pipes()
+void CGIHandler::close_all_pipes()
 {
     // 🌟 原则：关闭前必须校验 FD 是否合法（>= 0），关闭后立刻重置为 -1
 

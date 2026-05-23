@@ -41,7 +41,7 @@ public:
     ~CGIHandler();
 
     bool init(const HttpRequest& req, const RouterCtx& ctx);
-    bool execute();
+    bool execute(const HttpRequest& req);
 
     void _mapToEnvp();
     void _clearEnvp();
@@ -55,7 +55,8 @@ public:
     bool isFinished();
 
     std::string getRawResponse();
-    void close_pipes();
+    void close_all_pipes();
+    void close_unused_pipes(const HttpRequest& req);
 };
 
 #endif
