@@ -45,7 +45,7 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
 
     // 4. 转换并记录开始时间（用于超时处理）
     _mapToEnvp();
-    _startTime = std::time(NULL);
+    updateTime();
 
     return true;
 }
@@ -107,7 +107,7 @@ bool CGIHandler::execute(const HttpRequest& req)
         if (_pipeOut[0] != -1)
             fcntl(_pipeOut[0], F_SETFL, O_NONBLOCK);
 
-        _startTime = std::time(NULL);
+        updateTime();
     }
     return true;
 }
@@ -168,7 +168,7 @@ void CGIHandler::sendToScript()
 
     // 尝试写入数据
     ssize_t bytes_sent = write(_pipeIn[1], _inBuffer.c_str(), _inBuffer.size());
-
+    updateTime();
     if (bytes_sent > 0) {
         // 移除已经发送的部分
         _inBuffer.erase(0, bytes_sent);
@@ -195,6 +195,7 @@ void CGIHandler::receiveFromScript()
     if (bytes_read > 0) {
         // 把读到的东西存进 _outBuffer
         _outBuffer.append(buffer, bytes_read);
+        updateTime();
     } else if (bytes_read == 0) {
         // 脚本关闭了输出端，说明执行完毕并输出了所有内容
         _isExited = true;
@@ -216,14 +217,16 @@ int CGIHandler::getReadFd() const
 int CGIHandler::getWriteFd() const
 { return _pipeIn[1]; }
 
+void CGIHandler::updateTime()
+{
+    _last_activity_time = std::time(NULL);
+}
+
 bool CGIHandler::isTimeout() const
 {
     if (_pid <= 0 || _isExited) return false;
 
-    time_t currentTime = std::time(NULL);
-    // 假设超时时间是 30 秒，你可以定义在配置文件或宏里
-    if (currentTime - _startTime > 30) { return true; }
-    return false;
+    return (std::time(NULL) - _last_activity_time) > 300;
 }
 
 bool CGIHandler::isFinished()

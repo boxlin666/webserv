@@ -308,6 +308,11 @@ void Connection::handle_cgi_read()
     }
 }
 
+void Connection::handle_cgi_write()
+{
+    _cgi_handler.sendToScript();
+}
+
 void Connection::_finalize_cgi_success(int cgi_fd)
 {
     std::cout << "[Server] CGI Process finished writing all data." << std::endl;
@@ -353,3 +358,11 @@ void Connection::_handle_cgi_read_error(int cgi_fd)
 
 void Connection::register_cgi_pipe_to_poll(int fd, short events)
 { this->_cluster->register_cgi_fd(fd, events, this); }
+
+bool Connection::isCGITimedOut() const {
+    return _cgi_handler.isTimeout();
+}
+
+void Connection::updateCGIActivity() {
+    _cgi_handler.updateTime();
+}

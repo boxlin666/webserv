@@ -63,6 +63,8 @@ class Cluster
         void register_cgi_fd(int fd, short events, Connection* conn);
         void update_client_events(int client_fd, short new_events);
         void remove_fd_from_poll(int fd);
+
+        void check_cgi_timeouts();
 };
 
 #endif
