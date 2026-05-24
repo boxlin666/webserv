@@ -101,6 +101,7 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
         return;
     }
 
+    std::cout << "client fd = " << client_fd << std::endl;
     // 2. 设置非阻塞 (非常重要，否则后续 recv 会卡死)
     fcntl(client_fd, F_SETFL, O_NONBLOCK);
 
@@ -152,7 +153,7 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
     Connection& conn = *(it->second);
 
     if (conn.has_cgi() && fd == conn.get_cgi_read_fd()) {
-        conn.handle_cgi_read();
+        conn.handle_cgi_read(0);
     } else {
         // 2. 否则，它就是普通的 client socket 读取
         conn.handle_read_event();
@@ -177,7 +178,7 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
     std::map<int, Connection*>::iterator it = _connection_map.find(fd);
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
-
+ 
     conn.handle_write_event();
 
     short poll_event = conn.get_poll_events();
@@ -209,7 +210,11 @@ void Cluster::run()
 
             // 1. 处理异常/断开
             if (_poll_fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) {
-                this->_process_poll_errors(i);
+                std::cout << "poll fds revents is " << _poll_fds[i].revents << std::endl;
+                if (_poll_fds[i].revents & POLLHUP)
+                    this->_process_poll_errors(i, 1);
+                else
+                    this->_process_poll_errors(i, 0);
                 continue;
             }
             // 2. 分发读事件
@@ -232,7 +237,7 @@ void Cluster::check_cgi_timeouts()
 {
     typedef std::map<int, Connection*>::iterator CGI_Iterator;
 
-    std::cout << "[DEBUG] checking timeouts ... cgi map size = " << _cgi_fd_map.size() << std::endl;
+    //std::cout << "[DEBUG] checking timeouts ... cgi map size = " << _cgi_fd_map.size() << std::endl;
     for (CGI_Iterator it = _cgi_fd_map.begin(); it != _cgi_fd_map.end();) {
         Connection* conn   = it->second;
         int         cgi_fd = it->first;
@@ -258,7 +263,7 @@ void Cluster::check_cgi_timeouts()
     }
 }
 
-void Cluster::_process_poll_errors(size_t index)
+void Cluster::_process_poll_errors(size_t index, int is_poll_up)
 {
     int fd = _poll_fds[index].fd;
 
@@ -267,15 +272,22 @@ void Cluster::_process_poll_errors(size_t index)
     if (this->_cgi_fd_map.count(fd) > 0) {
         Connection* conn = _cgi_fd_map[fd];
 
+        std::cout << "POLLUP : " << is_poll_up << std::endl;
+
+        std::cout << "index = " << index <<  " fd = "  << fd << std::endl;
         // 关键动作：虽然子进程挂断了，但管道缓冲区里可能还有 Python 没读完的残留数据！
         // 我们强制驱动一次读取！
-        conn->handle_cgi_read();
+       
+            conn->handle_cgi_read(is_poll_up);
+
+
 
         // 读取完之后，检查 Connection 状态。
         // 你的 handle_cgi_read 会在读到 0 (EOF) 时把状态切走（比如切到 WRITING_RESP）
         if (conn->get_state() != Connection::CGI_READ) {
             this->_poll_fds[index].fd = -1;  // 标记延迟清理，踢出 poll
             this->_cgi_fd_map.erase(fd);     // 释放映射
+            conn->get_cgi_handler().reset();
             std::cout << "[Server] CGI Pipe POLLHUP handled and removed successfully." << std::endl;
         }
         return;
@@ -297,10 +309,11 @@ void Cluster::_dispatch_read_event(size_t index)
         Connection* conn = _cgi_fd_map[fd];
 
         // 🌟 核心替换：调用你现有的 handle_cgi_read()
-        conn->handle_cgi_read();
+        conn->handle_cgi_read(0);
 
         // 🌟 完美的闭环判定：看它的状态是不是已经离开 CGI_READ 了
         // 如果它的状态变成了 WRITING_RESP，说明它在 handle_cgi_read 内部已经处理完了 EOF
+
         if (conn->get_state() != Connection::CGI_READ) {
             this->_poll_fds[index].fd = -1;  // 标记延迟清理
             this->_cgi_fd_map.erase(fd);     // 释放映射
@@ -451,4 +464,16 @@ void Cluster::remove_fd_from_poll(int fd)
             break;  // 找到了就功成身退
         }
     }
+}
+
+const std::vector<struct pollfd> &Cluster::get_poll_fds()const
+{
+    return (this->_poll_fds);
+}
+
+void Cluster::set_poll_fd(int index)
+{
+    _poll_fds[index].events = 0;
+    _poll_fds[index].revents = 0;
+    _poll_fds[index].fd = -1;
 }
