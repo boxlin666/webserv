@@ -30,8 +30,11 @@ private:
     CGIState    _state;
     time_t      _last_activity_time;
 
-    int         _pipeIn[2]; // 父进程写，子进程读
-    int         _pipeOut[2];// 子进程写，父进程读
+    int         _pipeIn[2];
+    int         _pipeOut[2];
+
+    int _backup_pipeIn_write;  //_pipeIn[1]
+    int _backup_pipeOut_read; // _pipeOut[0] 
 
     std::string _scriptPath;
     std::string _binPath;
@@ -64,11 +67,19 @@ public:
     int getPid() const;
     int getReadFd() const;
     int getWriteFd() const;
+
+    int getBackUpReadFd() const;
+    int getBackUpWriteFd() const;
+
     void updateTime();
     bool isTimeout();
     bool checkChildProcess();
 
     std::string getRawResponse();
+    void close_all_pipes();
+    void close_unused_pipes(const HttpRequest& req);
+
+    void reset();
 };
 
 #endif

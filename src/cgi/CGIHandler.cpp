@@ -274,6 +274,12 @@ int CGIHandler::getReadFd() const
 int CGIHandler::getWriteFd() const
 { return _pipeIn[1]; }
 
+int CGIHandler::getBackUpReadFd() const
+{ return _backup_pipeOut_read; }
+
+int CGIHandler::getBackUpWriteFd() const
+{ return _backup_pipeIn_write; }
+
 void CGIHandler::updateTime()
 { _last_activity_time = std::time(NULL); }
 
@@ -368,4 +374,36 @@ void CGIHandler::_close_all_pipes()
         close(this->_pipeOut[1]);
         this->_pipeOut[1] = -1;
     }
+}
+
+void CGIHandler::reset()
+{
+    // 1. 强力销毁动态分配的 C 风格环境变量指针数组，防止内存泄漏！
+    this->_clearEnvp(); // 调用你原有的清理函数，确保 _envp 变回 NULL
+
+    this->_envp = NULL;
+
+    // 2. 彻底清空容器和字符串缓冲区
+    this->_envMap.clear();
+    this->_scriptPath.clear();
+    this->_binPath.clear();
+    this->_inBuffer.clear();
+    this->_outBuffer.clear();
+
+    // 3. 重置所有基础类型变量与标志位
+    this->_pid = -1;
+    this->_last_activity_time = 0;
+    this->_isExited = false;
+    this->_bytesWritten = 0;
+
+    // 4. 重置核心读写工作管道（注意：这里绝对不要调 close()！）
+    // 真正的 close 必须由大管家 Cluster 判定并执行后，这里只做“数字归零”
+    this->_pipeIn[0] = -1;
+    this->_pipeIn[1] = -1;
+    this->_pipeOut[0] = -1;
+    this->_pipeOut[1] = -1;
+
+    // 5. 重置你的“幽灵备份”变量，迎接下一个全新的 HTTP 请求
+    this->_backup_pipeIn_write = -1;
+    this->_backup_pipeOut_read = -1;
 }

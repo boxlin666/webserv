@@ -33,7 +33,7 @@ class Cluster
         bool    handle_client_read_event(size_t poll_idx);
         bool    handle_client_write_event(size_t poll_idx);
 
-        void    _process_poll_errors(size_t index);
+        void    _process_poll_errors(size_t index, int is_poll_up);
         void    _dispatch_read_event(size_t index);
         void    _dispatch_write_event(size_t index);
 
@@ -65,6 +65,10 @@ class Cluster
         void remove_fd_from_poll(int fd);
 
         void check_cgi_timeouts();
+
+        const std::vector<struct pollfd> &get_poll_fds()const;
+
+        void set_poll_fd(int index);
 };
 
 #endif
