@@ -45,6 +45,10 @@ void Connection::set_out_buff(void)
 { this->_out_buff = "HTTP/1.1 200 OK\r\n\r\n<h1>Hello from Server Class!</h1>"; }
 
 void Connection::handle_read_event(void) {
+
+    if (this->_state == Connection::CGI_WRITE)
+        return ;
+
     char buffer[4096];
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
@@ -115,12 +119,22 @@ void Connection::execute_cgi_pipeline()
         return;
     }
 
+    //只有在GET CGI 并且 request body len = 0 的情况下，我们才可以提前关闭这个pipe 并在poll_fd提前注销！
+    if (this->_cgi_handler.getWriteFd() == -1)
+    {
+        const std::vector<struct pollfd>& poll_fds= this->_cluster->get_poll_fds();
+        for (std::size_t i = 0 ; i < poll_fds.size(); i++)
+        {
+            if (poll_fds[i].fd == this->_cgi_handler.getBackUpWriteFd())
+                this->_cluster->set_poll_fd(i);
+        }
+    }
     this->_cgi_active = true;
-
     if (this->_request.get_method() == "POST" && this->_request.get_body().length() > 0) {
         this->_state = CGI_WRITE;
         // 🌟 这一步非常重要！通知大管家开始监听向 Python 喂数据的写管道
         this->register_cgi_pipe_to_poll(this->_cgi_handler.getWriteFd(), POLLOUT);
+        this->register_cgi_pipe_to_poll(this->_cgi_handler.getReadFd(), POLLIN);
     } else {
         this->_state = CGI_READ;
         // 🌟 通知大管家开始监听准备读取 Python 输出的读管道
@@ -130,6 +144,9 @@ void Connection::execute_cgi_pipeline()
 
 void Connection::handle_write_event(void)
 {
+    if (this->_state == Connection::CGI_READ)
+        return ;
+
     if (this->_out_buff.empty()) return;
     ssize_t bytes_send;
 
@@ -150,6 +167,7 @@ void Connection::handle_write_event(void)
     } else {
         // 🌟 打印 2：看看实际发了多少字节
         std::cout << "[Debug] send() actually sent: " << bytes_send << " bytes." << std::endl;
+        std::cout << "_out_buff = " << _out_buff << std::endl;
         this->_out_buff.erase(0, bytes_send);
     }
 
@@ -287,31 +305,44 @@ bool Connection::has_cgi()
 int Connection::get_cgi_read_fd() const
 { return this->_cgi_handler.getReadFd(); }
 
-void Connection::handle_cgi_read()
-{ 
+void Connection::handle_cgi_read(int is_poll_up)
+{
     char buf[4096];
     int  cgi_fd = this->get_cgi_read_fd();
+
+    if (is_poll_up)
+    {
+        std::cout << "[DEBUG] POLLHUP detected, we will call finalize cgi sucess to finish up!" << std::endl;
+        std::cout << "out_buff after detecting POLLHUP = " << this->_out_buff << std::endl;
+        this->_finalize_cgi_success(cgi_fd);
+        return ;
+    }
 
     ssize_t bytes = read(cgi_fd, buf, sizeof(buf) - 1);
 
     std::cout << "CGI_FD = " << cgi_fd << std::endl;
     std::cout << "BYTES = " << bytes << std::endl;
 
+    std::cout << "CGI READ FD BackEnd = " << this->_cgi_handler.getBackUpReadFd() << std::endl;
+    std::cout << "CGI READ FD = " << this->_cgi_handler.getReadFd() << std::endl;
+
+    std::cout << "CGI WRITE FD BackEnd= " << this->_cgi_handler.getBackUpWriteFd() << std::endl;
+    std::cout << "CGI WRITE FD = " << this->_cgi_handler.getWriteFd() << std::endl;
+
     std::cout << "ERRNO = " << errno << " (" << strerror(errno) << ")" << std::endl;
 
     if (bytes > 0) {            // 🌟 职责分离：一脚踢给错误处理函数
-            std::cout << "你在里面 不是EAGAIN EWOUDLBLOCK？" << std::endl;
+        this->_state = Connection::CGI_READ;
         buf[bytes] = '\0';
         this->_out_buff.append(buf, bytes);
+        std::cout << "[DEBUG] write read bytes > 0 is detected" << std::endl;
     } else if (bytes == 0) {
         // 🌟 职责分离：一脚踢给成功处理函数
+        this->_state = Connection::CGI_READ;
+        std::cout << "[DEBUG] write read ZERO 0 is detected" << std::endl;
         this->_finalize_cgi_success(cgi_fd);
     } else {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-        {
-           this->_finalize_cgi_success(cgi_fd);
-        }
-        else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
             this->_handle_cgi_read_error(cgi_fd);
         }
     }
@@ -320,6 +351,19 @@ void Connection::handle_cgi_read()
 void Connection::handle_cgi_write()
 {
     _cgi_handler.sendToScript();
+
+    if (this->_cgi_handler.getWriteFd() == -1)
+    {
+        const std::vector<struct pollfd>& poll_fds= this->_cluster->get_poll_fds();
+        for (std::size_t i = 0 ; i < poll_fds.size(); i++)
+        {
+            if (poll_fds[i].fd == this->_cgi_handler.getBackUpWriteFd())
+            {
+                this->_cluster->set_poll_fd(i);
+                std::cout << "I am inside yes in CGI WRITE" << std::endl;
+            }
+        }
+    }
 }
 
 void Connection::_finalize_cgi_success(int cgi_fd)
@@ -375,3 +419,8 @@ bool Connection::isCGITimedOut() const {
 void Connection::updateCGIActivity() {
     _cgi_handler.updateTime();
 }
+
+ CGIHandler &Connection::get_cgi_handler(void)
+ {
+    return (_cgi_handler);
+ }
