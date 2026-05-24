@@ -194,36 +194,52 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
 
 void Cluster::run()
 {
-    int loop_counter = 0;
-    while (true) {
-        int ret = poll(_poll_fds.data(), _poll_fds.size(), -1);
-        if (ret == -1) {
-            // if CGI child process received a SIGINT, then it will not interrupt the parent process
-            // to continue running!
-            if (errno == EINTR) continue;
-            std::string error_msg = "Poll failed: " + std::string(strerror(errno));
-            throw std::runtime_error(error_msg);
-        }
-        for (size_t i = 0; i < _poll_fds.size(); ++i) {
-            if (_poll_fds[i].fd == -1) continue;
+    // 获取当前时间的辅助变量，用来控制心跳频率（避免每次循环都去查字典，消耗性能）
+    time_t last_check_time = std::time(NULL);
 
-            // 1. 处理异常/断开
-            if (_poll_fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) {
-                this->_process_poll_errors(i);
-                continue;
-            }
-            // 2. 分发读事件
-            if (_poll_fds[i].revents & POLLIN) { this->_dispatch_read_event(i); }
-            // 3. 分发写事件
-            if (_poll_fds[i].fd != -1 && (_poll_fds[i].revents & POLLOUT)) {
-                this->_dispatch_write_event(i);
+    while (true) {
+        // 🚨 修正 1：将 -1 改为 1000ms（1秒）。
+        // 这样即使没有任何网络请求，poll 每隔 1 秒也会醒来一次，执行后面的超时检查
+        int ret = poll(_poll_fds.data(), _poll_fds.size(), 1000); 
+        
+        if (ret == -1) {
+            if (errno == EINTR) continue;
+            throw std::runtime_error("Poll failed: " + std::string(strerror(errno)));
+        }
+
+        // ==========================================
+        // 阶段 1 & 2：处理 IO 事件 (如果 ret > 0)
+        // ==========================================
+        if (ret > 0) {
+            for (size_t i = 0; i < _poll_fds.size(); ++i) {
+                if (_poll_fds[i].fd == -1) continue;
+
+                if (_poll_fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) {
+                    this->_process_poll_errors(i);
+                    continue;
+                }
+                
+                // 这里面需要区分是 Socket 还是 CGI 的 Pipe
+                if (_poll_fds[i].revents & POLLIN) { 
+                    this->_dispatch_read_event(i); 
+                }
+                
+                if (_poll_fds[i].fd != -1 && (_poll_fds[i].revents & POLLOUT)) {
+                    this->_dispatch_write_event(i);
+                }
             }
         }
-        // 延迟删除被close 的fd, 防止在for循环内误删，数组非法访问
-        this->cleanup_inactive_fds();
-        if (++loop_counter >= 500 && _cgi_fd_map.size() > 0) {
-            check_cgi_timeouts();
-            loop_counter = 0;
+
+        // ==========================================
+        // 阶段 3：状态心跳、收尸与收尾 (不管 poll 有没有事件，都会执行)
+        // ==========================================
+        this->cleanup_inactive_fds(); // 清理废弃 FD
+
+        time_t current_time = std::time(NULL);
+        // 每隔 1 秒执行一次 CGI 的心跳检查，避免过于频繁
+        if (current_time - last_check_time >= 1) { 
+            _manage_cgi_lifecycle(); // 🌟 我们把超时和收尸逻辑封装在这里
+            last_check_time = current_time;
         }
     }
 }

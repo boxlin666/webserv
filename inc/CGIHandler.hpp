@@ -13,29 +13,44 @@
 #include "Router.hpp"
 #include "HttpRequest.hpp"
 
+#define MAX_CGI_RESPONSE_SIZE 10485760
+#define CGI_TIMEOUT_SEC 10 
+
+enum CGIState {
+    CGI_INIT,       // 初始化完成，准备执行
+    CGI_EXECUTING,  // fork 完成，子进程正在运行，正在进行 IO 推拉
+    CGI_FINISHED,   // 子进程正常结束，数据读取完毕
+    CGI_ERROR       // 发生错误（如超时、execve 失败、管道断裂）
+};
+
 class CGIHandler
 {
 private:
     pid_t       _pid;
+    CGIState    _state;
     time_t      _last_activity_time;
-    bool        _isExited;
-    std::map<std::string, std::string> _envMap;
 
-    int         _pipeIn[2];
-    int         _pipeOut[2];
+    int         _pipeIn[2]; // 父进程写，子进程读
+    int         _pipeOut[2];// 子进程写，父进程读
 
     std::string _scriptPath;
     std::string _binPath;
+    std::map<std::string, std::string> _envMap;
     char**      _envp;
 
     std::string _inBuffer;
     std::string _outBuffer;
     size_t      _bytesWritten;
 
-    void prepare_envmap(const HttpRequest& req, const RouterCtx& ctx);
     CGIHandler(const CGIHandler& other);
     CGIHandler& operator=(const CGIHandler& other);
 
+    void _prepareEnvMap(const HttpRequest& req, const RouterCtx& ctx); 
+    void _mapToEnvp();
+    void _clearEnvp();
+
+    void _close_all_pipes();
+    void _close_unused_pipes(const HttpRequest& req);
 public:
     CGIHandler();
     ~CGIHandler();
@@ -43,8 +58,6 @@ public:
     bool init(const HttpRequest& req, const RouterCtx& ctx);
     bool execute(const HttpRequest& req);
 
-    void _mapToEnvp();
-    void _clearEnvp();
     void sendToScript();
     void receiveFromScript();
 
@@ -52,12 +65,10 @@ public:
     int getReadFd() const;
     int getWriteFd() const;
     void updateTime();
-    bool isTimeout() const;
-    bool isFinished();
+    bool isTimeout();
+    bool checkChildProcess();
 
     std::string getRawResponse();
-    void close_all_pipes();
-    void close_unused_pipes(const HttpRequest& req);
 };
 
 #endif
