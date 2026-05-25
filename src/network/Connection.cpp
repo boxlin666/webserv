@@ -46,7 +46,7 @@ void Connection::set_out_buff(void)
 
 void Connection::handle_read_event(void) {
 
-    if (this->_state == Connection::CGI_WRITE)
+    if (this->_state == Connection::CGI_RUNNING)
         return ;
 
     char buffer[4096];
@@ -130,13 +130,12 @@ void Connection::execute_cgi_pipeline()
         }
     }
     this->_cgi_active = true;
+    this->_state = CGI_RUNNING;
     if (this->_request.get_method() == "POST" && this->_request.get_body().length() > 0) {
-        this->_state = CGI_WRITE;
         // 🌟 这一步非常重要！通知大管家开始监听向 Python 喂数据的写管道
         this->register_cgi_pipe_to_poll(this->_cgi_handler.getWriteFd(), POLLOUT);
         this->register_cgi_pipe_to_poll(this->_cgi_handler.getReadFd(), POLLIN);
     } else {
-        this->_state = CGI_READ;
         // 🌟 通知大管家开始监听准备读取 Python 输出的读管道
         this->register_cgi_pipe_to_poll(this->_cgi_handler.getReadFd(), POLLIN);
     }
@@ -144,7 +143,7 @@ void Connection::execute_cgi_pipeline()
 
 void Connection::handle_write_event(void)
 {
-    if (this->_state == Connection::CGI_READ)
+    if (this->_state == Connection::CGI_RUNNING)
         return ;
 
     if (this->_out_buff.empty()) return;
@@ -293,58 +292,47 @@ short Connection::get_poll_events() const
     if (this->_state == WAITING || this->_state == READING_REQ) return POLLIN;
 
     // 如果连接处于正在向客户端写响应、或者正在往 CGI 喂数据的状态，我们需要监听写（POLLOUT）
-    if (this->_state == WRITING_RESP || this->_state == CGI_WRITE) return POLLOUT;
+    if (this->_state == WRITING_RESP || this->_state == CGI_FINISH) return POLLOUT;
 
     // 其他状态（比如 CLOSED 或者正在等待 CGI 读管道），让客户端 Socket 保持不监听任何读写事件
     return 0;
 }
 
 bool Connection::has_cgi()
-{ return (this->_cgi_handler.getPid() != -1 && !this->_cgi_handler.isFinished()); }
+{ return (this->_cgi_handler.getPid() != -1 && !this->_cgi_handler.isTimeout()); }
 
 int Connection::get_cgi_read_fd() const
 { return this->_cgi_handler.getReadFd(); }
 
-void Connection::handle_cgi_read(int is_poll_up)
+void Connection::handle_cgi_read()
 {
-    char buf[4096];
-    int  cgi_fd = this->get_cgi_read_fd();
+    // 1. 让外包(CGIHandler)去干活抽水
+    int status = _cgi_handler.receiveFromScript();
 
-    if (is_poll_up)
-    {
-        std::cout << "[DEBUG] POLLHUP detected, we will call finalize cgi sucess to finish up!" << std::endl;
-        std::cout << "out_buff after detecting POLLHUP = " << this->_out_buff << std::endl;
-        this->_finalize_cgi_success(cgi_fd);
-        return ;
-    }
-
-    ssize_t bytes = read(cgi_fd, buf, sizeof(buf) - 1);
-
-    std::cout << "CGI_FD = " << cgi_fd << std::endl;
-    std::cout << "BYTES = " << bytes << std::endl;
-
-    std::cout << "CGI READ FD BackEnd = " << this->_cgi_handler.getBackUpReadFd() << std::endl;
-    std::cout << "CGI READ FD = " << this->_cgi_handler.getReadFd() << std::endl;
-
-    std::cout << "CGI WRITE FD BackEnd= " << this->_cgi_handler.getBackUpWriteFd() << std::endl;
-    std::cout << "CGI WRITE FD = " << this->_cgi_handler.getWriteFd() << std::endl;
-
-    std::cout << "ERRNO = " << errno << " (" << strerror(errno) << ")" << std::endl;
-
-    if (bytes > 0) {            // 🌟 职责分离：一脚踢给错误处理函数
-        this->_state = Connection::CGI_READ;
-        buf[bytes] = '\0';
-        this->_out_buff.append(buf, bytes);
-        std::cout << "[DEBUG] write read bytes > 0 is detected" << std::endl;
-    } else if (bytes == 0) {
-        // 🌟 职责分离：一脚踢给成功处理函数
-        this->_state = Connection::CGI_READ;
-        std::cout << "[DEBUG] write read ZERO 0 is detected" << std::endl;
-        this->_finalize_cgi_success(cgi_fd);
-    } else {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            this->_handle_cgi_read_error(cgi_fd);
-        }
+    // 2. 根据汇报的结果切换状态
+    if (status == 1) {
+        // 数据还在源源不断地来，保持 CGI_RUNNING 状态，什么都不用做
+        // 🚨 就算 is_poll_up 是 true，只要 status 是 1，就必须继续读！
+        return; 
+    } 
+    else if (status == 0) {
+        // 🌟 外包干完活了 (EOF)
+        this->_state = Connection::CGI_FINISH;
+        
+        // 找外包拿最终的完整数据
+        std::string full_cgi_output = _cgi_handler.getRawResponse();
+        
+        // 调用你之前写好的神级函数，解析数据并组装 HTTP 报文
+        this->_parseCgiOutputAndMakeResponse(full_cgi_output);
+        
+        // 准备发给浏览器
+        this->_state = Connection::WRITING_RESP; 
+    } 
+    else if (status == -1) {
+        // 外包搞砸了 (Pipe 破裂等报错)
+        std::cerr << "[Error] CGI read failed!" << std::endl;
+        // this->buildErrorResponse(500);
+        this->_state = Connection::WRITING_RESP;
     }
 }
 
@@ -366,6 +354,126 @@ void Connection::handle_cgi_write()
     }
 }
 
+void Connection::checkCGI()
+{
+    _cgi_handler.checkChildProcess();
+    if(_cgi_handler.getState() == CGIHandler::CGI_FINISHED)
+    {
+        _state = CGI_FINISH;
+        std::string raw_output = _cgi_handler.getRawResponse();
+        this->_parseCgiOutputAndMakeResponse(raw_output);
+        // this->setWriteReady(); // 状态流转完毕，准备在下次 POLLOUT 发给浏览器
+    }
+}
+
+void Connection::_parseCgiOutputAndMakeResponse(const std::string& raw_output)
+{
+    std::string header_part, body_part;
+
+    // 1. 切割：如果切割失败（非法数据），直接拉闸报错
+    if (!_splitCgiHeaderAndBody(raw_output, header_part, body_part)) {
+        std::cerr << "[CGI Parse Error] No header-body delimiter found!" << std::endl;
+        // this->buildErrorResponse(500);
+        return;
+    }
+
+    // 2. 解析：将头部字符串转化为字典
+    std::map<std::string, std::string> cgi_headers = _parseCgiHeaders(header_part);
+
+    // 3. 组装：将内容打包成合法的 HTTP 响应并存入输出缓冲区
+    this->_out_buff = _assembleHttpResponse(cgi_headers, body_part);
+}
+
+bool Connection::_splitCgiHeaderAndBody(const std::string& raw_output, std::string& header_part, std::string& body_part)
+{
+    size_t delimiter_pos = raw_output.find("\r\n\r\n");
+    size_t delimiter_len = 4;
+
+    if (delimiter_pos == std::string::npos) {
+        delimiter_pos = raw_output.find("\n\n");
+        delimiter_len = 2;
+    }
+
+    if (delimiter_pos == std::string::npos) {
+        return false; // 没找到合法边界，说明数据有问题
+    }
+
+    header_part = raw_output.substr(0, delimiter_pos);
+    body_part = raw_output.substr(delimiter_pos + delimiter_len);
+    return true;
+}
+
+std::map<std::string, std::string> Connection::_parseCgiHeaders(const std::string& header_part)
+{
+    std::map<std::string, std::string> headers;
+    std::stringstream header_stream(header_part);
+    std::string line;
+
+    while (std::getline(header_stream, line)) {
+        if (!line.empty() && line[line.length() - 1] == '\r') {
+            line.erase(line.length() - 1);
+        }
+        if (line.empty()) continue;
+
+        size_t colon_pos = line.find(':');
+        if (colon_pos != std::string::npos) {
+            std::string key = line.substr(0, colon_pos);
+            std::string value = line.substr(colon_pos + 1);
+
+            // Trim 空格
+            size_t first = value.find_first_not_of(" \t");
+            size_t last = value.find_last_not_of(" \t");
+            if (first != std::string::npos && last != std::string::npos) {
+                value = value.substr(first, (last - first + 1));
+            } else {
+                value = "";
+            }
+            headers[key] = value;
+        }
+    }
+    return headers;
+}
+
+std::string Connection::_assembleHttpResponse(const std::map<std::string, std::string>& cgi_headers, const std::string& body_part)
+{
+    std::string http_status = "200 OK";
+    
+    // 确定状态码
+    if (cgi_headers.count("Status")) {
+        // 注意：C++98 中 map.at() 在某些编译器不可用，这里可以用 find() 或者直接 []
+        std::map<std::string, std::string>::const_iterator it = cgi_headers.find("Status");
+        if (it != cgi_headers.end()) http_status = it->second;
+    } else if (cgi_headers.count("Location")) {
+        http_status = "302 Found";
+    }
+
+    std::stringstream response;
+    response << "HTTP/1.1 " << http_status << "\r\n";
+
+    bool has_content_length = false;
+    for (std::map<std::string, std::string>::const_iterator it = cgi_headers.begin(); it != cgi_headers.end(); ++it) {
+        if (it->first == "Status") continue; // 跳过 Status，因为上面首行已经处理了
+        if (it->first == "Content-Length") has_content_length = true;
+        response << it->first << ": " << it->second << "\r\n";
+    }
+
+    // 智能补全
+    if (!has_content_length) {
+        response << "Content-Length: " << body_part.length() << "\r\n";
+    }
+    if (!cgi_headers.count("Content-Type")) {
+        response << "Content-Type: text/html\r\n";
+    }
+    
+    response << "Server: Webserv/1.0\r\n";
+    response << "Connection: keep-alive\r\n\r\n";
+    
+    // 塞入 Body
+    response << body_part;
+
+    return response.str();
+}
+
 void Connection::_finalize_cgi_success(int cgi_fd)
 {
     std::cout << "[Server] CGI Process finished writing all data." << std::endl;
@@ -380,7 +488,7 @@ void Connection::_finalize_cgi_success(int cgi_fd)
 
     // 3. 核心解耦：先安全从 poll 中撤销，再关闭管道，防止 FD 复用串流
     this->_cluster->remove_fd_from_poll(cgi_fd);
-    this->_cgi_handler.close_all_pipes();
+    this->_cgi_handler._close_all_pipes();
     this->_cgi_active = false;
 
     // 4. 驱动状态机进入发送响应阶段
@@ -401,7 +509,7 @@ void Connection::_handle_cgi_read_error(int cgi_fd)
 
     // 2. 清理 poll 队列及管道资源
     this->_cluster->remove_fd_from_poll(cgi_fd);
-    this->_cgi_handler.close_all_pipes();
+    this->_cgi_handler._close_all_pipes();
     this->_cgi_active = false;
 
     // 3. 哪怕出错了，也要把 500 页面传回给客户端
@@ -412,7 +520,7 @@ void Connection::_handle_cgi_read_error(int cgi_fd)
 void Connection::register_cgi_pipe_to_poll(int fd, short events)
 { this->_cluster->register_cgi_fd(fd, events, this); }
 
-bool Connection::isCGITimedOut() const {
+bool Connection::isCGITimedOut() {
     return _cgi_handler.isTimeout();
 }
 

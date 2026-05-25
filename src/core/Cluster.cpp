@@ -153,7 +153,7 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
     Connection& conn = *(it->second);
 
     if (conn.has_cgi() && fd == conn.get_cgi_read_fd()) {
-        conn.handle_cgi_read(0);
+        conn.handle_cgi_read();
     } else {
         // 2. 否则，它就是普通的 client socket 读取
         conn.handle_read_event();
@@ -245,11 +245,11 @@ void Cluster::run()
     }
 }
 
-void Cluster::check_cgi_timeouts()
+void Cluster::_manage_cgi_lifecycle()
 {
+    if (_cgi_fd_map.empty()) return;
+    
     typedef std::map<int, Connection*>::iterator CGI_Iterator;
-
-    //std::cout << "[DEBUG] checking timeouts ... cgi map size = " << _cgi_fd_map.size() << std::endl;
     for (CGI_Iterator it = _cgi_fd_map.begin(); it != _cgi_fd_map.end();) {
         Connection* conn   = it->second;
         int         cgi_fd = it->first;
@@ -267,15 +267,18 @@ void Cluster::check_cgi_timeouts()
             // 2. Resource cleanup
             close(cgi_fd);
             conn->set_state(Connection::ERROR);
-
             _cgi_fd_map.erase(it++);
+            // conn->makeErrorResponse(504);
+            // conn->setWriteReady();
+
         } else {
             ++it;
         }
+        conn->checkCGI();
     }
 }
 
-void Cluster::_process_poll_errors(size_t index, int is_poll_up)
+void Cluster::_process_poll_errors(size_t index)
 {
     int fd = _poll_fds[index].fd;
 
@@ -284,19 +287,17 @@ void Cluster::_process_poll_errors(size_t index, int is_poll_up)
     if (this->_cgi_fd_map.count(fd) > 0) {
         Connection* conn = _cgi_fd_map[fd];
 
-        std::cout << "POLLUP : " << is_poll_up << std::endl;
-
         std::cout << "index = " << index <<  " fd = "  << fd << std::endl;
         // 关键动作：虽然子进程挂断了，但管道缓冲区里可能还有 Python 没读完的残留数据！
         // 我们强制驱动一次读取！
        
-            conn->handle_cgi_read(is_poll_up);
+            conn->handle_cgi_read();
 
 
 
         // 读取完之后，检查 Connection 状态。
         // 你的 handle_cgi_read 会在读到 0 (EOF) 时把状态切走（比如切到 WRITING_RESP）
-        if (conn->get_state() != Connection::CGI_READ) {
+        if (conn->get_state() == Connection::CGI_FINISH) {
             this->_poll_fds[index].fd = -1;  // 标记延迟清理，踢出 poll
             this->_cgi_fd_map.erase(fd);     // 释放映射
             conn->get_cgi_handler().reset();
@@ -314,33 +315,41 @@ void Cluster::_dispatch_read_event(size_t index)
 {
     int fd = _poll_fds[index].fd;
 
-    // 情况 A: 属于 CGI 读管道
-    if (this->_cgi_fd_map.count(fd)) {
-        std::cout << "I AM INSIDE DISPATCH READ EVENT FOR CGI FD READ" << std::endl;
-
-        Connection* conn = _cgi_fd_map[fd];
-
-        // 🌟 核心替换：调用你现有的 handle_cgi_read()
-        conn->handle_cgi_read(0);
-
-        // 🌟 完美的闭环判定：看它的状态是不是已经离开 CGI_READ 了
-        // 如果它的状态变成了 WRITING_RESP，说明它在 handle_cgi_read 内部已经处理完了 EOF
-
-        if (conn->get_state() != Connection::CGI_READ) {
-            this->_poll_fds[index].fd = -1;  // 标记延迟清理
-            this->_cgi_fd_map.erase(fd);     // 释放映射
-        }
-    }
-    // 情况 B: 属于监听服务器 Socket
-    else if (_socket_map.count(fd)) {
+    // =========================================================
+    // 场景 A: 属于监听服务器 Socket (有新客户按门铃)
+    // =========================================================
+    if (this->_socket_map.count(fd)) {
         this->handle_new_connection(fd, _socket_map[fd]);
+        return; // 处理完立刻下班，绝不往下走
     }
-    // 情况 C: 属于普通的客户端 Socket
-    else {
-        if (this->handle_client_read_event(index) == false) {
-            this->_poll_fds[index].fd = -1;
-            this->close_connection(index);
+
+    // =========================================================
+    // 场景 B: 属于 CGI 读管道 (后端的打工人出活了)
+    // =========================================================
+    if (this->_cgi_fd_map.count(fd)) {
+        Connection* conn = this->_cgi_fd_map[fd];
+
+        // 驱动 CGI 读取数据
+        conn->handle_cgi_read();
+
+        // 🌟 状态核对：只要状态离开了 CGI_RUNNING (进入 FINISH 或直接变 ERROR/WRITING)
+        // 就说明管道的使命已经结束，立刻销毁 FD 和映射
+        Connection::State current_state = conn->get_state();
+        if (current_state == Connection::CGI_FINISH || current_state == Connection::WRITING_RESP) {
+            this->_poll_fds[index].fd = -1;  // 标记为废弃，等待 cleanup 统一清理
+            this->_cgi_fd_map.erase(fd);     // 斩断关联，防止野指针
         }
+        return;
+    }
+
+    // =========================================================
+    // 场景 C: 属于普通的客户端 Socket (浏览器发来了 HTTP 数据)
+    // =========================================================
+    // 既然不是 Server 也不是 CGI，那必定是普通的 Client 连接
+    if (this->handle_client_read_event(index) == false) {
+        // 如果返回 false，说明客户端断开了（如 recv 返回 0），或者发生严重错误
+        this->_poll_fds[index].fd = -1;
+        this->close_connection(index);
     }
 }
 
@@ -356,7 +365,7 @@ void Cluster::_dispatch_write_event(size_t index)
         // 如果目前只跑 GET，它绝对不会进到这里来
         // 暂时可以先写成如果写完了就断开：
         conn->handle_cgi_write();
-        if (conn->get_state() != Connection::CGI_WRITE) {
+        if (conn->get_state() == Connection::CGI_FINISH) {
             this->_poll_fds[index].fd = -1;
             this->_cgi_fd_map.erase(fd);
         }

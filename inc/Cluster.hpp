@@ -33,13 +33,13 @@ class Cluster
         bool    handle_client_read_event(size_t poll_idx);
         bool    handle_client_write_event(size_t poll_idx);
 
-        void    _process_poll_errors(size_t index, int is_poll_up);
+        void    _process_poll_errors(size_t index);
         void    _dispatch_read_event(size_t index);
         void    _dispatch_write_event(size_t index);
 
         static bool    is_invalid_fd(const struct pollfd& pfd);
         void    cleanup_inactive_fds();
-
+        void _manage_cgi_lifecycle();
 
         Cluster(const Cluster& other);
         Cluster& operator=(const Cluster& other);
@@ -63,8 +63,6 @@ class Cluster
         void register_cgi_fd(int fd, short events, Connection* conn);
         void update_client_events(int client_fd, short new_events);
         void remove_fd_from_poll(int fd);
-
-        void check_cgi_timeouts();
 
         const std::vector<struct pollfd> &get_poll_fds()const;
 

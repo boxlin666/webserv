@@ -16,15 +16,15 @@
 #define MAX_CGI_RESPONSE_SIZE 10485760
 #define CGI_TIMEOUT_SEC 10 
 
+class CGIHandler
+{
+public:
 enum CGIState {
     CGI_INIT,       // 初始化完成，准备执行
     CGI_EXECUTING,  // fork 完成，子进程正在运行，正在进行 IO 推拉
     CGI_FINISHED,   // 子进程正常结束，数据读取完毕
     CGI_ERROR       // 发生错误（如超时、execve 失败、管道断裂）
 };
-
-class CGIHandler
-{
 private:
     pid_t       _pid;
     CGIState    _state;
@@ -48,11 +48,10 @@ private:
     CGIHandler(const CGIHandler& other);
     CGIHandler& operator=(const CGIHandler& other);
 
-    void _prepareEnvMap(const HttpRequest& req, const RouterCtx& ctx); 
+    void _prepareEnvMap(const HttpRequest& req); 
     void _mapToEnvp();
     void _clearEnvp();
 
-    void _close_all_pipes();
     void _close_unused_pipes(const HttpRequest& req);
 public:
     CGIHandler();
@@ -61,22 +60,23 @@ public:
     bool init(const HttpRequest& req, const RouterCtx& ctx);
     bool execute(const HttpRequest& req);
 
-    void sendToScript();
-    void receiveFromScript();
+    int sendToScript();
+    int receiveFromScript();
 
     int getPid() const;
-    int getReadFd() const;
     int getWriteFd() const;
+    int getReadFd() const;
 
     int getBackUpReadFd() const;
     int getBackUpWriteFd() const;
 
+    CGIState    getState() const;
     void updateTime();
     bool isTimeout();
     bool checkChildProcess();
 
     std::string getRawResponse();
-    void close_all_pipes();
+    void _close_all_pipes();
     void close_unused_pipes(const HttpRequest& req);
 
     void reset();

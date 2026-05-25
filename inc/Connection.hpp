@@ -25,8 +25,8 @@ class Connection
         {
             WAITING,
             READING_REQ,
-            CGI_WRITE,
-            CGI_READ, 
+            CGI_RUNNING,
+            CGI_FINISH, 
             WRITING_RESP, 
             CLOSED,
             ERROR
@@ -50,13 +50,14 @@ class Connection
 
         bool has_cgi();
         int get_cgi_read_fd() const;
-        void handle_cgi_read(int is_poll_up);
+        void handle_cgi_read();
         void handle_cgi_write();
         void register_cgi_pipe_to_poll(int fd, short events);
 
         CGIHandler &get_cgi_handler(void);
 
-        bool isCGITimedOut() const ;
+        void checkCGI();
+        bool isCGITimedOut();
         void updateCGIActivity() ;
     private:
         int _client_fd;
@@ -88,6 +89,12 @@ class Connection
 
         void _finalize_cgi_success(int cgi_fd);
         void _handle_cgi_read_error(int cgi_fd);
+
+        void _parseCgiOutputAndMakeResponse(const std::string& raw_output);
+        bool _splitCgiHeaderAndBody(const std::string& raw_output, std::string& header_part, std::string& body_part);
+        std::map<std::string, std::string> _parseCgiHeaders(const std::string& header_part);
+        std::string _assembleHttpResponse(const std::map<std::string, std::string>& cgi_headers, const std::string& body_part);
+
         Connection(const Connection& other);
         Connection& operator=(const Connection& other);
 

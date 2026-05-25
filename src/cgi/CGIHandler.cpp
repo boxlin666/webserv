@@ -16,7 +16,7 @@ CGIHandler::~CGIHandler()
 }
 
 // 3. 剥离出来的环境准备函数（保持单一职责）
-void CGIHandler::_prepareEnvMap(const HttpRequest& req, const RouterCtx& ctx) 
+void CGIHandler::_prepareEnvMap(const HttpRequest& req) 
 {
     char* raw_path = std::getenv("PATH");
     _envMap["PATH"] = (raw_path != NULL) ? std::string(raw_path) : "/usr/bin:/bin:/usr/local/bin";
@@ -55,7 +55,7 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
     } else {
         return false;
     }
-    _prepareEnvMap(req, ctx);
+    _prepareEnvMap(req);
     _mapToEnvp();
     if (req.get_method() == "POST") { 
         _inBuffer = req.get_body(); 
@@ -190,18 +190,18 @@ void CGIHandler::_clearEnvp()
 std::string CGIHandler::getRawResponse()
 { return _outBuffer; }
 
-void CGIHandler::sendToScript()
+int CGIHandler::sendToScript()
 {
     // 防御性拦截：如果状态不是正在执行，或者写端已经关闭，直接返回
     if (_state != CGI_EXECUTING || _pipeIn[1] == -1) {
-        return;
+        return 1;
     }
 
     // 数据已经全部发送完毕
     if (_inBuffer.empty()) {
         close(_pipeIn[1]);
         _pipeIn[1] = -1;
-        return;
+        return 0;
     }
 
     // 尝试非阻塞写入
@@ -218,6 +218,7 @@ void CGIHandler::sendToScript()
             close(_pipeIn[1]);
             _pipeIn[1] = -1;
         }
+        return 0;
     } else if (bytes_sent == -1) {
         // 如果 errno 是 EAGAIN 或 EWOULDBLOCK，说明内核缓冲区满了，属于正常现象，等待下次 POLLOUT
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
@@ -226,13 +227,15 @@ void CGIHandler::sendToScript()
             _close_all_pipes(); // 发生错误立即释放所有 FD 资源，防止事件循环空转
         }
     }
+    
+    return 1;
 }
 
-void CGIHandler::receiveFromScript()
+int CGIHandler::receiveFromScript()
 {
     // 防御性拦截
     if (_state != CGI_EXECUTING || _pipeOut[0] == -1) {
-        return;
+        return 1;
     }
 
     char    buffer[8192];  // 8K 局部缓冲区
@@ -244,7 +247,7 @@ void CGIHandler::receiveFromScript()
         if (_outBuffer.size() + bytes_read > MAX_CGI_RESPONSE_SIZE) {
             _state = CGI_ERROR;
             _close_all_pipes();
-            return;
+            return 1;
         }
         // 安全地追加数据
         _outBuffer.append(buffer, bytes_read);
@@ -253,6 +256,7 @@ void CGIHandler::receiveFromScript()
         close(_pipeOut[0]);
         _pipeOut[0] = -1;
         
+        return 0;
         // 💡 注意：这里不要盲目地直接把状态改成 CGI_FINISHED！
         // 最佳实践是：数据读完了，但我们依然需要通过 waitpid 确认子进程退出了，
         // 这样可以确保状态的原子性。我们可以在 checkChildProcess() 中做最终的状态切换。
@@ -263,6 +267,7 @@ void CGIHandler::receiveFromScript()
             _close_all_pipes();
         }
     }
+    return 1;
 }
 
 int CGIHandler::getPid() const
@@ -280,6 +285,10 @@ int CGIHandler::getBackUpReadFd() const
 int CGIHandler::getBackUpWriteFd() const
 { return _backup_pipeIn_write; }
 
+CGIHandler::CGIState CGIHandler::getState() const
+{
+    return _state;
+}
 void CGIHandler::updateTime()
 { _last_activity_time = std::time(NULL); }
 
@@ -393,7 +402,7 @@ void CGIHandler::reset()
     // 3. 重置所有基础类型变量与标志位
     this->_pid = -1;
     this->_last_activity_time = 0;
-    this->_isExited = false;
+    this->_state = CGI_FINISHED;
     this->_bytesWritten = 0;
 
     // 4. 重置核心读写工作管道（注意：这里绝对不要调 close()！）
