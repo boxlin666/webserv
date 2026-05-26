@@ -8,8 +8,7 @@ Cluster::Cluster(void) {}
 
 Cluster::~Cluster(void)
 {
-    // TODO LATER
-    //  delete ptr inside _server_map _connection_map
+    // TODOdelete ptr inside _server_map _connection_map
 }
 
 void Cluster::setup(const ConfigParser& config)
@@ -18,7 +17,6 @@ void Cluster::setup(const ConfigParser& config)
     this->open_listener(config);
     this->init_poll_listen_fds();
 
-    std::cout << "set up finished!!!" << std::endl;
     this->print_socket_map();
     this->print_servers_map();
     this->print_pfds();
@@ -151,13 +149,7 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
     std::map<int, Connection*>::iterator it = _connection_map.find(fd);
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
-
-    if (conn.has_cgi() && fd == conn.get_cgi_read_fd()) {
-        conn.handle_cgi_read(0);
-    } else {
-        // 2. 否则，它就是普通的 client socket 读取
-        conn.handle_read_event();
-    }
+    conn.handle_read_event();
 
     short poll_event = conn.get_poll_events();
 
@@ -178,7 +170,7 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
     std::map<int, Connection*>::iterator it = _connection_map.find(fd);
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
- 
+
     conn.handle_write_event();
 
     short poll_event = conn.get_poll_events();
@@ -195,49 +187,58 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
 
 void Cluster::run()
 {
-    int loop_counter = 0;
-    while (true) {
-        int ret = poll(_poll_fds.data(), _poll_fds.size(), -1);
-        if (ret == -1) {
-            // if CGI child process received a SIGINT, then it will not interrupt the parent process
-            // to continue running!
-            if (errno == EINTR) continue;
-            std::string error_msg = "Poll failed: " + std::string(strerror(errno));
-            throw std::runtime_error(error_msg);
-        }
-        for (size_t i = 0; i < _poll_fds.size(); ++i) {
-            if (_poll_fds[i].fd == -1) continue;
+    // 获取当前时间的辅助变量，用来控制心跳频率（避免每次循环都去查字典，消耗性能）
+    time_t last_check_time = std::time(NULL);
 
-            // 1. 处理异常/断开
-            if (_poll_fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) {
-                std::cout << "poll fds revents is " << _poll_fds[i].revents << std::endl;
-                if (_poll_fds[i].revents & POLLHUP)
-                    this->_process_poll_errors(i, 1);
-                else
-                    this->_process_poll_errors(i, 0);
-                continue;
-            }
-            // 2. 分发读事件
-            if (_poll_fds[i].revents & POLLIN) { this->_dispatch_read_event(i); }
-            // 3. 分发写事件
-            if (_poll_fds[i].fd != -1 && (_poll_fds[i].revents & POLLOUT)) {
-                this->_dispatch_write_event(i);
+    while (true) {
+        // 🚨 修正 1：将 -1 改为 1000ms（1秒）。
+        // 这样即使没有任何网络请求，poll 每隔 1 秒也会醒来一次，执行后面的超时检查
+        int ret = poll(_poll_fds.data(), _poll_fds.size(), 1000);
+
+        if (ret == -1) {
+            if (errno == EINTR) continue;
+            throw std::runtime_error("Poll failed: " + std::string(strerror(errno)));
+        }
+
+        // ==========================================
+        // 阶段 1 & 2：处理 IO 事件 (如果 ret > 0)
+        // ==========================================
+        if (ret > 0) {
+            for (size_t i = 0; i < _poll_fds.size(); ++i) {
+                if (_poll_fds[i].fd == -1) continue;
+
+                if (_poll_fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) {
+                    this->_process_poll_errors(i);
+                    continue;
+                }
+
+                if (_poll_fds[i].revents & POLLIN) { this->_dispatch_read_event(i); }
+
+                if (_poll_fds[i].fd != -1 && (_poll_fds[i].revents & POLLOUT)) {
+                    this->_dispatch_write_event(i);
+                }
             }
         }
-        // 延迟删除被close 的fd, 防止在for循环内误删，数组非法访问
-        this->cleanup_inactive_fds();
-        if (++loop_counter >= 500 && _cgi_fd_map.size() > 0) {
-            check_cgi_timeouts();
-            loop_counter = 0;
+
+        // ==========================================
+        // 阶段 3：状态心跳、收尸与收尾 (不管 poll 有没有事件，都会执行)
+        // ==========================================
+        this->cleanup_inactive_fds();  // 清理废弃 FD
+
+        // 每隔 1 秒执行一次 CGI 的心跳检查，避免过于频繁
+        time_t current_time = std::time(NULL);
+        if (current_time - last_check_time >= 1) {
+            _manage_cgi_lifecycle(); // 🌟 我们把超时和收尸逻辑封装在这里
+            last_check_time = current_time;
         }
     }
 }
 
-void Cluster::check_cgi_timeouts()
+void Cluster::_manage_cgi_lifecycle()
 {
-    typedef std::map<int, Connection*>::iterator CGI_Iterator;
+    if (_cgi_fd_map.empty()) return;
 
-    //std::cout << "[DEBUG] checking timeouts ... cgi map size = " << _cgi_fd_map.size() << std::endl;
+    typedef std::map<int, Connection*>::iterator CGI_Iterator;
     for (CGI_Iterator it = _cgi_fd_map.begin(); it != _cgi_fd_map.end();) {
         Connection* conn   = it->second;
         int         cgi_fd = it->first;
@@ -255,15 +256,18 @@ void Cluster::check_cgi_timeouts()
             // 2. Resource cleanup
             close(cgi_fd);
             conn->set_state(Connection::ERROR);
-
             _cgi_fd_map.erase(it++);
+            // conn->makeErrorResponse(504);
+            // conn->setWriteReady();
+
         } else {
             ++it;
         }
+        conn->checkCGI();
     }
 }
 
-void Cluster::_process_poll_errors(size_t index, int is_poll_up)
+void Cluster::_process_poll_errors(size_t index)
 {
     int fd = _poll_fds[index].fd;
 
@@ -272,19 +276,34 @@ void Cluster::_process_poll_errors(size_t index, int is_poll_up)
     if (this->_cgi_fd_map.count(fd) > 0) {
         Connection* conn = _cgi_fd_map[fd];
 
-        std::cout << "POLLUP : " << is_poll_up << std::endl;
+        std::cerr << "[Debug] Error on FD: " << fd;
 
-        std::cout << "index = " << index <<  " fd = "  << fd << std::endl;
+        // 识别 FD 身份
+        if (_socket_map.count(fd))
+            std::cerr << " (Type: Listen Socket)";
+        else if (_cgi_fd_map.count(fd))
+            std::cerr << " (Type: CGI Pipe)";
+        else
+            std::cerr << " (Type: Client Socket)";
+
+        // 识别具体错误位
+        if (_poll_fds[index].revents & POLLERR)
+            std::cerr << " [POLLERR]";  // 致命错误（如管道破裂）
+        if (_poll_fds[index].revents & POLLHUP)
+            std::cerr << " [POLLHUP]";  // 对端关闭（常见于 CGI 结束）
+        if (_poll_fds[index].revents & POLLNVAL)
+            std::cerr << " [POLLNVAL]";  // 非法 FD（你可能关早了）
+        _poll_fds[index].fd      = -1;
+        _poll_fds[index].events  = 0;
+        _poll_fds[index].revents = 0;
+
         // 关键动作：虽然子进程挂断了，但管道缓冲区里可能还有 Python 没读完的残留数据！
         // 我们强制驱动一次读取！
-       
-            conn->handle_cgi_read(is_poll_up);
-
-
-
+        conn->handle_cgi_read();
+        conn->finalize_cgi_success(fd);
         // 读取完之后，检查 Connection 状态。
         // 你的 handle_cgi_read 会在读到 0 (EOF) 时把状态切走（比如切到 WRITING_RESP）
-        if (conn->get_state() != Connection::CGI_READ) {
+        if (conn->get_state() == Connection::WRITING_RESP) {
             this->_poll_fds[index].fd = -1;  // 标记延迟清理，踢出 poll
             this->_cgi_fd_map.erase(fd);     // 释放映射
             conn->get_cgi_handler().reset();
@@ -302,33 +321,41 @@ void Cluster::_dispatch_read_event(size_t index)
 {
     int fd = _poll_fds[index].fd;
 
-    // 情况 A: 属于 CGI 读管道
-    if (this->_cgi_fd_map.count(fd)) {
-        std::cout << "I AM INSIDE DISPATCH READ EVENT FOR CGI FD READ" << std::endl;
-
-        Connection* conn = _cgi_fd_map[fd];
-
-        // 🌟 核心替换：调用你现有的 handle_cgi_read()
-        conn->handle_cgi_read(0);
-
-        // 🌟 完美的闭环判定：看它的状态是不是已经离开 CGI_READ 了
-        // 如果它的状态变成了 WRITING_RESP，说明它在 handle_cgi_read 内部已经处理完了 EOF
-
-        if (conn->get_state() != Connection::CGI_READ) {
-            this->_poll_fds[index].fd = -1;  // 标记延迟清理
-            this->_cgi_fd_map.erase(fd);     // 释放映射
-        }
-    }
-    // 情况 B: 属于监听服务器 Socket
-    else if (_socket_map.count(fd)) {
+    // =========================================================
+    // 场景 A: 属于监听服务器 Socket
+    // =========================================================
+    if (this->_socket_map.count(fd)) {
         this->handle_new_connection(fd, _socket_map[fd]);
+        return;
     }
-    // 情况 C: 属于普通的客户端 Socket
-    else {
-        if (this->handle_client_read_event(index) == false) {
-            this->_poll_fds[index].fd = -1;
-            this->close_connection(index);
+
+    // =========================================================
+    // 场景 B: 属于 CGI 读管道
+    // =========================================================
+    if (this->_cgi_fd_map.count(fd)) {
+        Connection* conn = this->_cgi_fd_map[fd];
+
+        conn->handle_cgi_read();
+
+        // 🌟 状态核对：只要状态离开了 CGI_RUNNING (进入 FINISH 或直接变 ERROR/WRITING)
+        // 就说明管道的使命已经结束，立刻销毁 FD 和映射
+        Connection::State current_state = conn->get_state();
+        if (current_state == Connection::CGI_FINISH || current_state == Connection::WRITING_RESP) {
+            this->_poll_fds[index].fd = -1;  // 标记为废弃，等待 cleanup 统一清理
+            this->_cgi_fd_map.erase(fd);     // 斩断关联，防止野指针
+            // TODO: 清理CGI中的输入输出fd 以及 waitpid
         }
+        return;
+    }
+
+    // =========================================================
+    // 场景 C: 属于普通的客户端 Socket (浏览器发来了 HTTP 数据)
+    // =========================================================
+    // 既然不是 Server 也不是 CGI，那必定是普通的 Client 连接
+    if (this->handle_client_read_event(index) == false) {
+        // 如果返回 false，说明客户端断开了（如 recv 返回 0），或者发生严重错误
+        this->_poll_fds[index].fd = -1;
+        this->close_connection(index);
     }
 }
 
@@ -340,13 +367,12 @@ void Cluster::_dispatch_write_event(size_t index)
     if (this->_cgi_fd_map.count(fd)) {
         Connection* conn = _cgi_fd_map[fd];
 
-        // 🌟 坑位留空/或调用你的写处理（比如未来你可以加一个 conn->handle_cgi_write()）
-        // 如果目前只跑 GET，它绝对不会进到这里来
-        // 暂时可以先写成如果写完了就断开：
         conn->handle_cgi_write();
-        if (conn->get_state() != Connection::CGI_WRITE) {
+        if (conn->get_state() == Connection::CGI_FINISH || conn->get_state() == Connection::ERROR) {
             this->_poll_fds[index].fd = -1;
             this->_cgi_fd_map.erase(fd);
+            // TODO: 这里务必确保 Connection 内部已经 close(cgi_write_fd)
+            // 只有 close 了写端，cgi 才会意识到输入结束
         }
     }
     // 情况 B: 属于普通的客户端 Socket
@@ -466,14 +492,28 @@ void Cluster::remove_fd_from_poll(int fd)
     }
 }
 
-const std::vector<struct pollfd> &Cluster::get_poll_fds()const
-{
-    return (this->_poll_fds);
-}
+const std::vector<struct pollfd>& Cluster::get_poll_fds() const
+{ return (this->_poll_fds); }
 
 void Cluster::set_poll_fd(int index)
 {
-    _poll_fds[index].events = 0;
+    _poll_fds[index].events  = 0;
     _poll_fds[index].revents = 0;
-    _poll_fds[index].fd = -1;
+    _poll_fds[index].fd      = -1;
+}
+
+void Cluster::unregister_cgi_fd(int fd)
+{
+    if (fd < 0) return;
+    _cgi_fd_map.erase(fd);
+
+    for (size_t i = 0; i < _poll_fds.size(); ++i) {
+        if (_poll_fds[i].fd == fd) {
+            _poll_fds[i].fd      = -1;  // 标记为 -1，内核下次就不看它了
+            _poll_fds[i].events  = 0;   // 保险起见清空事件
+            _poll_fds[i].revents = 0;
+            break;
+        }
+    }
+    close(fd);
 }

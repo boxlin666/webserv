@@ -315,12 +315,12 @@ std::size_t HttpRequest::get_body_len() const
     return this->_body.length();
 }
 
-const std::string* HttpRequest::get_header(const std::string& key) const {
+const std::string& HttpRequest::get_header(const std::string& key) const {
     std::map<std::string, std::string>::const_iterator it = _header_map.find(key);
     if (it == _header_map.end()) {
         return NULL; // 或者返回 NULL，由调用者判断
     }
-    return &(it->second);
+    return it->second;
 }
 
 //added just to finish the compilation test (to update with get_header later)

@@ -47,7 +47,7 @@ class HttpRequest {
     const std::string& get_querystring() const;
     const std::string& get_version() const;
     const std::string& get_body() const;
-    const std::string* get_header(const std::string& key) const;  // 方便查找特定头
+    const std::string& get_header(const std::string& key) const;  // 方便查找特定头
     std::size_t get_content_length() const;
     std::size_t get_body_len()const;
     bool get_is_keep_alive()const;
