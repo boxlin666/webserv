@@ -25,9 +25,6 @@ Connection::Connection(int client_fd, PassiveSocket* matched_socket,
 
 Connection::~Connection(void) {}
 
-int Connection::getFd(void) const
-{ return (this->_client_fd); }
-
 const std::string& Connection::get_in_buff(void) const
 { return (this->_in_buff); }
 
@@ -37,19 +34,13 @@ const std::string& Connection::get_out_buff(void) const
 void Connection::append_in_buff(const char* tmp_buff, ssize_t recv_len)
 {
     if (!tmp_buff || recv_len <= 0) return;
-    this->_in_buff.append(tmp_buff, static_cast<std::size_t>(recv_len));
 }
 
-// temporary function...
-void Connection::set_out_buff(void)
-{ this->_out_buff = "HTTP/1.1 200 OK\r\n\r\n<h1>Hello from Server Class!</h1>"; }
+void Connection::handle_read_event(void)
+{
+    if (this->_state == Connection::CGI_RUNNING) return;
 
-void Connection::handle_read_event(void) {
-
-    if (this->_state == Connection::CGI_RUNNING)
-        return ;
-
-    char buffer[4096];
+    char    buffer[4096];
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
     if (bytes_read <= 0) {
@@ -59,24 +50,23 @@ void Connection::handle_read_event(void) {
 
     buffer[bytes_read] = '\0';
 
-    //tempo debug msg don't remove it now pls!
+    // tempo debug msg don't remove it now pls!
     std::string tmp_buff(buffer);
     debug_request_msg_print("BUFFER INFO", tmp_buff);
-    //tempo debug msg don't remove it now pls!
-
+    // tempo debug msg don't remove it now pls!
 
     // 1. 数据必须累积到 Connection 的 _in_buff
-    this->append_in_buff(buffer, bytes_read);
-
+    _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
+    
     // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
     this->_status_code = this->_request.parse(this->_in_buff);
 
     // 3. 这里的关键：检查是否真的“请求完成”
     // 不要只依赖 _status_code，必须检查数据完整性
-    if (this->check_parse_finished()) { 
-        std::cout << "[Debug] Request is fully complete, body size: " 
+    if (this->check_parse_finished()) {
+        std::cout << "[Debug] Request is fully complete, body size: "
                   << _request.get_body().length() << std::endl;
-        this->handle_request_dispatch(); // 只有这时才处理
+        this->handle_request_dispatch();  // 只有这时才处理
     } else {
         // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
         std::cout << "[Debug] Waiting for more body data..." << std::endl;
@@ -86,24 +76,29 @@ void Connection::handle_read_event(void) {
 void Connection::handle_request_dispatch()
 {
     std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
+    std::cout << "[Check] Entering CGI pipeline..." << std::endl;
 
-    this->set_matched_server();
-    this->process_router_match();
-    this->process_request_handler();
+    try {
+        this->set_matched_server();
+        this->process_router_match();
 
-    if (_status_code != SUCCESS) {
-        this->prepare_response();
-        this->set_state(WRITING_RESP);
+        if (_status_code == SUCCESS) {
+            this->_req_handler.process_request_handler(this->_request, this->_route_ctx,
+                                                       _status_code);
+        }
+
+        if (_status_code == SUCCESS && _route_ctx.is_cgi_potential) {
+            this->execute_cgi_pipeline();
+            return;  // CGI 流程接管了 FD，这里直接退出
+        } else {
+            // 职责分离：普通静态文件（GET 个图片或 HTML），走普通的响应组装
+            this->prepare_response();
+            this->set_state(WRITING_RESP);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "CATCHED FATAL ERROR: " << e.what() << std::endl;
+        // 如果这里打印了，那就实锤了是 C++ 的异常导致的崩溃
         return;
-    }
-
-    if (_route_ctx.is_cgi_potential) {
-        // 职责分离：既然是 CGI，立刻移交给专门的 CGI 流水线去处理，这里光荣退场！
-        this->execute_cgi_pipeline();
-    } else {
-        // 职责分离：普通静态文件（GET 个图片或 HTML），走普通的响应组装
-        this->prepare_response();
-        this->set_state(WRITING_RESP);
     }
 }
 
@@ -113,38 +108,31 @@ void Connection::execute_cgi_pipeline()
 
     if (this->_cgi_handler.init(this->_request, this->_route_ctx) == false ||
         this->_cgi_handler.execute(this->_request) == false) {
-        this->_status_code = SERVER_ERROR;  // 500
-        this->prepare_response();
-        this->_state = WRITING_RESP;
+        // TODO: generate error page(500)
         return;
     }
 
-    //只有在GET CGI 并且 request body len = 0 的情况下，我们才可以提前关闭这个pipe 并在poll_fd提前注销！
-    if (this->_cgi_handler.getWriteFd() == -1)
-    {
-        const std::vector<struct pollfd>& poll_fds= this->_cluster->get_poll_fds();
-        for (std::size_t i = 0 ; i < poll_fds.size(); i++)
-        {
-            if (poll_fds[i].fd == this->_cgi_handler.getBackUpWriteFd())
-                this->_cluster->set_poll_fd(i);
-        }
-    }
-    this->_cgi_active = true;
     this->_state = CGI_RUNNING;
-    if (this->_request.get_method() == "POST" && this->_request.get_body().length() > 0) {
-        // 🌟 这一步非常重要！通知大管家开始监听向 Python 喂数据的写管道
-        this->register_cgi_pipe_to_poll(this->_cgi_handler.getWriteFd(), POLLOUT);
-        this->register_cgi_pipe_to_poll(this->_cgi_handler.getReadFd(), POLLIN);
+
+    int read_fd  = _cgi_handler.getReadFd();
+    int write_fd = _cgi_handler.getWriteFd();
+
+    if (read_fd != -1) {  // 统一注册接口
+        this->_cluster->register_cgi_fd(read_fd, POLLIN, this);
+    }
+
+    if (write_fd != -1) {
+        // 如果是 POST 且有 Body，CGIHandler 会保留这个写端，这里才注册
+        this->_cluster->register_cgi_fd(write_fd, POLLOUT, this);
     } else {
-        // 🌟 通知大管家开始监听准备读取 Python 输出的读管道
-        this->register_cgi_pipe_to_poll(this->_cgi_handler.getReadFd(), POLLIN);
+        // 如果没有写端（如 GET），CGIHandler 内部已经关了，Connection 根本不需要操心
+        std::cout << "[Debug] CGI write pipe not needed or closed." << std::endl;
     }
 }
 
 void Connection::handle_write_event(void)
 {
-    if (this->_state == Connection::CGI_RUNNING)
-        return ;
+    if (this->_state == Connection::CGI_RUNNING) return;
 
     if (this->_out_buff.empty()) return;
     ssize_t bytes_send;
@@ -158,7 +146,7 @@ void Connection::handle_write_event(void)
     if (bytes_send < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             // 只是暂时的无法写入，此时不应关闭连接，而是留在当前状态，等待下一次事件触发
-            return; 
+            return;
         }
         std::cerr << "Failed to send the http response on ..." << std::endl;
         this->_state = CLOSED;
@@ -166,7 +154,7 @@ void Connection::handle_write_event(void)
     } else {
         // 🌟 打印 2：看看实际发了多少字节
         std::cout << "[Debug] send() actually sent: " << bytes_send << " bytes." << std::endl;
-        std::cout << "_out_buff = " << _out_buff << std::endl;
+        // std::cout << "_out_buff = " << _out_buff << std::endl;
         this->_out_buff.erase(0, bytes_send);
     }
 
@@ -176,31 +164,27 @@ void Connection::handle_write_event(void)
             this->_response.get_full_response().find("Connection: close") != std::string::npos) {
             std::cout << "[Debug] Short connection detected. Switching to CLOSED." << std::endl;
             this->_state = CLOSED;
-        } 
-        else {
+        } else {
             std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
-	        this->_request.reset();
-	        this->_response.reset();
+            this->_request.reset();
+            this->_response.reset();
             this->_state = WAITING;
         }
     }
 }
 
-bool Connection::check_parse_finished() 
+bool Connection::check_parse_finished()
 {
     // 1. 基础状态校验
-    if (this->_request.get_state() != HttpRequest::PARSE_FINISHED) {
-        return false;
-    }
+    if (this->_request.get_state() != HttpRequest::PARSE_FINISHED) { return false; }
 
     // 2. 契约校验 (Contract Validation)
     // 检查是否有 Content-Length 头部，如果有，确保 Body 已经读取完整
     // 这里处理 POST, PUT 等带有 payload 的请求
     if (this->_request.get_method() == "POST" || this->_request.get_method() == "PUT") {
-        
         size_t expected_len = this->_request.get_content_length();
-        size_t actual_len = this->_request.get_body().length();
-        
+        size_t actual_len   = this->_request.get_body().length();
+
         // 如果期望长度大于已读长度，说明数据还在路上，或者解析器过早进入了 FINISHED
         if (actual_len < expected_len) {
             // 这是一个重要的安全断言：如果还没读够，绝不能进入下一步
@@ -211,7 +195,7 @@ bool Connection::check_parse_finished()
 
     // 3. (可选) Chunked 校验
     // 如果你已经支持了 Chunked，这里应该检查是否有结束符 "0\r\n\r\n"
-    
+
     return true;
 }
 
@@ -258,25 +242,12 @@ void Connection::process_router_match()
             Router::build_router_context(this->_request, *(this->_matched_server), _status_code);
 }
 
-void Connection::process_request_handler()
-{
-    if (this->_status_code != SUCCESS) return;
-
-    this->_req_handler.process_request_handler(this->_request, this->_route_ctx, _status_code);
-
-    if (_status_code != SUCCESS) {
-        this->prepare_response();
-        this->_state = WRITING_RESP;
-        return;
-    }
-}
-
 void Connection::prepare_response()
 {
     this->_response.build(this->_request, this->_req_handler, this->_status_code);
     this->_out_buff = this->_response.get_full_response();
 
-    //tempo print debug, don't remove it now!
+    // tempo print debug, don't remove it now!
     debug_request_msg_print("OUT BUFF", this->_out_buff);
 }
 
@@ -298,37 +269,41 @@ short Connection::get_poll_events() const
     return 0;
 }
 
-bool Connection::has_cgi()
-{ return (this->_cgi_handler.getPid() != -1 && !this->_cgi_handler.isTimeout()); }
+void Connection::handle_cgi_write()
+{
+    // 获取当前正在写的 FD（写完前它是有效的）
+    int current_pipe_fd = _cgi_handler.getWriteFd();
 
-int Connection::get_cgi_read_fd() const
-{ return this->_cgi_handler.getReadFd(); }
+    // 只有在 FD 有效时才干活
+    if (current_pipe_fd == -1) return;
+
+    int status = _cgi_handler.sendToScript();
+
+    // 🌟 如果返回 0 (写完关了) 或 -1 (出错了)，通知 Cluster 别再 poll 它了
+    if (status <= 0) {
+        this->_cluster->unregister_cgi_fd(current_pipe_fd);
+        std::cout << "[CGI] Input pipe finished and unregistered." << std::endl;
+    }
+}
 
 void Connection::handle_cgi_read()
 {
-    // 1. 让外包(CGIHandler)去干活抽水
     int status = _cgi_handler.receiveFromScript();
 
-    // 2. 根据汇报的结果切换状态
     if (status == 1) {
         // 数据还在源源不断地来，保持 CGI_RUNNING 状态，什么都不用做
         // 🚨 就算 is_poll_up 是 true，只要 status 是 1，就必须继续读！
-        return; 
-    } 
-    else if (status == 0) {
+        return;
+    } else if (status == 0) {
         // 🌟 外包干完活了 (EOF)
         this->_state = Connection::CGI_FINISH;
-        
+
         // 找外包拿最终的完整数据
         std::string full_cgi_output = _cgi_handler.getRawResponse();
-        
-        // 调用你之前写好的神级函数，解析数据并组装 HTTP 报文
         this->_parseCgiOutputAndMakeResponse(full_cgi_output);
-        
-        // 准备发给浏览器
-        this->_state = Connection::WRITING_RESP; 
-    } 
-    else if (status == -1) {
+
+        this->_state = Connection::WRITING_RESP;
+    } else if (status == -1) {
         // 外包搞砸了 (Pipe 破裂等报错)
         std::cerr << "[Error] CGI read failed!" << std::endl;
         // this->buildErrorResponse(500);
@@ -336,33 +311,13 @@ void Connection::handle_cgi_read()
     }
 }
 
-void Connection::handle_cgi_write()
-{
-    _cgi_handler.sendToScript();
-
-    if (this->_cgi_handler.getWriteFd() == -1)
-    {
-        const std::vector<struct pollfd>& poll_fds= this->_cluster->get_poll_fds();
-        for (std::size_t i = 0 ; i < poll_fds.size(); i++)
-        {
-            if (poll_fds[i].fd == this->_cgi_handler.getBackUpWriteFd())
-            {
-                this->_cluster->set_poll_fd(i);
-                std::cout << "I am inside yes in CGI WRITE" << std::endl;
-            }
-        }
-    }
-}
-
 void Connection::checkCGI()
 {
     _cgi_handler.checkChildProcess();
-    if(_cgi_handler.getState() == CGIHandler::CGI_FINISHED)
-    {
-        _state = CGI_FINISH;
+    if (_cgi_handler.getState() == CGIHandler::CGI_FINISHED) {
+        _state                 = CGI_FINISH;
         std::string raw_output = _cgi_handler.getRawResponse();
         this->_parseCgiOutputAndMakeResponse(raw_output);
-        // this->setWriteReady(); // 状态流转完毕，准备在下次 POLLOUT 发给浏览器
     }
 }
 
@@ -384,7 +339,8 @@ void Connection::_parseCgiOutputAndMakeResponse(const std::string& raw_output)
     this->_out_buff = _assembleHttpResponse(cgi_headers, body_part);
 }
 
-bool Connection::_splitCgiHeaderAndBody(const std::string& raw_output, std::string& header_part, std::string& body_part)
+bool Connection::_splitCgiHeaderAndBody(const std::string& raw_output, std::string& header_part,
+                                        std::string& body_part)
 {
     size_t delimiter_pos = raw_output.find("\r\n\r\n");
     size_t delimiter_len = 4;
@@ -395,34 +351,32 @@ bool Connection::_splitCgiHeaderAndBody(const std::string& raw_output, std::stri
     }
 
     if (delimiter_pos == std::string::npos) {
-        return false; // 没找到合法边界，说明数据有问题
+        return false;  // 没找到合法边界，说明数据有问题
     }
 
     header_part = raw_output.substr(0, delimiter_pos);
-    body_part = raw_output.substr(delimiter_pos + delimiter_len);
+    body_part   = raw_output.substr(delimiter_pos + delimiter_len);
     return true;
 }
 
 std::map<std::string, std::string> Connection::_parseCgiHeaders(const std::string& header_part)
 {
     std::map<std::string, std::string> headers;
-    std::stringstream header_stream(header_part);
-    std::string line;
+    std::stringstream                  header_stream(header_part);
+    std::string                        line;
 
     while (std::getline(header_stream, line)) {
-        if (!line.empty() && line[line.length() - 1] == '\r') {
-            line.erase(line.length() - 1);
-        }
+        if (!line.empty() && line[line.length() - 1] == '\r') { line.erase(line.length() - 1); }
         if (line.empty()) continue;
 
         size_t colon_pos = line.find(':');
         if (colon_pos != std::string::npos) {
-            std::string key = line.substr(0, colon_pos);
+            std::string key   = line.substr(0, colon_pos);
             std::string value = line.substr(colon_pos + 1);
 
             // Trim 空格
             size_t first = value.find_first_not_of(" \t");
-            size_t last = value.find_last_not_of(" \t");
+            size_t last  = value.find_last_not_of(" \t");
             if (first != std::string::npos && last != std::string::npos) {
                 value = value.substr(first, (last - first + 1));
             } else {
@@ -434,10 +388,11 @@ std::map<std::string, std::string> Connection::_parseCgiHeaders(const std::strin
     return headers;
 }
 
-std::string Connection::_assembleHttpResponse(const std::map<std::string, std::string>& cgi_headers, const std::string& body_part)
+std::string Connection::_assembleHttpResponse(const std::map<std::string, std::string>& cgi_headers,
+                                              const std::string&                        body_part)
 {
     std::string http_status = "200 OK";
-    
+
     // 确定状态码
     if (cgi_headers.count("Status")) {
         // 注意：C++98 中 map.at() 在某些编译器不可用，这里可以用 find() 或者直接 []
@@ -451,45 +406,36 @@ std::string Connection::_assembleHttpResponse(const std::map<std::string, std::s
     response << "HTTP/1.1 " << http_status << "\r\n";
 
     bool has_content_length = false;
-    for (std::map<std::string, std::string>::const_iterator it = cgi_headers.begin(); it != cgi_headers.end(); ++it) {
-        if (it->first == "Status") continue; // 跳过 Status，因为上面首行已经处理了
+    for (std::map<std::string, std::string>::const_iterator it = cgi_headers.begin();
+         it != cgi_headers.end(); ++it) {
+        if (it->first == "Status") continue;  // 跳过 Status，因为上面首行已经处理了
         if (it->first == "Content-Length") has_content_length = true;
         response << it->first << ": " << it->second << "\r\n";
     }
 
     // 智能补全
-    if (!has_content_length) {
-        response << "Content-Length: " << body_part.length() << "\r\n";
-    }
-    if (!cgi_headers.count("Content-Type")) {
-        response << "Content-Type: text/html\r\n";
-    }
-    
+    if (!has_content_length) { response << "Content-Length: " << body_part.length() << "\r\n"; }
+    // if (!cgi_headers.count("Content-Type")) { response << "Content-Type: text/html\r\n"; }
+
     response << "Server: Webserv/1.0\r\n";
     response << "Connection: keep-alive\r\n\r\n";
-    
+
     // 塞入 Body
     response << body_part;
 
     return response.str();
 }
 
-void Connection::_finalize_cgi_success(int cgi_fd)
+void Connection::finalize_cgi_success(int cgi_fd)
 {
     std::cout << "[Server] CGI Process finished writing all data." << std::endl;
 
-    // 1. 专业组装 HTTP 报文
-    this->_response.build_from_cgi(this->_out_buff);
-    this->_out_buff = this->_response.get_full_response();
-
-    // 2. 子进程清理（收尸防止僵尸进程）
     int status;
     waitpid(this->_cgi_handler.getPid(), &status, WNOHANG);
 
     // 3. 核心解耦：先安全从 poll 中撤销，再关闭管道，防止 FD 复用串流
     this->_cluster->remove_fd_from_poll(cgi_fd);
     this->_cgi_handler._close_all_pipes();
-    this->_cgi_active = false;
 
     // 4. 驱动状态机进入发送响应阶段
     this->_state = WRITING_RESP;
@@ -498,37 +444,8 @@ void Connection::_finalize_cgi_success(int cgi_fd)
     std::cout << "[Server] Switched client socket to POLLOUT." << std::endl;
 }
 
-void Connection::_handle_cgi_read_error(int cgi_fd)
-{
-    std::cerr << "[Server Error] CGI read error, errno = " << errno << std::endl;
+bool Connection::isCGITimedOut()
+{ return _cgi_handler.isTimeout(); }
 
-    // 1. 组装标准的 500 错误响应体
-    this->_status_code = SERVER_ERROR;
-    this->prepare_response();
-    this->_out_buff = this->_response.get_full_response();
-
-    // 2. 清理 poll 队列及管道资源
-    this->_cluster->remove_fd_from_poll(cgi_fd);
-    this->_cgi_handler._close_all_pipes();
-    this->_cgi_active = false;
-
-    // 3. 哪怕出错了，也要把 500 页面传回给客户端
-    this->_state = WRITING_RESP;
-    this->_cluster->update_client_events(this->_client_fd, POLLOUT);
-}
-
-void Connection::register_cgi_pipe_to_poll(int fd, short events)
-{ this->_cluster->register_cgi_fd(fd, events, this); }
-
-bool Connection::isCGITimedOut() {
-    return _cgi_handler.isTimeout();
-}
-
-void Connection::updateCGIActivity() {
-    _cgi_handler.updateTime();
-}
-
- CGIHandler &Connection::get_cgi_handler(void)
- {
-    return (_cgi_handler);
- }
+CGIHandler& Connection::get_cgi_handler(void)
+{ return (_cgi_handler); }
