@@ -31,11 +31,6 @@ const std::string& Connection::get_in_buff(void) const
 const std::string& Connection::get_out_buff(void) const
 { return (this->_out_buff); }
 
-void Connection::append_in_buff(const char* tmp_buff, ssize_t recv_len)
-{
-    if (!tmp_buff || recv_len <= 0) return;
-}
-
 void Connection::handle_read_event(void)
 {
     if (this->_state == Connection::CGI_RUNNING) return;
@@ -263,7 +258,7 @@ short Connection::get_poll_events() const
     if (this->_state == WAITING || this->_state == READING_REQ) return POLLIN;
 
     // 如果连接处于正在向客户端写响应、或者正在往 CGI 喂数据的状态，我们需要监听写（POLLOUT）
-    if (this->_state == WRITING_RESP || this->_state == CGI_FINISH) return POLLOUT;
+    if (this->_state == WRITING_RESP ) return POLLOUT;
 
     // 其他状态（比如 CLOSED 或者正在等待 CGI 读管道），让客户端 Socket 保持不监听任何读写事件
     return 0;
