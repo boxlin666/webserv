@@ -55,10 +55,9 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
     } else {
         return false;
     }
-    if (req.get_method() == "POST") { _inBuffer = req.get_body(); }
+    if (req.get_body_len() > 0) { _inBuffer = req.get_body(); }
     _prepareEnvMap(req);
     _mapToEnvp();
-    _state = CGI_INIT;
     updateTime();
 
     return true;
