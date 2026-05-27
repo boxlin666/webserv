@@ -1,4 +1,5 @@
 #include "CGIHandler.hpp"
+#include "Utils.hpp"
 
 // 1. 构造函数：必须严谨地初始化所有内置类型和状态
 CGIHandler::CGIHandler()
@@ -30,19 +31,32 @@ void CGIHandler::_prepareEnvMap(const HttpRequest& req)
     _envMap["GATEWAY_INTERFACE"] = "CGI/1.1";
     _envMap["SERVER_PROTOCOL"]   = "HTTP/1.1";
     _envMap["SERVER_SOFTWARE"]   = "Webserv/1.0";
+  
+    //无需通过method 来判断是否添加content length 这个envp，只要存在必须添加进去！
+    std::string req_content_length = Utils::toString(req.get_content_length());
+    _envMap["CONTENT_LENGTH"] = req_content_length;
 
-    // 处理 POST 相关的必要 Header
-    if (req.get_method() == "POST") {
-        std::stringstream ss;
-        ss << req.get_content_length();
-        _envMap["CONTENT_LENGTH"] = ss.str();
+    std::string req_content_type = req.get_header("Content-Type");
 
-        // TODO: 确保获取 CONTENT_TYPE
-        // std::string contentType = req.get_header("Content-Type");
-        // if (!contentType.empty()) { _envMap["CONTENT_TYPE"] = contentType; }
-    }
-
+    if (req_content_type.empty()) 
+        _envMap["CONTENT_TYPE"] = ""; 
+    else
+        _envMap["CONTENT_TYPE"] = req_content_type;
+  
     // 🌟 TODO: 进阶：遍历所有 HTTP 头，转换为 HTTP_ 格式 (CGI 规范)
+    std::string env_key;
+    std::map<std::string, std::string>::const_iterator map_it;
+    for (map_it = req.get_header_map().begin(); map_it != req.get_header_map().end(); map_it++)
+    {
+        env_key = map_it->first;
+        if (map_it->first != "Content-Type" && map_it->first != "Content-Length")
+        {
+            Utils::replaceAll(env_key);
+            Utils::toUpper(env_key);
+        }
+        _envMap["HTTP_" + env_key] = map_it->second;
+    }
+    printEnvMap(_envMap);
 }
 
 // 4. 主控 Init 函数：结构更加清晰
