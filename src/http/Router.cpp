@@ -21,7 +21,7 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
     if (status_code != SUCCESS)
         return (ctx);
 
-    ctx.full_path = build_full_path(req, server, ctx.loc, ctx.is_post_dir);
+    ctx.full_path = build_full_path(req, server, ctx.loc);
 
     if (!ctx.loc)
         ctx.final_root = server.get_root();
@@ -120,11 +120,12 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
     return (SUCCESS);
 }
 
-std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& server, const location *loc, bool &is_post_dir)
+std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& server, const location *loc)
 {
     std::string full_path;
     std::string relative_path;
     std::string prefix;
+    bool is_post_dir = false;
 
     if (!loc)
     {
@@ -154,6 +155,9 @@ std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& 
             full_path = loc->root + relative_path;
         else
             full_path = loc->root + "/" + relative_path;
+
+        if (is_post_dir)
+            full_path += "/";
     }
     std::cout << "FULL PATH " << full_path << std::endl;
     return (full_path);

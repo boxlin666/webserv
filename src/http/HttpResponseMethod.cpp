@@ -26,18 +26,30 @@ int HttpResponse::_handle_get(void)
     return (SUCCESS);
 }
 
-int HttpResponse::_handle_post(const HttpRequest& request, const RequestHandler& response_ctx) 
+int HttpResponse::_handle_post(const HttpRequest& request) 
 {
-    // 如果是 CGI 逻辑，通常在 Dispatcher 阶段已经处理过了
-    // 如果你在这里捕获到了 POST，说明是静态上传或未匹配 CGI
-    
-    // 检查是否有上传文件的限制或其它逻辑
-    if (response_ctx.is_cgi_mode()) // 假设你有这样一个判断方法
-    {
-        //return this->_handle_cgi_post(request, response_ctx);
-    }
+    std::size_t pos = this->_full_path.find_last_of('/');
+
+    if (pos == this->_full_path.size() - 1)
+        return (this->_handle_static_post_dir());
     
     return (this->_handle_static_post(request));
+}
+
+int HttpResponse::_handle_static_post_dir(void)
+{
+    if (mkdir(this->_full_path.c_str(), 0755) == 0) 
+    {
+        _status_code = CREATED;
+        return (_status_code);
+    }
+
+    if (errno == EEXIST) 
+    {
+       _status_code = SUCCESS;
+       return (_status_code);
+    }
+    return (SERVER_ERROR);
 }
 
 int HttpResponse::_handle_static_post(const HttpRequest& request)

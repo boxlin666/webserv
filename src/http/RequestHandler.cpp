@@ -120,7 +120,7 @@ int RequestHandler::creatable_resource_validator(void)
     if (stat(this->_full_path.c_str(), &st) == 0)
     {
         if (S_ISDIR(st.st_mode))
-            return (PER_DENIED);
+            return (SUCCESS); //we can upload and overwrite an existing directory
         if (access(this->_full_path.c_str(), W_OK) != 0)
             return (PER_DENIED);
         return (SUCCESS); //only if request is to overwrite an existing writable file inside server class
@@ -156,6 +156,14 @@ int RequestHandler::extract_parent_path(void)
         return (BAD_REQUEST);
     else if (pos == 0)
         this->_parent_path = "/";
+    else if (pos == this->_full_path.size() - 1)
+    {
+        std::string tmp_full_path = this->_full_path.substr(0, pos);
+        pos = tmp_full_path.find_last_of('/');
+        if (pos == std::string::npos)
+            return (BAD_REQUEST);
+        this->_parent_path = tmp_full_path.substr(0, pos);
+    }
     else
         this->_parent_path = this->_full_path.substr(0, pos);
     return (SUCCESS);

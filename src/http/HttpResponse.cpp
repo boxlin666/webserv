@@ -48,7 +48,7 @@ void HttpResponse::build(const HttpRequest& request, const RequestHandler& respo
         if (request.get_method() == "GET" || request.get_method() == "HEAD")
             ret = this->_handle_get();
         else if (request.get_method() == "POST")
-            ret = this->_handle_post(request, response_ctx);
+            ret = this->_handle_post(request);
         else if (request.get_method() == "DELETE")
             ret = this->_handle_delete();
     }
