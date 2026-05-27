@@ -38,6 +38,7 @@ class RequestHandler
         bool _is_cgi_mode;
 
         int dispatch_resource_check(const HttpRequest& req, const RouterCtx &route_ctx);
+        int cgi_resource_validator(const RouterCtx& route_ctx);
         int existing_resource_validator(const RouterCtx &route_ctx);
         int creatable_resource_validator(void);
 

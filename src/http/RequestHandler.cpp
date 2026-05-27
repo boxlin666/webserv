@@ -49,6 +49,10 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
 
 int RequestHandler::dispatch_resource_check(const HttpRequest& req, const RouterCtx& route_ctx)
 {
+    if (route_ctx.is_cgi_potential)
+    {
+        return (this->cgi_resource_validator(route_ctx));
+    }
     if (req.get_method() == "GET" || req.get_method() == "DELETE" || (req.get_method() == "POST" && route_ctx.is_cgi_potential))
     {
         return (this->existing_resource_validator(route_ctx));
@@ -60,6 +64,30 @@ int RequestHandler::dispatch_resource_check(const HttpRequest& req, const Router
     return (NO_METHOD);
 }
 
+int RequestHandler::cgi_resource_validator(const RouterCtx& route_ctx)
+{
+    // 1. 从配置中获取该后缀对应的 CGI 二进制文件路径（例如 ./cgi-bin/cgi_tester）
+    std::string cgi_executable = route_ctx.loc->cgi_path; 
+
+    if (cgi_executable.empty())
+        return (NOT_FOUND);
+
+    // 2. 验证这个“执行程序”是否真的存在且可执行
+    struct stat st;
+    if (stat(cgi_executable.c_str(), &st) == -1)
+    {
+        // 如果配置的 cgi_tester 找不到了，报 500 或 404
+        return (NOT_FOUND); 
+    }
+
+    // 3. 只要执行程序在，哪怕 youpla.bla 本身不存在，我们也返回 SUCCESS
+    // 这样接下来的 execute_cgi_pipeline 就会被触发
+    if (access(cgi_executable.c_str(), X_OK) == 0)
+        return (SUCCESS);
+
+    return (PER_DENIED);
+}
+ 
 int RequestHandler::existing_resource_validator(const RouterCtx& route_ctx)
 {
     struct stat st;
