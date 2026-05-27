@@ -330,6 +330,7 @@ void Connection::_parseCgiOutputAndMakeResponse(const std::string& raw_output)
     // 2. 解析：将头部字符串转化为字典
     std::map<std::string, std::string> cgi_headers = _parseCgiHeaders(header_part);
 
+    _out_buff.reserve(_request.get_content_length());
     // 3. 组装：将内容打包成合法的 HTTP 响应并存入输出缓冲区
     this->_out_buff = _assembleHttpResponse(cgi_headers, body_part);
 }
