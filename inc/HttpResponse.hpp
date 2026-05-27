@@ -50,8 +50,9 @@ class HttpResponse
 
     //Method
     int _handle_get(void);
-    int _handle_post(const HttpRequest &request, const RequestHandler &response_ctx);
+    int _handle_post(const HttpRequest &request);
     int _handle_delete(void);
+    int _handle_static_post_dir(void);
     int _handle_static_post(const HttpRequest &request);
 
     //Reponse generator
