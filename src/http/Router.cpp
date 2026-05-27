@@ -15,7 +15,13 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
 
     ctx.server = &server;
     ctx.loc = find_location(req, server);
-    ctx.full_path = build_full_path(req, server, ctx.loc);
+
+    //如果没有在location内部找到支持的方法，那么立刻返回ctx (ctx 已经为初始化过，路径为空)
+    status_code = check_supported_method(req, server, ctx.loc);
+    if (status_code != SUCCESS)
+        return (ctx);
+
+    ctx.full_path = build_full_path(req, server, ctx.loc, ctx.is_post_dir);
 
     if (!ctx.loc)
         ctx.final_root = server.get_root();
@@ -38,9 +44,7 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
             }
         }
     }
-    if (status_code == SUCCESS)
-        status_code = check_supported_method(req, server, ctx.loc);
-    
+   
     std::cout << "final Physic path = " << ctx.full_path << std::endl;
     std::cout << "final root = " << ctx.final_root << std::endl;
     if (ctx.loc)
@@ -116,7 +120,7 @@ int Router::check_supported_method(const HttpRequest&req, const ServerConfig& se
     return (SUCCESS);
 }
 
-std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& server, const location *loc)
+std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& server, const location *loc, bool &is_post_dir)
 {
     std::string full_path;
     std::string relative_path;
@@ -137,6 +141,14 @@ std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& 
         if (relative_path[0] == '/')
             relative_path.erase(0, 1);
         std::cout << "AFTER relative path = " << relative_path << std::endl;
+
+        if (relative_path.empty() && req.get_method() == "POST")
+        {
+            relative_path = req.get_path();
+            if (relative_path[0] == '/')
+                relative_path.erase(0, 1);
+            is_post_dir = true; 
+        }
 
         if (loc->root[loc->root.length() - 1] == '/')
             full_path = loc->root + relative_path;

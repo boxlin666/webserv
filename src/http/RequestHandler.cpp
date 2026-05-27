@@ -18,7 +18,9 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
 {
     if (route_ctx.loc)    
     {
-        if (req.get_content_length() > route_ctx.loc->client_max_body_size)
+        std::cout << "req get content length " << req.get_body().size() << std::endl;
+        std::cout << "client max body size = " << route_ctx.loc->client_max_body_size << std::endl;
+        if (req.get_body().size() > route_ctx.loc->client_max_body_size)
         {
             status_code = BODY_TOO_LARGE ;
             return ;
