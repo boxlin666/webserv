@@ -9,6 +9,8 @@
 #define RED     "\033[31m"
 #define RESET   "\033[0m"
 
+const std::string HttpRequest::empty_string = "";
+
 void HttpRequest::reset() {
     _method.clear();
     _path.clear();
@@ -318,7 +320,7 @@ std::size_t HttpRequest::get_body_len() const
 const std::string& HttpRequest::get_header(const std::string& key) const {
     std::map<std::string, std::string>::const_iterator it = _header_map.find(key);
     if (it == _header_map.end()) {
-        return NULL; // 或者返回 NULL，由调用者判断
+        return HttpRequest::empty_string; // 或者返回 NULL，由调用者判断
     }
     return it->second;
 }

@@ -52,6 +52,7 @@ class HttpRequest {
     std::size_t get_body_len()const;
     bool get_is_keep_alive()const;
 
+    static const std::string empty_string;
 
     //tempo add for compilation with response
     const std::map<std::string, std::string>& get_header_map()const;

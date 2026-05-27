@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 #include <ctime>
+#include <cctype>
 #include "ConfigParser.hpp"
 
 struct Token;
@@ -24,9 +25,15 @@ class Utils
         static std::string formatHttpDate(time_t raw_time);
         
         static void expect_semicolon(const std::vector<Token>& tokens, size_t& pos);
+
+        static void replaceAll(std::string &input);
+
+        static void toUpper(std::string &input);
 };
 
 void debug_request_msg_print(const std::string &variable, const std::string &content);
+
+void printEnvMap(const std::map<std::string, std::string>& env_map);
 
 #include "Utils.tpp"
 

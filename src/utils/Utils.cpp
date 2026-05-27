@@ -30,3 +30,20 @@ void Utils::expect_semicolon(const std::vector<Token>& tokens, size_t& pos) {
     
     pos++;
 }
+
+void Utils::replaceAll(std::string &input)
+{
+    for (std::size_t i = 0; i < input.size() ; i++)
+    {
+        if (input[i] == '-')
+            input[i] = '_';
+    }
+}
+
+void Utils::toUpper(std::string &input)
+{
+    for (std::size_t i = 0; i < input.size(); i++)
+    {
+        input[i] = std::toupper(input[i]);
+    }
+}
