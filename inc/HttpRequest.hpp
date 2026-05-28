@@ -51,6 +51,7 @@ class HttpRequest {
     std::size_t get_content_length() const;
     std::size_t get_body_len()const;
     bool get_is_keep_alive()const;
+    bool get_is_chunked()const;
 
     static const std::string empty_string;
 

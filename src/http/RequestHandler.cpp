@@ -27,8 +27,7 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
     this->_full_path = route_ctx.full_path;
     this->_is_cgi_mode = route_ctx.is_cgi_potential;
 
-    this->_body = req.get_body(); // 确保你有这个成员变量     
-    this->_set_res_body_len(this->_body.length()); 
+    this->_req_body = req.get_body(); // 确保你有这个成员变量      
     std::cout << "[Debug] Handler synced body. Size: " << this->_res_body_len << std::endl;
     
     status_code = this->dispatch_resource_check(req, route_ctx);
@@ -216,9 +215,9 @@ std::size_t RequestHandler::get_res_body_len()const
 }
 
 // TODO: just for test
-std::string RequestHandler::get_body()const
+std::string RequestHandler::get_req_body()const
 {
-    return (this->_body);
+    return (this->_req_body);
 }
 
 bool RequestHandler::is_cgi_mode()const

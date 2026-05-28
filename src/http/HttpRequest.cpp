@@ -345,3 +345,8 @@ bool HttpRequest::get_is_keep_alive(void)const
 {
     return (this->_is_keep_alive);
 }
+
+bool HttpRequest::get_is_chunked(void)const
+{
+    return (this->_is_chunked);
+}

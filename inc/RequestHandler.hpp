@@ -23,15 +23,18 @@ class RequestHandler
         //const std::string *get_req_body()const;
         //std::size_t get_req_body_len()const;
         std::size_t get_res_body_len() const;
-        std::string get_body() const;
-        bool is_cgi_mode() const;
         void _set_res_body_len(size_t body_len);
+
+        std::string get_req_body() const;
+
+        bool is_cgi_mode() const;
+
         const std::string &get_body_last_modif_date()const;
         
     private:
         std::string _full_path;
         std::string _parent_path;
-        std::string _body;
+        std::string _req_body;
         std::string _body_last_modif_date;
         std::size_t _res_body_len;
         bool _is_auto_index;

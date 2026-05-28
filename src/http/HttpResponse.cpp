@@ -33,15 +33,16 @@ void HttpResponse::build(const HttpRequest& request, const RequestHandler& respo
     
     //TODO: if status code is not SUCCESS, redefine the content length according to the nb of bytes inside error page html
     if (status_code == SUCCESS)
-    {   
-        this->_body_len = response_ctx.get_res_body_len();
-        this->_body = response_ctx.get_body();
+    { 
+        if (request.get_method() == "GET" || request.get_method() == "DELETE")
+            this->_body_len = response_ctx.get_res_body_len();
     }
     std::cout << "_BODY_LEN = " << this->_body_len << std::endl;
-    std::cout << "_BODY_CONTENT = " << this->_body << std::endl;
 
     if (this->_status_code == SUCCESS)
         this->_full_path = response_ctx.get_full_path();
+
+    std::cout << "[DEBUG1] BUILD RESPONSE body "  << this->_body  << std::endl;
 
     if (this->_status_code == SUCCESS)
     {
@@ -54,7 +55,9 @@ void HttpResponse::build(const HttpRequest& request, const RequestHandler& respo
     }
 
     this->_status_code = ret;
- 
+
+    std::cout << "[DEBUG2] BUILD RESPONSE body "  << this->_body  << std::endl;
+
     this->_prepare_response_data(request);
 
     // if (request.get_method() == "HEAD")

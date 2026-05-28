@@ -176,7 +176,8 @@ bool Connection::check_parse_finished()
     // 2. 契约校验 (Contract Validation)
     // 检查是否有 Content-Length 头部，如果有，确保 Body 已经读取完整
     // 这里处理 POST, PUT 等带有 payload 的请求
-    if (this->_request.get_method() == "POST" || this->_request.get_method() == "PUT") {
+    if ((this->_request.get_method() == "POST" || this->_request.get_method() == "PUT") && !this->_request.get_is_chunked())
+    {
         size_t expected_len = this->_request.get_content_length();
         size_t actual_len   = this->_request.get_body().length();
 

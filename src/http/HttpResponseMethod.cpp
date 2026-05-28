@@ -112,7 +112,7 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
 
 int HttpResponse::_handle_delete(void)
 {
-    if (std::remove(this->_full_path.c_str()))
+    if (std::remove(this->_full_path.c_str()) == 0)
         return (DELETED);
     if (errno == ENOENT)
         return (NOT_FOUND);
