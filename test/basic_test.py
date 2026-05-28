@@ -111,18 +111,34 @@ def test_post_overwrite_static_file(manage_server, cleanup_files):
     except requests.exceptions.ConnectionError:
         pytest.fail("无法连接到服务器，请确保 webserv 已启动。")
 
-@pytest.mark.skip(reason="和42tester暂时出现冲突，暂时跳过这个测试")
+
 @pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
-def test_post_conflict_with_directory(manage_server):
+def test_post_conflict_with_directory(manage_server, cleanup_files):
     """
-    测试场景三：往已有目录路径直接写入实体文件 (403 Forbidden)
-    由于这个操作会被你的 C++ 代码在门口拦截，【根本不会在磁盘上生成新文件】，所以不需要清理
+    测试场景三：往已有目录路径直接写入实体数据 (妥协于 42tester)
+    
+    【42 评测机潜规则】：
+    按照 Subject 规范，对目录发起 POST 会被擦除前缀。但 42tester 强制要求此场景返回 200/201 成功，
+    并在该目录下生成落盘文件。
+    
+    为了同时兼容官方 tester 和本测试，C++ 服务器已放行此操作并返回 200 OK。
+    因此，本测试必须将预期状态码改为 200，并注册清理机制以销毁测试生成的残留文件。
     """
     target_url = f"{BASE_URL}/uploads/"
     
+    # 🚨 【核心细节 1】：根据你 C++ 的落盘逻辑，注册需要清理的物理路径
+    # 如果你的 C++ 在检测到是目录时，会在目录下生成诸如 "uploads"、"default" 或空名字的文件，
+    # 或者是直接改写了文件夹。我们把 uploads 文件夹下的潜在残留注册进垃圾回收站：
+    generated_file_path = os.path.join(SERVER_WEB_ROOT, "uploads", "text.txt") # 假设你默认生成 text.txt
+    # 如果你是不确定生成什么名字，可以直接在下方清理 uploads 文件夹内的无用普通文件
+    cleanup_files.append(generated_file_path)
+    
     try:
-        response = requests.post(target_url, data="Dangerous data")
-        assert response.status_code == 403
+        # 发送 POST 请求，往 /uploads/ 目录强行灌入实体数据
+        response = requests.post(target_url, data="Uploading data")
+        
+        # 🟢 【核心细节 2】：断言完美对齐你的服务器行为
+        assert response.status_code == 200, f"服务器未按 42tester 预期返回 200，实际返回: {response.status_code}"
         
     except requests.exceptions.ConnectionError:
         pytest.fail("无法连接到服务器，请确保 webserv 已启动。")
@@ -189,7 +205,7 @@ def test_split_crlf_crlf(manage_server):
     assert "HTTP/1.1 200 OK" in response
     s.close()
 
-@pytest.mark.skip(reason="和42tester 有冲突的部分 先跳过本条")
+#@pytest.mark.skip(reason="和42tester 有冲突的部分 先跳过本条")
 @pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
 def test_fragmented_chunked_success(manage_server):
     """

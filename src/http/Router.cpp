@@ -143,7 +143,7 @@ std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& 
             relative_path.erase(0, 1);
         std::cout << "AFTER relative path = " << relative_path << std::endl;
 
-        if (relative_path.empty() && req.get_method() == "POST")
+        if (relative_path.empty() && req.get_method() == "POST" && server.get_root() == loc->root)
         {
             relative_path = req.get_path();
             if (relative_path[0] == '/')
@@ -154,10 +154,11 @@ std::string Router::build_full_path(const HttpRequest& req, const ServerConfig& 
         if (loc->root[loc->root.length() - 1] == '/')
             full_path = loc->root + relative_path;
         else
+        {
             full_path = loc->root + "/" + relative_path;
-
-        if (is_post_dir)
-            full_path += "/";
+            if (is_post_dir)
+                full_path += "/";
+        }
     }
     std::cout << "FULL PATH " << full_path << std::endl;
     return (full_path);
