@@ -32,9 +32,12 @@ void CGIHandler::_prepareEnvMap(const HttpRequest& req)
     _envMap["SERVER_PROTOCOL"]   = "HTTP/1.1";
     _envMap["SERVER_SOFTWARE"]   = "Webserv/1.0";
   
-    //无需通过method 来判断是否添加content length 这个envp，只要存在必须添加进去！
-    std::string req_content_length = Utils::toString(req.get_content_length());
-    _envMap["CONTENT_LENGTH"] = req_content_length;
+    //需要通过判断是不是Chunked来决定添加content length 否则脚本可能会卡住！
+    if (req.get_is_chunked() == false)
+    {
+        std::string req_content_length = Utils::toString(req.get_content_length());
+        _envMap["CONTENT_LENGTH"] = req_content_length;
+    }
 
     std::string req_content_type = req.get_header("Content-Type");
 
@@ -43,7 +46,6 @@ void CGIHandler::_prepareEnvMap(const HttpRequest& req)
     else
         _envMap["CONTENT_TYPE"] = req_content_type;
   
-    // 🌟 TODO: 进阶：遍历所有 HTTP 头，转换为 HTTP_ 格式 (CGI 规范)
     std::string env_key;
     std::map<std::string, std::string>::const_iterator map_it;
     for (map_it = req.get_header_map().begin(); map_it != req.get_header_map().end(); map_it++)
