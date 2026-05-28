@@ -138,7 +138,7 @@ def test_post_conflict_with_directory(manage_server, cleanup_files):
         response = requests.post(target_url, data="Uploading data")
         
         # 🟢 【核心细节 2】：断言完美对齐你的服务器行为
-        assert response.status_code == 200, f"服务器未按 42tester 预期返回 200，实际返回: {response.status_code}"
+        assert response.status_code == 201, f"服务器未按 42tester 预期返回 201，实际返回: {response.status_code}"
         
     except requests.exceptions.ConnectionError:
         pytest.fail("无法连接到服务器，请确保 webserv 已启动。")

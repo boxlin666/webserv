@@ -18,9 +18,7 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
 {
     if (route_ctx.loc)    
     {
-        std::cout << "req get content length " << req.get_body().size() << std::endl;
-        std::cout << "client max body size = " << route_ctx.loc->client_max_body_size << std::endl;
-        if (req.get_body().size() > route_ctx.loc->client_max_body_size)
+        if (req.get_body_len() > route_ctx.loc->client_max_body_size)
         {
             status_code = BODY_TOO_LARGE ;
             return ;
@@ -28,24 +26,11 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
     }
     this->_full_path = route_ctx.full_path;
     this->_is_cgi_mode = route_ctx.is_cgi_potential;
-    int ret = extract_parent_path();
-    if (ret != SUCCESS)
-    {
-        status_code = ret;
-        return ;
-    }
-    if (req.get_method() == "POST")
-    {
-        // 这里是处理上传/表单的关键
-        // 你需要在这里决定如何处理 POST 数据，并更新 _res_body_len
-        // 比如：如果存为文件，调用你的文件写入逻辑；如果成功，设定一个简单的成功页面长度
-        this->_body = req.get_body(); // 确保你有这个成员变量
-        
-        // 2. 同步 Body 长度（这直接影响你后续的 Content-Length header）
-        this->_set_res_body_len(this->_body.length());
-        
-        std::cout << "[Debug] Handler synced body. Size: " << this->_res_body_len << std::endl;
-    }
+
+    this->_body = req.get_body(); // 确保你有这个成员变量     
+    this->_set_res_body_len(this->_body.length()); 
+    std::cout << "[Debug] Handler synced body. Size: " << this->_res_body_len << std::endl;
+    
     status_code = this->dispatch_resource_check(req, route_ctx);
 }
 
@@ -119,11 +104,8 @@ int RequestHandler::creatable_resource_validator(void)
     //if we POST a file whose filename has already been recoginized by webserv.
     if (stat(this->_full_path.c_str(), &st) == 0)
     {
-        if (S_ISDIR(st.st_mode))
-            return (SUCCESS); //we can upload and overwrite an existing directory
         if (access(this->_full_path.c_str(), W_OK) != 0)
             return (PER_DENIED);
-        return (SUCCESS); //only if request is to overwrite an existing writable file inside server class
     }
   
     //if we POST a file whose filename has not been recoginized by webserv yet.
@@ -156,16 +138,15 @@ int RequestHandler::extract_parent_path(void)
         return (BAD_REQUEST);
     else if (pos == 0)
         this->_parent_path = "/";
-    else if (pos == this->_full_path.size() - 1)
-    {
-        std::string tmp_full_path = this->_full_path.substr(0, pos);
-        pos = tmp_full_path.find_last_of('/');
-        if (pos == std::string::npos)
-            return (BAD_REQUEST);
-        this->_parent_path = tmp_full_path.substr(0, pos);
-    }
     else
-        this->_parent_path = this->_full_path.substr(0, pos);
+        this->_parent_path = this->_full_path.substr(0, pos + 1);
+    //POST
+    if (pos + 1 == this->_full_path.size())
+    {
+        std::string file_name = "post_body" + Utils::generate_unique_id_pure98();
+
+        this->_full_path += file_name;
+    }
     return (SUCCESS);
 }
 

@@ -5,6 +5,7 @@
 #include <string>
 #include <ctime>
 #include <cctype>
+#include <cstdlib>
 #include "ConfigParser.hpp"
 
 struct Token;
@@ -25,6 +26,8 @@ class Utils
         static std::string formatHttpDate(time_t raw_time);
         
         static void expect_semicolon(const std::vector<Token>& tokens, size_t& pos);
+
+        static std::string generate_unique_id_pure98();
 
         static void replaceAll(std::string &input);
 
