@@ -32,7 +32,7 @@ int HttpResponse::_handle_post(const HttpRequest& request)
 
     if (pos == this->_full_path.size() - 1)
         return (this->_handle_static_post_dir());
-    
+
     return (this->_handle_static_post(request));
 }
 
