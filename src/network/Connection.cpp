@@ -256,7 +256,7 @@ Connection::State Connection::get_state(void) const
 short Connection::get_poll_events() const
 {
     // 如果连接处于等待新请求、或者正在读取请求的状态，我们需要监听读（POLLIN）
-    if (this->_state == WAITING || this->_state == READING_REQ) return POLLIN;
+    if (this->_state == WAITING || this->_state == READING_REQ || this->_state == CGI_RUNNING) return POLLIN;
 
     // 如果连接处于正在向客户端写响应、或者正在往 CGI 喂数据的状态，我们需要监听写（POLLOUT）
     if (this->_state == WRITING_RESP ) return POLLOUT;
@@ -285,6 +285,7 @@ void Connection::handle_cgi_write()
 void Connection::handle_cgi_read()
 {
     int status = _cgi_handler.receiveFromScript();
+    int current_pipe_fd = _cgi_handler.getReadFd();
 
     if (status == 1) {
         // 数据还在源源不断地来，保持 CGI_RUNNING 状态，什么都不用做
@@ -297,6 +298,7 @@ void Connection::handle_cgi_read()
         // 找外包拿最终的完整数据
         std::string full_cgi_output = _cgi_handler.getRawResponse();
         this->_parseCgiOutputAndMakeResponse(full_cgi_output);
+        this->_cluster->unregister_cgi_fd(current_pipe_fd);
 
         this->_state = Connection::WRITING_RESP;
     } else if (status == -1) {

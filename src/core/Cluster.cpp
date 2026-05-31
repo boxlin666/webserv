@@ -153,6 +153,7 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
 
     short poll_event = conn.get_poll_events();
 
+    std::cout << "poll_event = " << poll_event << std::endl;
     if (poll_event == POLLIN)
         _poll_fds[poll_idx].events = POLLIN;
     else if (poll_event == POLLOUT)
@@ -178,8 +179,7 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
     if (!conn.get_out_buff().empty()) { poll_event |= POLLOUT; }
 
     if (conn.get_state() == Connection::CLOSED) {
-        this->close_connection(poll_idx);
-        this->_poll_fds[poll_idx].fd = -1;
+        return (false);
     }
     _poll_fds[poll_idx].events = poll_event;
     return true;
@@ -304,7 +304,6 @@ void Cluster::_process_poll_errors(size_t index)
         // 读取完之后，检查 Connection 状态。
         // 你的 handle_cgi_read 会在读到 0 (EOF) 时把状态切走（比如切到 WRITING_RESP）
         if (conn->get_state() == Connection::WRITING_RESP) {
-            this->_poll_fds[index].fd = -1;  // 标记延迟清理，踢出 poll
             this->_cgi_fd_map.erase(fd);     // 释放映射
             conn->get_cgi_handler().reset();
             std::cout << "[Server] CGI Pipe POLLHUP handled and removed successfully." << std::endl;
@@ -353,8 +352,8 @@ void Cluster::_dispatch_read_event(size_t index)
     // =========================================================
     // 既然不是 Server 也不是 CGI，那必定是普通的 Client 连接
     if (this->handle_client_read_event(index) == false) {
-        // 如果返回 false，说明客户端断开了（如 recv 返回 0），或者发生严重错误
-        this->_poll_fds[index].fd = -1;
+        // 如果返回 false，说明客户端断开了（如 recv 返回 0），或者发生严重错误 
+        std::cout << fd << std::endl;
         this->close_connection(index);
     }
 }
@@ -374,10 +373,12 @@ void Cluster::_dispatch_write_event(size_t index)
             // TODO: 这里务必确保 Connection 内部已经 close(cgi_write_fd)
             // 只有 close 了写端，cgi 才会意识到输入结束
         }
+        return ;
     }
     // 情况 B: 属于普通的客户端 Socket
-    else {
-        this->handle_client_write_event(index);
+    if (this->handle_client_write_event(index) == false) 
+    {
+        this->close_connection(index);
     }
 }
 
@@ -477,6 +478,8 @@ void Cluster::register_cgi_fd(int fd, short events, Connection* conn)
 
 void Cluster::remove_fd_from_poll(int fd)
 {
+    bool found = false;
+
     if (fd < 0) return;
 
     for (size_t i = 0; i < this->_poll_fds.size(); ++i) {
@@ -487,9 +490,13 @@ void Cluster::remove_fd_from_poll(int fd)
 
             std::cout << "[Cluster] Marked fd " << fd << " as -1 for deferred cleanup."
                       << std::endl;
+            found = true;
             break;  // 找到了就功成身退
         }
     }
+    if (!found) 
+        return ;
+    close(fd);
 }
 
 const std::vector<struct pollfd>& Cluster::get_poll_fds() const
@@ -504,6 +511,8 @@ void Cluster::set_poll_fd(int index)
 
 void Cluster::unregister_cgi_fd(int fd)
 {
+    bool found = false;
+
     if (fd < 0) return;
     _cgi_fd_map.erase(fd);
 
@@ -512,8 +521,11 @@ void Cluster::unregister_cgi_fd(int fd)
             _poll_fds[i].fd      = -1;  // 标记为 -1，内核下次就不看它了
             _poll_fds[i].events  = 0;   // 保险起见清空事件
             _poll_fds[i].revents = 0;
+            found = true;
             break;
         }
     }
+    if (!found)
+        return ;
     close(fd);
 }
