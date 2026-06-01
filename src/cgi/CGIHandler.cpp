@@ -81,6 +81,7 @@ bool CGIHandler::init(const HttpRequest& req, const RouterCtx& ctx)
 
 bool CGIHandler::execute(const HttpRequest& req)
 {
+    (void)req;
     // 1. 防御性拦截
     if (_binPath.empty() || _scriptPath.empty()) {
         std::cerr << "[CGI Error] Cannot execute: _binPath or _scriptPath is EMPTY!" << std::endl;
@@ -155,28 +156,12 @@ bool CGIHandler::execute(const HttpRequest& req)
         updateTime();
 
         // 针对 GET 请求的优化：如果没有 Body，直接关闭写端，让 CGI 脚本立刻收到 EOF
-        if (req.get_method() != "POST" && _inBuffer.empty()) {
+        if (_inBuffer.empty()) {
             close(_pipeIn[1]);
             _pipeIn[1] = -1;
         }
     }
-
     return true;
-}
-
-void CGIHandler::_close_unused_pipes(const HttpRequest& req)
-{
-    close(_pipeIn[0]);
-    _pipeIn[0] = -1;
-    close(_pipeOut[1]);
-    _pipeOut[1] = -1;
-
-    if (req.get_method() == "GET" && req.get_body().length() == 0) {
-        if (_pipeIn[1] != -1) {
-            close(_pipeIn[1]);
-            _pipeIn[1] = -1;
-        }
-    }
 }
 
 void CGIHandler::_mapToEnvp()
@@ -204,8 +189,11 @@ void CGIHandler::_clearEnvp()
     }
 }
 
-std::string CGIHandler::getRawResponse()
+std::string CGIHandler::getRawResponse()const
 { return _outBuffer; }
+
+int CGIHandler::get_waitpid_status()const
+{ return _waitpid_status; }
 
 int CGIHandler::sendToScript()
 {
@@ -260,10 +248,12 @@ int CGIHandler::receiveFromScript()
         close(_pipeOut[0]);
         _pipeOut[0] = -1;
 
-        return 0;
+        if (_pid == -1) //已经被waitpid检查过，_pid 被设置成-1！ 
+            _state = CGI_FINISHED;
         // 💡 注意：这里不要盲目地直接把状态改成 CGI_FINISHED！
         // 最佳实践是：数据读完了，但我们依然需要通过 waitpid 确认子进程退出了，
         // 这样可以确保状态的原子性。我们可以在 checkChildProcess() 中做最终的状态切换。
+        return 0;
     } else {
         // 非阻塞读取在无数据可读时会返回 -1 且 errno 为 EAGAIN
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
@@ -321,23 +311,26 @@ bool CGIHandler::checkChildProcess()
     if (_state != CGI_EXECUTING || _pid <= 0) {
         return (_state == CGI_FINISHED);  // 只有真正完成才返回 true
     }
-
-    int   status;
-    pid_t result = waitpid(_pid, &status, WNOHANG);
+ 
+    pid_t result = waitpid(_pid, &_waitpid_status, WNOHANG);
 
     if (result == _pid) {
         // 子进程已退出，我们把它标记为 -1，防止以后重复 waitpid
         _pid = -1;
 
         // 检查子进程是否是非正常死亡（比如段错误、被信号杀死、或者脚本 exit(1)）
-        if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-            std::cerr << "[CGI Error] Script exited with error code: " << WEXITSTATUS(status)
+        if (WIFEXITED(_waitpid_status) && WEXITSTATUS(_waitpid_status) != 0) {
+            std::cerr << "[CGI Error] Script exited with error code: " << WEXITSTATUS(_waitpid_status)
                       << std::endl;
             _state = CGI_ERROR;
             _close_all_pipes();
             return false;
         }
 
+        if (_pipeOut[0] == -1)
+        {
+            _state = CGI_FINISHED;
+        }
         // 🚨 重点：我们在这里 **绝对不能** 把状态设为 CGI_FINISHED！
         // 因为管道里可能还有数据没读完。
         // 子进程死后，它的管道写端会自动关闭。
@@ -391,6 +384,7 @@ void CGIHandler::reset()
     this->_inBuffer.clear();
     this->_outBuffer.clear();
 
+    this->_waitpid_status     = 0;
     this->_pid                = -1;
     this->_last_activity_time = 0;
     this->_state              = CGI_FINISHED;

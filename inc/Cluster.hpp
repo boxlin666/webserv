@@ -6,13 +6,15 @@
 #include <map>
 #include <vector>
 
+#include "IClusterMediator.hpp"
 #include "Connection.hpp"
 #include "PassiveSocket.hpp"
 #include "ServerConfig.hpp"
 
 class Connection;
 
-class Cluster {
+class Cluster : public IClusterMediator 
+{
    private:
     std::map<int, Connection*>                 _connection_map;
     std::map<int, PassiveSocket*>              _socket_map;   // (listen_fd , PassiveSocket ptr)
@@ -37,6 +39,7 @@ class Cluster {
     void _process_poll_errors(size_t index);
     void _dispatch_read_event(size_t index);
     void _dispatch_write_event(size_t index);
+    void _dispatch_pollhup_event(size_t index);
 
     static bool is_invalid_fd(const struct pollfd& pfd);
     void        cleanup_inactive_fds();
@@ -58,12 +61,10 @@ class Cluster {
     void print_servers_map() const;
 
     void register_cgi_fd(int fd, short events, Connection* conn);
+    void unregister_cgi_fd(int fd);
     void update_client_events(int client_fd, short new_events);
-    void remove_fd_from_poll(int fd);
 
     const std::vector<struct pollfd>& get_poll_fds() const;
-    void set_poll_fd(int index);
-    void unregister_cgi_fd(int fd);
 };
 
 #endif

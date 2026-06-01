@@ -30,6 +30,7 @@ class CGIHandler {
     pid_t    _pid;
     CGIState _state;
     time_t   _last_activity_time;
+    int _waitpid_status;
 
     int _pipeIn[2];
     int _pipeOut[2];
@@ -48,8 +49,6 @@ class CGIHandler {
     void _prepareEnvMap(const HttpRequest& req);
     void _mapToEnvp();
     void _clearEnvp();
-
-    void _close_unused_pipes(const HttpRequest& req);
 
    public:
     CGIHandler();
@@ -70,10 +69,9 @@ class CGIHandler {
     bool     isTimeout();
     bool     checkChildProcess();
 
-    std::string getRawResponse();
+    std::string getRawResponse()const;
+    int get_waitpid_status()const;
     void        _close_all_pipes();
-    void        close_unused_pipes(const HttpRequest& req);
-
     void reset();
 };
 
