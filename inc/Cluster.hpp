@@ -59,10 +59,8 @@ class Cluster {
 
     void register_cgi_fd(int fd, short events, Connection* conn);
     void update_client_events(int client_fd, short new_events);
-    void remove_fd_from_poll(int fd);
 
     const std::vector<struct pollfd>& get_poll_fds() const;
-    void set_poll_fd(int index);
     void unregister_cgi_fd(int fd);
 };
 

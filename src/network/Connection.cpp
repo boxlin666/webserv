@@ -284,8 +284,11 @@ void Connection::handle_cgi_write()
 
 void Connection::handle_cgi_read()
 {
-    int status = _cgi_handler.receiveFromScript();
     int current_pipe_fd = _cgi_handler.getReadFd();
+
+    if (current_pipe_fd == -1) return ;
+
+    int status = _cgi_handler.receiveFromScript();
 
     if (status == 1) {
         // 数据还在源源不断地来，保持 CGI_RUNNING 状态，什么都不用做
@@ -300,6 +303,8 @@ void Connection::handle_cgi_read()
         this->_parseCgiOutputAndMakeResponse(full_cgi_output);
         this->_cluster->unregister_cgi_fd(current_pipe_fd);
 
+        //子进程输出EOF PipeOut[0]可以关闭，开始启动waitpid 子进程资源回收。。。
+        this->_cgi_handler.checkChildProcess();
         this->_state = Connection::WRITING_RESP;
     } else if (status == -1) {
         // 外包搞砸了 (Pipe 破裂等报错)
@@ -429,11 +434,13 @@ void Connection::finalize_cgi_success(int cgi_fd)
 {
     std::cout << "[Server] CGI Process finished writing all data." << std::endl;
 
-    int status;
-    waitpid(this->_cgi_handler.getPid(), &status, WNOHANG);
+    this->_cgi_handler.checkChildProcess();
+
+    int waitpid_status  = _cgi_handler.get_waitpid_status();
+    (void)waitpid_status; //TODO extract waitpid_status to formalize cgi response msg status code...
 
     // 3. 核心解耦：先安全从 poll 中撤销，再关闭管道，防止 FD 复用串流
-    this->_cluster->remove_fd_from_poll(cgi_fd);
+    this->_cluster->unregister_cgi_fd(cgi_fd);
     this->_cgi_handler._close_all_pipes();
 
     // 4. 驱动状态机进入发送响应阶段

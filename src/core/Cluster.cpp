@@ -153,7 +153,6 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
 
     short poll_event = conn.get_poll_events();
 
-    std::cout << "poll_event = " << poll_event << std::endl;
     if (poll_event == POLLIN)
         _poll_fds[poll_idx].events = POLLIN;
     else if (poll_event == POLLOUT)
@@ -228,7 +227,7 @@ void Cluster::run()
         // 每隔 1 秒执行一次 CGI 的心跳检查，避免过于频繁
         time_t current_time = std::time(NULL);
         if (current_time - last_check_time >= 1) {
-            // _manage_cgi_lifecycle(); // 🌟 我们把超时和收尸逻辑封装在这里
+            _manage_cgi_lifecycle(); // 🌟 我们把超时和收尸逻辑封装在这里
             last_check_time = current_time;
         }
     }
@@ -476,38 +475,8 @@ void Cluster::register_cgi_fd(int fd, short events, Connection* conn)
     _cgi_fd_map[fd] = conn;
 }
 
-void Cluster::remove_fd_from_poll(int fd)
-{
-    bool found = false;
-
-    if (fd < 0) return;
-
-    for (size_t i = 0; i < this->_poll_fds.size(); ++i) {
-        if (this->_poll_fds[i].fd == fd) {
-            this->_poll_fds[i].fd      = -1;
-            this->_poll_fds[i].events  = 0;
-            this->_poll_fds[i].revents = 0;
-
-            std::cout << "[Cluster] Marked fd " << fd << " as -1 for deferred cleanup."
-                      << std::endl;
-            found = true;
-            break;  // 找到了就功成身退
-        }
-    }
-    if (!found) 
-        return ;
-    close(fd);
-}
-
 const std::vector<struct pollfd>& Cluster::get_poll_fds() const
 { return (this->_poll_fds); }
-
-void Cluster::set_poll_fd(int index)
-{
-    _poll_fds[index].events  = 0;
-    _poll_fds[index].revents = 0;
-    _poll_fds[index].fd      = -1;
-}
 
 void Cluster::unregister_cgi_fd(int fd)
 {
@@ -522,6 +491,8 @@ void Cluster::unregister_cgi_fd(int fd)
             _poll_fds[i].events  = 0;   // 保险起见清空事件
             _poll_fds[i].revents = 0;
             found = true;
+            std::cout << "[Cluster] Marked fd to unregiste from poll_fds " << fd << " as -1 for deferred cleanup."
+                      << std::endl;
             break;
         }
     }
