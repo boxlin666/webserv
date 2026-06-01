@@ -6,14 +6,14 @@
 #include "Utils.hpp"
 
 Connection::Connection(int client_fd, PassiveSocket* matched_socket,
-                       const std::vector<ServerConfig*>& servers, Cluster* cluster)
+                       const std::vector<ServerConfig*>& servers, IClusterMediator* cluster_mediator)
     : _client_fd(client_fd),
       _in_buff(""),
       _out_buff(""),
       _matched_socket(matched_socket),
       _matched_server(NULL),
       _servers(servers),
-      _cluster(cluster),
+      _cluster_mediator(cluster_mediator),
       _request(),
       _route_ctx(),
       _req_handler(),
@@ -113,12 +113,13 @@ void Connection::execute_cgi_pipeline()
     int write_fd = _cgi_handler.getWriteFd();
 
     if (read_fd != -1) {  // 统一注册接口
-        this->_cluster->register_cgi_fd(read_fd, POLLIN, this);
+        this->_cluster_mediator->register_cgi_fd(read_fd, POLLIN, this);
+        //this->_cluster_
     }
 
     if (write_fd != -1) {
         // 如果是 POST 且有 Body，CGIHandler 会保留这个写端，这里才注册
-        this->_cluster->register_cgi_fd(write_fd, POLLOUT, this);
+        this->_cluster_mediator->register_cgi_fd(write_fd, POLLOUT, this);
     } else {
         // 如果没有写端（如 GET），CGIHandler 内部已经关了，Connection 根本不需要操心
         std::cout << "[Debug] CGI write pipe not needed or closed." << std::endl;
@@ -277,7 +278,7 @@ void Connection::handle_cgi_write()
 
     // 🌟 如果返回 0 (写完关了) 或 -1 (出错了)，通知 Cluster 别再 poll 它了
     if (status <= 0) {
-        this->_cluster->unregister_cgi_fd(current_pipe_fd);
+        this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
         std::cout << "[CGI] Input pipe finished and unregistered." << std::endl;
     }
 }
@@ -301,8 +302,8 @@ void Connection::handle_cgi_read()
         // 找外包拿最终的完整数据
         std::string full_cgi_output = _cgi_handler.getRawResponse();
         this->_parseCgiOutputAndMakeResponse(full_cgi_output);
-        this->_cluster->unregister_cgi_fd(current_pipe_fd);
-
+        this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
+        
         //子进程输出EOF PipeOut[0]可以关闭，开始启动waitpid 子进程资源回收。。。
         this->_cgi_handler.checkChildProcess();
         this->_state = Connection::WRITING_RESP;
@@ -440,12 +441,12 @@ void Connection::finalize_cgi_success(int cgi_fd)
     (void)waitpid_status; //TODO extract waitpid_status to formalize cgi response msg status code...
 
     // 3. 核心解耦：先安全从 poll 中撤销，再关闭管道，防止 FD 复用串流
-    this->_cluster->unregister_cgi_fd(cgi_fd);
+    this->_cluster_mediator->unregister_cgi_fd(cgi_fd);
     this->_cgi_handler._close_all_pipes();
 
     // 4. 驱动状态机进入发送响应阶段
     this->_state = WRITING_RESP;
-    this->_cluster->update_client_events(this->_client_fd, POLLOUT);
+    this->_cluster_mediator->update_client_events(this->_client_fd, POLLOUT);
 
     std::cout << "[Server] Switched client socket to POLLOUT." << std::endl;
 }

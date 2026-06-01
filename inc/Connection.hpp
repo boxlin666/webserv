@@ -4,7 +4,7 @@
 #include <string>
 
 #include "CGIHandler.hpp"
-#include "Cluster.hpp"
+#include "IClusterMediator.hpp"
 #include "HttpConstants.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
@@ -13,12 +13,12 @@
 #include "RouterCtx.hpp"
 #include "ServerConfig.hpp"
 
-class Cluster;
+class IClusterMediator;
 
 class Connection {
    public:
     Connection(int client_fd, PassiveSocket* matched_socket,
-               const std::vector<ServerConfig*>& servers, Cluster* cluster);
+               const std::vector<ServerConfig*>& servers, IClusterMediator* cluster_mediator);
     ~Connection(void);
 
     enum State { WAITING, READING_REQ, CGI_RUNNING, CGI_FINISH, WRITING_RESP, CLOSED, ERROR };
@@ -51,8 +51,7 @@ class Connection {
     ServerConfig*                    _matched_server;
     const std::vector<ServerConfig*> _servers;
 
-    // TODO: Refactor to Interface
-    Cluster*       _cluster;
+    IClusterMediator* _cluster_mediator;
     HttpRequest    _request;
     RouterCtx      _route_ctx;
     RequestHandler _req_handler;
