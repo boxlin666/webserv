@@ -109,7 +109,7 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
         // 3. 创建 Connection 对象并存入 map
         Connection* conn = new Connection(client_fd, passive_socket, it_servers->second, this);
         _connection_map[client_fd] = conn;
-        // 4. 将新的 FD 注册到 poll 监听列表中
+        // 4. 将新的 FD 注册到 /poll 监听列表中
         this->add_to_poll_fds(client_fd);
     } else  // 几乎不可能，但是作为防御编程，还是写了这个检查和报错
     {
@@ -206,12 +206,14 @@ void Cluster::run()
             for (size_t i = 0; i < _poll_fds.size(); ++i) {
                 if (_poll_fds[i].fd == -1) continue;
 
-                if (_poll_fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) {
+                if (_poll_fds[i].revents & (POLLERR | POLLNVAL)) {
                     this->_process_poll_errors(i);
                     continue;
                 }
 
                 if (_poll_fds[i].revents & POLLIN) { this->_dispatch_read_event(i); }
+
+                if (_poll_fds[i].revents & POLLHUP) { this->_dispatch_pollhup_event(i); }
 
                 if (_poll_fds[i].fd != -1 && (_poll_fds[i].revents & POLLOUT)) {
                     this->_dispatch_write_event(i);
@@ -266,14 +268,17 @@ void Cluster::_manage_cgi_lifecycle()
     }
 }
 
+/**
+* Only checkout POLLERR and POLLNVAL right now !
+*/
 void Cluster::_process_poll_errors(size_t index)
 {
     int fd = _poll_fds[index].fd;
 
-    // 🌟 绝杀死循环的核心拦截点：
-    // 如果触发 POLLHUP 的是 CGI 管道 FD
     if (this->_cgi_fd_map.count(fd) > 0) {
         Connection* conn = _cgi_fd_map[fd];
+
+        (void)conn;
 
         std::cerr << "[Debug] Error on FD: " << fd;
 
@@ -288,26 +293,10 @@ void Cluster::_process_poll_errors(size_t index)
         // 识别具体错误位
         if (_poll_fds[index].revents & POLLERR)
             std::cerr << " [POLLERR]";  // 致命错误（如管道破裂）
-        if (_poll_fds[index].revents & POLLHUP)
-            std::cerr << " [POLLHUP]";  // 对端关闭（常见于 CGI 结束）
         if (_poll_fds[index].revents & POLLNVAL)
             std::cerr << " [POLLNVAL]";  // 非法 FD（你可能关早了）
-        _poll_fds[index].fd      = -1;
-        _poll_fds[index].events  = 0;
-        _poll_fds[index].revents = 0;
 
-        // 关键动作：虽然子进程挂断了，但管道缓冲区里可能还有 Python 没读完的残留数据！
-        // 我们强制驱动一次读取！
-        conn->handle_cgi_read();
-        conn->finalize_cgi_success(fd);
-        // 读取完之后，检查 Connection 状态。
-        // 你的 handle_cgi_read 会在读到 0 (EOF) 时把状态切走（比如切到 WRITING_RESP）
-        if (conn->get_state() == Connection::WRITING_RESP) {
-            this->_cgi_fd_map.erase(fd);     // 释放映射
-            conn->get_cgi_handler().reset();
-            std::cout << "[Server] CGI Pipe POLLHUP handled and removed successfully." << std::endl;
-        }
-        return;
+        //TODO handle cgi error ???
     }
 
     // 普通客户端套接字连接出错，直接断开
@@ -379,6 +368,40 @@ void Cluster::_dispatch_write_event(size_t index)
     {
         this->close_connection(index);
     }
+}
+
+void Cluster::_dispatch_pollhup_event(size_t index)
+{
+    int fd = _poll_fds[index].fd;
+
+    if (this->_cgi_fd_map.count(fd) > 0)
+    {
+        Connection* conn = _cgi_fd_map[fd];
+
+        // 识别 FD 身份
+        if (_socket_map.count(fd))
+            std::cerr << "[DEBUG] (Type: Listen Socket)";
+        else if (_cgi_fd_map.count(fd))
+            std::cerr << " [DEBUG] (Type: CGI Pipe) dispatch pollhup event";
+        else
+            std::cerr << " (Type: Client Socket)";
+
+        if (_poll_fds[index].revents & POLLHUP)
+            std::cerr << " [POLLHUP]" << std::endl;  // 对端关闭（常见于 CGI 结束）
+
+        conn->handle_cgi_read();
+        conn->finalize_cgi_success(fd);
+        if (conn->get_state() == Connection::WRITING_RESP) {
+            this->_cgi_fd_map.erase(fd);     // 释放映射
+            conn->get_cgi_handler().reset();
+            std::cout << "[Server] CGI Pipe POLLHUP handled and removed successfully." << std::endl;
+        }
+        return ;
+    }
+
+    // 普通客户端套接字连接出错，直接断开
+    this->_poll_fds[index].fd = -1;
+    this->close_connection(index);
 }
 
 void Cluster::update_client_events(int client_fd, short new_events)

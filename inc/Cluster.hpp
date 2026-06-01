@@ -37,6 +37,7 @@ class Cluster {
     void _process_poll_errors(size_t index);
     void _dispatch_read_event(size_t index);
     void _dispatch_write_event(size_t index);
+    void _dispatch_pollhup_event(size_t index);
 
     static bool is_invalid_fd(const struct pollfd& pfd);
     void        cleanup_inactive_fds();
