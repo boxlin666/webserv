@@ -5,12 +5,17 @@
 #include <string>
 #include <cstdlib>
 #include <sstream>
-
+#include <cstdlib>
+#include <iostream>
+#include <climits>
 #include <fcntl.h>
 #include <sys/stat.h> 
 #include <vector>
 #include <cstdio>
 #include <cerrno>
+
+#include "HttpConstants.hpp"
+#include "Utils.hpp"
 
 //tempo
 //#include "Location.hpp"
@@ -75,11 +80,6 @@ class HttpRequest {
     // 设置 HTTP 版本（通常为 "HTTP/1.1"）
     void set_version(const std::string& version) { _http_version = version; }
 
-    // 设置 Header 键值对
-    void set_header(const std::string& key, const std::string& value) {
-        _header_map[key] = value;
-    }
-
     // 设置 Body 内容，并自动更新长度
     void set_body(const std::string& content) {
         _body = content;
@@ -93,6 +93,10 @@ class HttpRequest {
     // 如果需要模拟 Chunked 传输
     void set_is_chunked(bool is_chunked) { _is_chunked = is_chunked; }
 
+    bool is_header_parsed() const {
+    // 只要状态大于 PARSE_HEADER，说明 Request Line 和 Header 都已经处理完了
+    return _state > PARSE_HEADER;
+    }
    private:
     // request line 部分
     std::string _method;  // GET POST DELETE HEAD
@@ -105,9 +109,6 @@ class HttpRequest {
 
     bool _is_keep_alive;
 
-    // request header 部分
-    //  _header_map["Host"] = "172.19.116.71" ; _header_map["User agent"] = "curl 8.5.0" ;
-    //  _header_map["blabla"] = "BLABLA"
     std::map<std::string, std::string> _header_map;
 
     // 记录当前状态

@@ -12,3 +12,4 @@ test/__pycache__/
 .vscode
 tmp/
 YoupiBanane/
+node_modules/

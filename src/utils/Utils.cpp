@@ -60,3 +60,11 @@ void Utils::toUpper(std::string &input)
         input[i] = std::toupper(input[i]);
     }
 }
+
+static int char_to_lower(int c) {
+    return std::tolower(static_cast<unsigned char>(c));
+}
+
+void Utils::to_lowercase(std::string &str) {
+    std::transform(str.begin(), str.end(), str.begin(), char_to_lower);
+}
