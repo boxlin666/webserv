@@ -202,7 +202,7 @@ bool Connection::set_matched_server()
     std::map<std::string, std::string>::const_iterator req_header_it;
     std::string                                        _raw_data;
 
-    req_header_it = this->_request.get_header_map().find("Host");
+    req_header_it = this->_request.get_header_map().find("host");
     if (req_header_it != this->_request.get_header_map().end())
         _raw_data = req_header_it->second;
     else

@@ -1,10 +1,4 @@
-#include <cstdlib>
-#include <iostream>
-#include <climits>
-
 #include "HttpRequest.hpp"
-#include "HttpConstants.hpp"
-#include "Utils.hpp"
 
 #define RED     "\033[31m"
 #define RESET   "\033[0m"
@@ -79,10 +73,10 @@ int HttpRequest::validate_and_prepare_payload()
     }
     if (req_header_len > MAX_HEADER_SIZE)
         return (REQ_HEADER_TOO_LONG);
-    if (this->_header_map.find("Host") == this->_header_map.end())
+    if (this->_header_map.find("host") == this->_header_map.end())
         return (BAD_REQUEST);
-    bool has_cl = this->_header_map.count("Content-Length");
-    bool has_te = this->_header_map.count("Transfer-Encoding");
+    bool has_cl = this->_header_map.count("content-length");
+    bool has_te = this->_header_map.count("transfer-encoding");
 
     if (has_cl && has_te) return (BAD_REQUEST);
 
@@ -90,7 +84,7 @@ int HttpRequest::validate_and_prepare_payload()
     
     if (has_cl && this->_content_length > 0)
         _state = PARSE_BODY;
-    else if (has_te && this->_header_map["Transfer-Encoding"] == "chunked") 
+    else if (has_te && this->_header_map["transfer-encoding"] == "chunked") 
     {
         _state = PARSE_CHUNKED;
         _chunk_state = CHUNK_START;
@@ -121,10 +115,11 @@ int HttpRequest::parse_request_header(std::string& line)
         value = value.substr(first, (last - first + 1));
     else
         value = "";
+    Utils::to_lowercase(key);
     _header_map[key] = value;
     if (key == "Content-Length")
     {
-        _content_length = strtoul(_header_map["Content-Length"].c_str(), NULL, 10);
+        _content_length = strtoul(_header_map["content-length"].c_str(), NULL, 10);
         if (this->_content_length > GLOBAL_MAX_ALLOWED)
         {
             //std::cout << "==============REQUEST PARSER ISSUE!!!=================" << std::endl;

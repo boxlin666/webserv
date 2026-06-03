@@ -7,6 +7,7 @@
 #include <cctype>
 #include <cstdlib>
 #include "ConfigParser.hpp"
+#include <algorithm>
 
 struct Token;
 //Every utils function could be added here!
@@ -32,6 +33,8 @@ class Utils
         static void replaceAll(std::string &input);
 
         static void toUpper(std::string &input);
+
+        static void to_lowercase(std::string &str) ;
 };
 
 void debug_request_msg_print(const std::string &variable, const std::string &content);
