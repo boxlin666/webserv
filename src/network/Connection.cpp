@@ -153,7 +153,7 @@ void Connection::handle_write_event(void)
         // std::cout << "_out_buff = " << _out_buff << std::endl;
         this->_out_buff.erase(0, bytes_send);
     }
-
+        
     if (this->_out_buff.empty()) {
         // 🌟 增加判定：如果响应报文里包含了 "Connection: close"，或者请求本身就不支持长连接
         if (this->_request.get_is_keep_alive() == false ||

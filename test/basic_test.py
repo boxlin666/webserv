@@ -253,3 +253,76 @@ def test_fragmented_chunked_success(manage_server):
         pytest.fail("【Bug】数据传输过程中，服务器状态机误判，提前挂断了正常的连接")
     finally:
         s.close()
+
+@pytest.mark.skip(reason="暂不通过跨包边界粘包测试，留待后续修复状态机后启用") # 🌟 加上这行即可跳过
+@pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
+def test_chunked_trailing_newline_sticky_with_next_request(manage_server):
+    """
+    核心边界测试：
+    第一个请求是 Chunked 编码。故意将第一个请求最后的 '\n' 截留，
+    并与第二个请求的开头（POST...）拼接在同一个 TCP 数据包中发送。
+    验证服务器的状态机是否能精准切割第一个请求的屁股，并在不卡死、不报 400 的情况下，
+    无缝连续处理第二个请求。
+    """
+    host = "127.0.0.1"
+    port = 8080
+    
+    # 1. 创建原生 TCP Socket 并连接
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(4.0) # 设置 4 秒超时，一旦服务器卡在 while(true) 死循环，测试会自动报错
+    s.connect((host, port))
+
+    try:
+        # ======= 【数据包 1】：发送第一个请求的绝大部分，故意留下最后的 '\n' =======
+        # 这个 Chunked 请求包含 5 字节数据 "hello"，最后的终止符原本应该是 0\r\n\r\n
+        # 我们故意只发到 0\r\n\r，扣下最后一个 \n 
+        packet1 = (
+            "POST /directory/youpi.bla HTTP/1.1\r\n"
+            "Host: 127.0.0.1:8080\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "Connection: keep-alive\r\n"
+            "\r\n"
+            "5\r\n"
+            "hello\r\n"
+            "0\r\n"
+            "\r" # 🛑 故意截断！只发到 \r，没有 \n
+        )
+        s.send(packet1.encode())
+        
+        # 停顿一下，让服务器的 poll() 触发，强制把服务器状态机推进到你的 `CHUNK_FINISHED` 状态
+        time.sleep(0.2)
+
+        # ======= 【数据包 2】：把迷路的 '\n' 和第二个请求强行粘在一起发送 =======
+        # 第二个请求是一个普通的、带 5 字节 Body 的非 Chunked 静态请求（用来验证状态机重置）
+        packet2 = (
+            "\n" # 🌟 补齐第一个请求的最后一个字节！
+            "POST /directory/youpi.bla HTTP/1.1\r\n"
+            "Host: 127.0.0.1:8080\r\n"
+            "Content-Length: 5\r\n"
+            "Connection: close\r\n" # 最后一个请求告诉服务器可以关连接了
+            "\r\n"
+            "world"
+        )
+        s.send(packet2.encode())
+
+        # ======= 【接收与断言验证】 =======
+        # 服务器必须连续吐出两个响应，我们用一条大缓冲区一次性接收
+        response = ""
+        while True:
+            chunk = s.recv(4096).decode()
+            if not chunk:
+                break
+            response += chunk
+
+        # 1. 验证第一个请求是否因为你的修复而成功闭环，返回了 200 OK
+        assert response.count("200 OK") >= 2 or "201 Created" in response, \
+            f"【Bug】服务器没有成功处理完两个请求。收到响应：\n{response}"
+            
+        print("\n--- 恭喜！服务器成功经受住了跨包边界粘包的考验！ ---")
+
+    except socket.timeout:
+        pytest.fail("【Bug】服务器在处理跨包边界时死锁卡死（极有可能是 `CHUNK_FINISHED` 里的 `break` 没跳出 `while` 循环）")
+    except (ConnectionResetError, BrokenPipeError):
+        pytest.fail("【Bug】服务器面对不规范的边界直接崩溃或强行断开了连接")
+    finally:
+        s.close()

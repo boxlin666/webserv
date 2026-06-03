@@ -216,13 +216,14 @@ int HttpRequest::parse_chunked_body(std::string& input_data)
             
             case CHUNK_FINISHED:
             { 
-                if (input_data == "\r\n")
+                if (input_data.length() >= 2 && input_data.substr(0, 2) == "\r\n")
                 {
-                    input_data.erase(0,2);
+                    input_data.erase(0, 2);
                     this->_state = PARSE_FINISHED;
+                    return (SUCCESS);
                 }
-                else if (input_data == "\r") return (SUCCESS); //waiting for the last '\n' to finish up this request body parsing process
-                else if (input_data.length () >= 2) return (BAD_REQUEST);
+                else if (input_data.length() == 1 && input_data == "\r")  return (SUCCESS);
+                else return (BAD_REQUEST);
                 break ;
             }
 
