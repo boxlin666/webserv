@@ -136,7 +136,7 @@ int HttpRequest::parse_request_header(std::string& line)
     return (SUCCESS);
 }
 
-bool HttpRequest::parse_body(std::string& input_data) {
+int HttpRequest::parse_body(std::string& input_data) {
     // 还需要读多少字节？
     size_t remaining = _content_length - _body.size();
     
@@ -149,7 +149,7 @@ bool HttpRequest::parse_body(std::string& input_data) {
     if (_body.size() == _content_length) {
         _state = PARSE_FINISHED;
     }
-    return true;
+    return (SUCCESS);
 }
 
 bool HttpRequest::parse_chunk_size(std::string &chunk_size_str)
@@ -169,13 +169,13 @@ bool HttpRequest::parse_chunk_size(std::string &chunk_size_str)
     return (true);
 }
 
-bool HttpRequest::parse_chunked_body(std::string& input_data) 
+int HttpRequest::parse_chunked_body(std::string& input_data) 
 {
     std::size_t pos = 0;
     std::string chunk_size_str("");
 
     if (_chunk_state == CHUNK_NONE)
-        return false;
+        return (BAD_REQUEST);
     while (input_data.size() > 0)
     {
         switch (_chunk_state)
@@ -190,12 +190,11 @@ bool HttpRequest::parse_chunked_body(std::string& input_data)
             case CHUNK_SIZE:
             {
                 pos = input_data.find("\r\n");
-                if (pos == std::string::npos) return (true); //假设继续等待chunked size CTRL 信息
+                if (pos == std::string::npos) return (SUCCESS); //假设继续等待chunked size CTRL 信息
                 chunk_size_str = input_data.substr(0, pos);
                 if (parse_chunk_size(chunk_size_str) == false) //非法传入的chunk size 或者是unsigned long 整数溢出
-                    return (false);
+                    return (BAD_REQUEST);
                 input_data.erase(0, pos + 2);
-                std::cout << "CHUNK_SIZE = " << _chunk_size << std::endl;
                 if (this->_chunk_size == 0)
                     this->_chunk_state = CHUNK_FINISHED;
                 else
@@ -206,8 +205,8 @@ bool HttpRequest::parse_chunked_body(std::string& input_data)
             case CHUNK_DATA:
             {
                 pos = input_data.find("\r\n", this->_chunk_size);
-                if (pos == std::string::npos) return (true); //假设本次收到的信息里没有\r\n，我们等待下次的信息
-                if (pos != this->_chunk_size) return (false);//发送字符个数和chunk size 不符合
+                if (pos == std::string::npos) return (SUCCESS); //假设本次收到的信息里没有\r\n，我们等待下次的信息
+                if (pos != this->_chunk_size) return (BAD_REQUEST);//发送字符个数和chunk size 不符合
                 _body.append(input_data.substr(0, this->_chunk_size));
                 input_data.erase(0, this->_chunk_size + 2); //删除被传入的字符和"\r\n"
                 this->_chunk_size = 0;
@@ -222,22 +221,18 @@ bool HttpRequest::parse_chunked_body(std::string& input_data)
                     input_data.erase(0,2);
                     this->_state = PARSE_FINISHED;
                 }
-                else if (input_data == "\r") //TODO： 加入超时判断条件才可进入这个特殊情景!!!
-                {
-                    //TODO： 超时操作，如果我们只收到"\r"但是没有收到全部的“\r\n”, 那么在x seconds内，我们需要强制把他设置成 PARSE FINISHED
-                    input_data.erase(0, 1);
-                    this->_state = PARSE_FINISHED;
-                }
+                else if (input_data == "\r") return (SUCCESS); //waiting for the last '\n' to finish up this request body parsing process
+                else if (input_data.length () >= 2) return (BAD_REQUEST);
                 break ;
             }
 
             case CHUNK_NONE:
             {
-                return (false);
+                return (BAD_REQUEST);
             }
         }
     }
-    return (true);
+    return (SUCCESS);
 }
 
 int HttpRequest::parse(std::string& input_data)
@@ -269,13 +264,15 @@ int HttpRequest::parse(std::string& input_data)
         }
 
         if (_state == PARSE_BODY) {
-            parse_body(input_data);
+            ret = parse_body(input_data);
+            if (ret != SUCCESS) _state = PARSE_ERROR;
             break;  // 即使没读完也要跳出循环，等更多数据进入 input_data
         }
          
         // TODO: PARSE_CHUNKED 逻辑
         if (_state == PARSE_CHUNKED) {
-            parse_chunked_body(input_data);
+            ret = parse_chunked_body(input_data);
+            if (ret != SUCCESS) _state = PARSE_ERROR;
             break;
         }
     }

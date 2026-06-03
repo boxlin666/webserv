@@ -121,8 +121,8 @@ class HttpRequest {
     int parse_request_line(std::string& line);
     int parse_request_header(std::string& line);
     int validate_and_prepare_payload();
-    bool parse_body(std::string& input_data);
-    bool parse_chunked_body(std::string& input_data);
+    int parse_body(std::string& input_data);
+    int parse_chunked_body(std::string& input_data);
 
     bool parse_chunk_size(std::string &chunk_size_str);
 
