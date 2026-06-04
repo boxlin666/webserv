@@ -31,41 +31,49 @@ const std::string& Connection::get_in_buff(void) const
 const std::string& Connection::get_out_buff(void) const
 { return (this->_out_buff); }
 
-void Connection::handle_read_event(void)
+void Connection::handle_read_event(int flag)
 {
     if (this->_state == Connection::CGI_RUNNING) return;
 
     char    buffer[4096];
-    ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
+    ssize_t bytes_read; //= recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read <= 0) {
-        this->set_state(CLOSED);
-        return;
+    if (flag == 0)
+    {
+        bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
+
+        if (bytes_read <= 0) {
+            this->set_state(CLOSED);
+            return;
+        }
+
+        buffer[bytes_read] = '\0';
+
+        // tempo debug msg don't remove it now pls!
+        std::string tmp_buff(buffer);
+        debug_request_msg_print("BUFFER INFO", tmp_buff);
+        // tempo debug msg don't remove it now pls!
+
+        // 1. 数据必须累积到 Connection 的 _in_buff
+        _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
     }
+    //while (!_in_buff.empty())
+    //{    
+        // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
+        this->_status_code = this->_request.parse(this->_in_buff);
 
-    buffer[bytes_read] = '\0';
-
-    // tempo debug msg don't remove it now pls!
-    std::string tmp_buff(buffer);
-    debug_request_msg_print("BUFFER INFO", tmp_buff);
-    // tempo debug msg don't remove it now pls!
-
-    // 1. 数据必须累积到 Connection 的 _in_buff
-    _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
-    
-    // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
-    this->_status_code = this->_request.parse(this->_in_buff);
-
-    // 3. 这里的关键：检查是否真的“请求完成”
-    // 不要只依赖 _status_code，必须检查数据完整性
-    if (this->check_parse_finished()) {
-        std::cout << "[Debug] Request is fully complete, body size: "
-                  << _request.get_body().length() << std::endl;
-        this->handle_request_dispatch();  // 只有这时才处理
-    } else {
-        // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
-        std::cout << "[Debug] Waiting for more body data..." << std::endl;
-    }
+        // 3. 这里的关键：检查是否真的“请求完成”
+        // 不要只依赖 _status_code，必须检查数据完整性
+        if (this->check_parse_finished()) {
+            std::cout << "[Debug] Request is fully complete, body size: "
+                    << _request.get_body().length() << std::endl;
+            this->handle_request_dispatch();  // 只有这时才处理
+        } else {
+            // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
+            std::cout << "[Debug] Waiting for more body data..." << std::endl;
+            //break ;
+        }
+    //}
 }
 
 void Connection::handle_request_dispatch()
@@ -153,7 +161,15 @@ void Connection::handle_write_event(void)
         // std::cout << "_out_buff = " << _out_buff << std::endl;
         this->_out_buff.erase(0, bytes_send);
     }
-        
+
+    if (!this->_in_buff.empty())
+    {
+        this->_request.reset();
+        this->_response.reset();
+        this->set_state(READING_REQ);
+        this->handle_read_event(1);
+    }
+      
     if (this->_out_buff.empty()) {
         // 🌟 增加判定：如果响应报文里包含了 "Connection: close"，或者请求本身就不支持长连接
         if (this->_request.get_is_keep_alive() == false ||

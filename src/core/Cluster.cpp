@@ -145,11 +145,11 @@ void Cluster::close_connection(size_t poll_idx)
 bool Cluster::handle_client_read_event(size_t poll_idx)
 {
     int fd = _poll_fds[poll_idx].fd;
-
+ 
     std::map<int, Connection*>::iterator it = _connection_map.find(fd);
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
-    conn.handle_read_event();
+    conn.handle_read_event(0);
 
     short poll_event = conn.get_poll_events();
 
@@ -229,7 +229,7 @@ void Cluster::run()
         // 每隔 1 秒执行一次 CGI 的心跳检查，避免过于频繁
         time_t current_time = std::time(NULL);
         if (current_time - last_check_time >= 1) {
-            _manage_cgi_lifecycle(); // 🌟 我们把超时和收尸逻辑封装在这里
+            //_manage_cgi_lifecycle(); // 🌟 我们把超时和收尸逻辑封装在这里
             last_check_time = current_time;
         }
     }
