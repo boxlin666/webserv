@@ -693,3 +693,323 @@ def test_triple_cgi_pure_memory_interlocked_pipeline(manage_server):
         pytest.fail("【Bug】服务器没能抗住碎尸粘包，内部发生内存段错误崩溃")
     finally:
         s.close()
+
+@pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
+def test_garbage_leading_newlines_tolerance(manage_server):
+    """
+    协议鲁棒性测试：无限前导空白/垃圾流宽容度测试
+    
+    测试逻辑：
+    1. 模拟恶意客户端或网络噪音，在发送真正的 HTTP 请求前，先疯狂轰炸 100 个纯换行符（\\r\\n）。
+    2. 毫无延迟，紧接着黏上一个标准的正常 CGI 请求。
+    3. 验证服务器的状态机是否能极其聪明地“滑过去”，不报 400 错误，并成功拉起 CGI 吐出 "HELLO"。
+    """
+    host = "127.0.0.1"
+    port = 8080
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(4.0)  # 4 秒超时保护
+    s.connect((host, port))
+
+    try:
+        # ======= 【构建垃圾前导流 + 正常请求】 =======
+        # 1. 物理生成 100 个连续的 \r\n
+        garbage_prefix = "\r\n" * 100
+
+        # 2. 紧随其后的正常 CGI 报文
+        normal_request = (
+            "POST /directory/youpi.bla HTTP/1.1\r\n"
+            "Host: 127.0.0.1:8080\r\n"
+            "Content-Length: 5\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+            "hello"
+        )
+
+        # 3. 绝对黏合拼接
+        full_packet = garbage_prefix + normal_request
+
+        # ======= 【发送并接收回执】 =======
+        s.send(full_packet.encode())
+
+        response = ""
+        while True:
+            chunk = s.recv(4096).decode()
+            if not chunk:
+                break
+            response += chunk
+
+        print(f"\n[前导垃圾流测试收到完整响应]:\n{response}")
+
+        # ======= 【核心断言审计】 =======
+        
+        # 1. 协议健壮性断言：绝对不能触发 400 Bad Request
+        assert "400 Bad Request" not in response, (
+            "【Bug】服务器太脆弱了！把前导的空换行符误认成了畸形协议头，抛出了 400 错误！"
+        )
+
+        # 2. 状态码审计：必须是 200 OK 或 201 Created
+        assert "HTTP/1.1 200 OK" in response or "HTTP/1.1 201 Created" in response, (
+            f"【Bug】服务器面对前导换行未能返回成功状态码。当前回执：\n{response}"
+        )
+
+        # 3. CGI 管道对接审计：提取 Body，确保内容是完美的大写 "HELLO"
+        assert "\r\n\r\n" in response, "【Bug】响应报文格式畸形，找不到 Header 和 Body 的分界符"
+        body = response.split("\r\n\r\n", 1)[1].strip()
+        
+        assert body == "HELLO", (
+            f"【Bug】CGI 响应体内容错误！期望得到干净的 'HELLO'，但实际为: '{body}'"
+        )
+
+        print("\n--- 🏆 【稳如磐石】服务器成功滑过 100 个恶意前导换行，防洪解析断言全绿！ ---")
+
+    except socket.timeout:
+        pytest.fail("【Bug】测试超时！服务器卡死在前导空白循环中，未能成功解出真正的 HTTP 请求")
+    except (ConnectionResetError, BrokenPipeError):
+        pytest.fail("【Bug】服务器面对突发的非标准网络噪音，内部状态机直接崩溃断联（Segfault 隐患）")
+    finally:
+        s.close()
+
+@pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
+def test_chunk_size_fragmented_and_count_check(manage_server):
+    """
+    终极协议头数字碎尸压测 + 字节级数量审计：
+    1. 包 1：发送完整的第一个 Chunk（5字节hello），以及第二个 Chunk 声明大小数字的一半（"5"）后瞬间断流。
+    2. 停顿 0.2 秒，强迫服务器解析器在没有遇到 \\r\\n 的情况下挂起并记住暂存的 "5"。
+    3. 包 2：补齐数字尾巴 "2\\r\\n"（组合成十六进制 52，即十进制 82 字节），紧接着塞满 82 个 'A'，
+       再黏合 Chunked 结束符（0\\r\\n\\r\\n）以及最后一个 Connection: close 的 "last" 请求。
+    4. 🌟 深度审计：将两份响应切开，精准数出第一个响应的 Body 里是否包含 5 个 HELLO 和【绝对精准的 82 个 A】！
+    """
+    host = "127.0.0.1"
+    port = 8080
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(5.0)
+    s.connect((host, port))
+
+    try:
+        # ======= 【数据包 1】：发送 Chunked 头部 + hello 块 + 碎尸数字 "5" =======
+        packet1 = (
+            "POST /directory/youpi.bla HTTP/1.1\r\n"
+            "Host: 127.0.0.1:8080\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "Connection: keep-alive\r\n"
+            "\r\n"
+            "5\r\n"
+            "hello\r\n"
+            "5"  # 🛑 故意在这里掐断！十六进制 52 只发了个 5，且没有 \r\n
+        )
+        s.send(packet1.encode())
+
+        # 模拟命令中的 sleep 0.2
+        # 测试服务器是否能在“数字残缺且无换行”的极端情况下挂起状态机
+        time.sleep(0.2)
+
+        # ======= 【数据包 2】：补齐数字尾巴 + 82个A + 结束块 + 黏合第二个请求 =======
+        # 1. 补齐 "2\r\n"，服务器应该在内存中拼出 "52\r\n" -> 转换为十进制 82 字节
+        # 2. 连续生成 82 个 'A'
+        # 3. 终结当前 Chunked 请求（0\r\n\r\n）
+        # 4. 毫无延迟，零缝隙黏合第二个 "last" 请求
+        chunk_data = "A" * 82
+        packet2 = (
+            "2\r\n" +  # 🌟 缝合点：5 + 2 = 52
+            chunk_data +
+            "\r\n0\r\n\r\n" +  # 闭环第一个 Chunked 请求
+            "POST /directory/youpi.bla HTTP/1.1\r\n"
+            "Host: 127.0.0.1:8080\r\n"
+            "Content-Length: 4\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+            "last"
+        )
+        s.send(packet2.encode())
+
+        # ======= 【接收网络原始回执】 =======
+        raw_response = ""
+        while True:
+            chunk = s.recv(4096).decode()
+            if not chunk:
+                break
+            raw_response += chunk
+
+        print(f"\n[数字碎尸测试收到原始响应流]:\n{raw_response}")
+
+        # ======= 【核心协议解析：切分出独立的 Response Blocks】 =======
+        response_blocks = [
+            "HTTP/1.1" + block for block in raw_response.split("HTTP/1.1") if block.strip()
+        ]
+
+        assert len(response_blocks) == 2, (
+            f"【Bug】连环粘包或数字碎尸导致协议解体！期望 2 个独立的响应，实际解析出 {len(response_blocks)} 个。\n"
+            f"原始流数据：\n{raw_response}"
+        )
+
+        # ================== 🌟【第一幕核心审计：第一个响应的 Body 字节核验】 ==================
+        resp1 = response_blocks[0]
+        assert "\r\n\r\n" in resp1, "【Bug】第一个响应格式错误，找不到 Header 与 Body 的分界线"
+        body1 = resp1.split("\r\n\r\n", 1)[1]
+
+        print(f"\n[解析出的第一个 Response Body 样本]: '{body1[:20]}...{body1[-20:]}'")
+        print(f"[第一个 Response Body 总长度]: {len(body1)} 字节")
+
+        # 1. 核验大写 HELLO 前缀
+        assert body1.startswith("HELLO"), (
+            f"【Bug】第一个响应的 Body 开头不是大写的 'HELLO'！实际内容为: '{body1[:10]}...'"
+        )
+
+        # 2. 精准审计 'A' 的数量！
+        # 整个 Body 的构成必须是 "HELLO" (5字节) + 82个 "A" = 总共 87 字节！
+        actual_a_count = body1.count("A")
+        print(f"[审计结果]：Body 中包含大写 'A' 的实际数量为: {actual_a_count} 个")
+
+        assert actual_a_count == 82, (
+            f"【严重 Bug Detected!】跨包数字缝合时发生指针偏移（Off-by-one）！\n"
+            f"期望包含精准的 82 个 'A'，但服务器实际吐出了 {actual_a_count} 个 'A'。\n"
+            f"如果吐出了 83 个，请立刻检查解析器在跨包拼完 hex 长度后，擦除 _in_buff 时指针推进的偏移量！"
+        )
+
+        assert len(body1) == 87, (
+            f"【Bug】第一个 Body 的总长度不对！期望 87 字节 (HELLO + 82个A)，实际为 {len(body1)} 字节。\n"
+            f"实际 Body 内容: '{body1}'"
+        )
+
+        # ================== 【第二幕辅助审计：第二个响应的 Body 核验】 ==================
+        resp2 = response_blocks[1]
+        assert "\r\n\r\n" in resp2, "【Bug】第二个响应格式错误"
+        body2 = resp2.split("\r\n\r\n", 1)[1].strip()
+
+        assert body2 == "LAST", f"【Bug】第二个响应 Body 残留或错误！期望为 'LAST'，实际为 '{body2}'"
+
+        print("\n--- 🏆 【神功大成】十六进制跨包割裂通过！CGI 吐出的 HELLO 与 82 个 A 数量完全一致！ ---")
+
+    except socket.timeout:
+        pytest.fail("【Bug】测试超时！服务器卡死在数字边界，未能拼出完整的 Chunk Size 导致死锁")
+    except (ConnectionResetError, BrokenPipeError):
+        pytest.fail("【Bug】服务器没能挺住残缺数字的断流冲刷，内存发生段错误或强行断联")
+    finally:
+        s.close()
+
+@pytest.mark.parametrize("manage_server", ["./conf/42.conf"], indirect=True)
+def test_huge_body_strict_pixel_count_fixed(manage_server):
+    """
+    10MB 巨型流尾部粘包 —— 像素级严格数字母计数（完全闭环修正版）：
+    
+    验证核心：
+    1. 严格核验整个回执流中的 'A' 是否为 10485761 个
+       (第一个请求的 10,485,760 个 'A' + 第二个请求 'last' 经 CGI 转换为 'LAST' 贡献的 1 个 'A')。
+    2. 严格核验第二个响应的 Body 是否被正确转换为 "LAST"。
+    3. 采用分块流式读取，直接在二进制（bytes）层面对齐账单，高效且绝不爆内存。
+    """
+    host = "127.0.0.1"
+    port = 8080
+    
+    huge_body_size = 10485760  # 第一个请求发出的 A 的个数 (10MB)
+    last_body_size = 4         # 第二个请求发出的 'last' 字节数
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(10.0)
+    s.connect((host, port))
+
+    try:
+        # ======= 【1. 发送 10MB 巨型洪水粘包（与终端完全一致） =======
+        header1 = (
+            "POST /directory/youpi.bla HTTP/1.1\r\n"
+            f"Host: {host}:{port}\r\n"
+            f"Content-Length: {huge_body_size}\r\n"
+            "Connection: keep-alive\r\n\r\n"
+        )
+        s.sendall(header1.encode())
+
+        # 分块高效发送 10MB 的 'A'
+        chunk_unit = b"A" * 65536  # 64KB
+        for _ in range(huge_body_size // len(chunk_unit)):
+            s.sendall(chunk_unit)
+
+        # 零延迟，立刻黏上第二个 "last" 请求
+        header2 = (
+            "POST /directory/youpi.bla HTTP/1.1\r\n"
+            f"Host: {host}:{port}\r\n"
+            f"Content-Length: {last_body_size}\r\n"
+            "Connection: close\r\n\r\n"
+            "last"
+        )
+        s.sendall(header2.encode())
+
+        # ======= 【2. 🌟 像素级严格流式计数审计】 =======
+        total_bytes_received = 0
+        total_a_count = 0  # 严格记录整个回执流中大写 'A' 的总个数
+        
+        # 用来抓取开头和结尾的响应头样本
+        header_sample_start = b""
+        header_sample_end = b""
+        
+        while True:
+            chunk = s.recv(65536)  # 64KB 分块读取
+            if not chunk:
+                break
+            
+            total_bytes_received += len(chunk)
+            
+            # 🔥 直接利用 C 底层的 bytes.count 快速数出当前块里 A 的个数
+            total_a_count += chunk.count(b"A")
+            
+            # 抓取开头的报文信息（前 4KB）
+            if len(header_sample_start) < 4096:
+                header_sample_start += chunk
+            
+            # 持续保留末尾的报文信息（后 4KB），用来捕捉最后的 "LAST"
+            header_sample_end = (header_sample_end + chunk)[-4096:]
+
+        # 转为文本以便断言审查
+        start_text = header_sample_start.decode(errors="ignore")
+        end_text = header_sample_end.decode(errors="ignore")
+
+        print(f"\n[严格审计账单]:")
+        print(f" -> 物理总接收字节数 (wc -c): {total_bytes_received}")
+        print(f" -> 严格数出的字母 A 总数: {total_a_count}")
+
+        # ======= 【3. 终极精准断言】 =======
+
+        # 断言一：第一个响应的状态码必须正确
+        assert "HTTP/1.1 200 OK" in start_text or "HTTP/1.1 201 Created" in start_text, (
+            "【Bug】第一个巨型请求未能成功获得 200/201 状态码！"
+        )
+
+        # 断言二：🌟【像素级数 A 精准对账】
+        # 10MB 的 A + "LAST" 里的 1 个 A = 10485761
+        expected_total_a = huge_body_size + 1
+        assert total_a_count == expected_total_a, (
+            f"【Bug】数据切片或数量对不上！\n"
+            f"预期总共数出 {expected_total_a} 个 'A'（包含第二个请求转化为 'LAST' 贡献的 1 个 'A'），\n"
+            f"但实际数出: {total_a_count} 个。请检查网络层是否有多读或漏读！"
+        )
+
+        # 断言三：成功唤醒并收尾了第二个请求
+        assert "Connection: close" in start_text or "Connection: close" in end_text, (
+            "【Bug】回执中找不到 Connection: close，说明第二个粘包请求可能丢失了"
+        )
+
+        # 断言四：检查第二个响应的 Body 必须被正确转换为大写的 LAST
+        assert "LAST" in end_text, (
+            f"【Bug】在回执流的末尾没有抓到大写的 'LAST'！\n"
+            f"末尾报文样本如下：\n{end_text[-200:]}"
+        )
+
+        # 断言五：🌟【对账单总长度核验】
+        # Headers 空间 = 总字节 - 10MB(A) - 'L','S','T'共3个非A字节
+        # 也就是：total_bytes_received - total_a_count - 3
+        headers_space = total_bytes_received - total_a_count - 3
+        print(f" -> 自动算出的两个 Headers 总空间: {headers_space} 字节")
+        
+        assert 150 <= headers_space <= 400, (
+            f"【Bug】Headers 占用的空间 ({headers_space} 字节) 异常，数据流可能被污染！"
+        )
+
+        print("\n--- 🏆 【史诗级通关】10485761 个 'A' 账单完美闭环！服务器处理大文件粘包达到神级精度！ ---")
+
+    except socket.timeout:
+        pytest.fail("【严重 Bug】10MB 压测超时！服务器处理巨量 CGI 读写时发生内部死锁")
+    except (ConnectionResetError, BrokenPipeError):
+        pytest.fail("【严重 Bug】服务器面对 10MB 洪水连续冲刷直接崩溃断联")
+    finally:
+        s.close()
