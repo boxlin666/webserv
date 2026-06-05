@@ -160,26 +160,26 @@ void Connection::handle_write_event(void)
         // std::cout << "_out_buff = " << _out_buff << std::endl;
         this->_out_buff.erase(0, bytes_send);
     }
-
-    if (!this->_in_buff.empty())
-    {
-        this->_request.reset();
-        this->_response.reset();
-        this->set_state(WAITING);
-        this->process_existing_in_buff();
-    }
-      
+     
     if (this->_out_buff.empty()) {
         // 🌟 增加判定：如果响应报文里包含了 "Connection: close"，或者请求本身就不支持长连接
-        if (this->_request.get_is_keep_alive() == false ||
-            this->_response.get_full_response().find("Connection: close") != std::string::npos) {
+        if ((this->_request.get_is_keep_alive() == false ||
+            this->_response.get_full_response().find("Connection: close") != std::string::npos) && this->_in_buff.empty()) {
             std::cout << "[Debug] Short connection detected. Switching to CLOSED." << std::endl;
             this->_state = CLOSED;
         } else {
-            std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
             this->_request.reset();
             this->_response.reset();
-            this->_state = WAITING;
+            this->_state = WAITING;   
+
+            if (!this->_in_buff.empty()) 
+            {
+                std::cout << "[Pipeline] Remaining data detected in _in_buff (" 
+                      << this->_in_buff.size() << " bytes). Driving next request inline." << std::endl;
+                this->process_existing_in_buff();
+            }
+            else
+                std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
         }
     }
 }
@@ -438,7 +438,11 @@ std::string Connection::_assembleHttpResponse(const std::map<std::string, std::s
     // if (!cgi_headers.count("Content-Type")) { response << "Content-Type: text/html\r\n"; }
 
     response << "Server: Webserv/1.0\r\n";
-    response << "Connection: keep-alive\r\n\r\n";
+
+    if (_request.get_is_keep_alive())
+        response << "Connection: keep-alive\r\n\r\n";
+    else
+        response << "Connection: close\r\n\r\n";
 
     // 塞入 Body
     response << body_part;
