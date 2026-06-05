@@ -67,7 +67,7 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
         if (errno == EEXIST)
         {
             is_overwrite = true;
-            fd = open(this->_full_path.c_str(), O_WRONLY | O_EXCL, 0644);
+            fd = open(this->_full_path.c_str(), O_WRONLY | O_TRUNC, 0644);
             if (fd == -1)
             {
                 if (errno == EACCES) return (PER_DENIED);
