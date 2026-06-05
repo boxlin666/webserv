@@ -117,7 +117,7 @@ int HttpRequest::parse_request_header(std::string& line)
         value = "";
     Utils::to_lowercase(key);
     _header_map[key] = value;
-    if (key == "Content-Length")
+    if (key == "content-length")
     {
         _content_length = strtoul(_header_map["content-length"].c_str(), NULL, 10);
         if (this->_content_length > GLOBAL_MAX_ALLOWED)
@@ -126,7 +126,7 @@ int HttpRequest::parse_request_header(std::string& line)
             return (BODY_TOO_LARGE);
         }
     }
-    else if (key == "Connection")
+    else if (key == "connection")
     {
         if (value == "keep-alive")
             this->_is_keep_alive = true;

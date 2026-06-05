@@ -26,7 +26,8 @@ class Connection {
     const std::string& get_in_buff(void) const;
     const std::string& get_out_buff(void) const;
 
-    void handle_read_event(int flag);
+    void handle_read_event(void);
+    void process_existing_in_buff(void);
     void handle_write_event(void);
 
     void  set_state(State state);

@@ -149,7 +149,7 @@ bool Cluster::handle_client_read_event(size_t poll_idx)
     std::map<int, Connection*>::iterator it = _connection_map.find(fd);
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
-    conn.handle_read_event(0);
+    conn.handle_read_event();
 
     short poll_event = conn.get_poll_events();
 

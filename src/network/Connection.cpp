@@ -31,16 +31,12 @@ const std::string& Connection::get_in_buff(void) const
 const std::string& Connection::get_out_buff(void) const
 { return (this->_out_buff); }
 
-void Connection::handle_read_event(int flag)
+void Connection::handle_read_event(void)
 {
     if (this->_state == Connection::CGI_RUNNING) return;
 
     char    buffer[4096];
-    ssize_t bytes_read; //= recv(this->_client_fd, buffer, sizeof(buffer), 0);
-
-    if (flag == 0)
-    {
-        bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
+    ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
         if (bytes_read <= 0) {
             this->set_state(CLOSED);
@@ -55,25 +51,29 @@ void Connection::handle_read_event(int flag)
         // tempo debug msg don't remove it now pls!
 
         // 1. 数据必须累积到 Connection 的 _in_buff
-        _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
-    }
-    //while (!_in_buff.empty())
-    //{    
-        // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
-        this->_status_code = this->_request.parse(this->_in_buff);
+        _in_buff.append(buffer, static_cast<std::size_t>(bytes_read)); 
+  
+        this->process_existing_in_buff();
 
-        // 3. 这里的关键：检查是否真的“请求完成”
-        // 不要只依赖 _status_code，必须检查数据完整性
-        if (this->check_parse_finished()) {
-            std::cout << "[Debug] Request is fully complete, body size: "
-                    << _request.get_body().length() << std::endl;
-            this->handle_request_dispatch();  // 只有这时才处理
-        } else {
-            // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
-            std::cout << "[Debug] Waiting for more body data..." << std::endl;
-            //break ;
-        }
-    //}
+}
+
+void Connection::process_existing_in_buff()
+{
+    debug_request_msg_print("Process in_buff", _in_buff);
+    // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
+    this->_status_code = this->_request.parse(this->_in_buff);
+    debug_request_msg_print("Process in_buff", _in_buff);
+
+    // 3. 这里的关键：检查是否真的“请求完成”
+    // 不要只依赖 _status_code，必须检查数据完整性
+    if (this->check_parse_finished()) {
+        std::cout << "[Debug] Request is fully complete, body size: "
+                << _request.get_body().length() << std::endl;
+        this->handle_request_dispatch();  // 只有这时才处理
+    } else {
+        // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
+        std::cout << "[Debug] Waiting for more body data..." << std::endl;
+    }
 }
 
 void Connection::handle_request_dispatch()
@@ -122,7 +122,6 @@ void Connection::execute_cgi_pipeline()
 
     if (read_fd != -1) {  // 统一注册接口
         this->_cluster_mediator->register_cgi_fd(read_fd, POLLIN, this);
-        //this->_cluster_
     }
 
     if (write_fd != -1) {
@@ -166,8 +165,8 @@ void Connection::handle_write_event(void)
     {
         this->_request.reset();
         this->_response.reset();
-        this->set_state(READING_REQ);
-        this->handle_read_event(1);
+        this->set_state(WAITING);
+        this->process_existing_in_buff();
     }
       
     if (this->_out_buff.empty()) {
