@@ -38,13 +38,21 @@ void Connection::handle_read_event(void)
     char    buffer[4096];
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-        if (bytes_read <= 0) {
-            this->set_state(CLOSED);
-            return;
-        }
-
+    if (bytes_read < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return ;
+        this->set_state(CLOSED);
+        return ;
+    }
+    else if (bytes_read == 0)
+    {
+        this->set_state(CLOSED);
+        return ;
+    }
+    else 
+    {
         buffer[bytes_read] = '\0';
-
         // tempo debug msg don't remove it now pls!
         std::string tmp_buff(buffer);
         debug_request_msg_print("BUFFER INFO", tmp_buff);
@@ -54,7 +62,7 @@ void Connection::handle_read_event(void)
         _in_buff.append(buffer, static_cast<std::size_t>(bytes_read)); 
   
         this->process_existing_in_buff();
-
+    }
 }
 
 void Connection::process_existing_in_buff()
