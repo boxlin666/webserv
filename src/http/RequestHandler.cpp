@@ -39,7 +39,7 @@ int RequestHandler::dispatch_resource_check(const HttpRequest& req, const Router
     {
         return (this->cgi_resource_validator(route_ctx));
     }
-    if (req.get_method() == "GET" || req.get_method() == "DELETE" || (req.get_method() == "POST" && route_ctx.is_cgi_potential))
+    if (req.get_method() == "GET" || req.get_method() == "HEAD" || req.get_method() == "DELETE")
     {
         return (this->existing_resource_validator(route_ctx));
     }
