@@ -103,7 +103,7 @@ void Connection::handle_request_dispatch()
             return;  // CGI 流程接管了 FD，这里直接退出
         } else {
             // 职责分离：普通静态文件（GET 个图片或 HTML），走普通的响应组装
-            this->prepare_response();
+            this->prepare_static_response();
             this->set_state(WRITING_RESP);
         }
     } catch (const std::exception& e) {
@@ -262,9 +262,9 @@ void Connection::process_router_match()
             Router::build_router_context(this->_request, *(this->_matched_server), _status_code);
 }
 
-void Connection::prepare_response()
+void Connection::prepare_static_response()
 {
-    this->_response.build(this->_request, this->_req_handler, this->_status_code);
+    this->_response.build_static_response(this->_request, this->_req_handler, this->_status_code);
     this->_out_buff = this->_response.get_full_response();
 
     // tempo print debug, don't remove it now!
@@ -323,8 +323,9 @@ void Connection::handle_cgi_read()
         this->_state = Connection::CGI_FINISH;
 
         // 找外包拿最终的完整数据
-        std::string full_cgi_output = _cgi_handler.getRawResponse();
-        this->_parseCgiOutputAndMakeResponse(full_cgi_output);
+        const std::string &full_cgi_output = _cgi_handler.getRawResponse();
+        this->_response.build_cgi_response(_request, full_cgi_output);
+        this->_out_buff = this->_response.get_full_response();
         this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
         
         //子进程输出EOF PipeOut[0]可以关闭，开始启动waitpid 子进程资源回收。。。
@@ -343,119 +344,9 @@ void Connection::checkCGI()
     _cgi_handler.checkChildProcess();
     if (_cgi_handler.getState() == CGIHandler::CGI_FINISHED) {
         _state                 = CGI_FINISH;
-        std::string raw_output = _cgi_handler.getRawResponse();
-        this->_parseCgiOutputAndMakeResponse(raw_output);
+        const std::string &raw_output = _cgi_handler.getRawResponse();
+        this->_response.build_cgi_response(_request, raw_output);
     }
-}
-
-void Connection::_parseCgiOutputAndMakeResponse(const std::string& raw_output)
-{
-    std::string header_part, body_part;
-
-    // 1. 切割：如果切割失败（非法数据），直接拉闸报错
-    if (!_splitCgiHeaderAndBody(raw_output, header_part, body_part)) {
-        std::cerr << "[CGI Parse Error] No header-body delimiter found!" << std::endl;
-        // this->buildErrorResponse(500);
-        return;
-    }
-
-    // 2. 解析：将头部字符串转化为字典
-    std::map<std::string, std::string> cgi_headers = _parseCgiHeaders(header_part);
-
-    _out_buff.reserve(_request.get_content_length());
-    // 3. 组装：将内容打包成合法的 HTTP 响应并存入输出缓冲区
-    this->_out_buff = _assembleHttpResponse(cgi_headers, body_part);
-}
-
-bool Connection::_splitCgiHeaderAndBody(const std::string& raw_output, std::string& header_part,
-                                        std::string& body_part)
-{
-    size_t delimiter_pos = raw_output.find("\r\n\r\n");
-    size_t delimiter_len = 4;
-
-    if (delimiter_pos == std::string::npos) {
-        delimiter_pos = raw_output.find("\n\n");
-        delimiter_len = 2;
-    }
-
-    if (delimiter_pos == std::string::npos) {
-        return false;  // 没找到合法边界，说明数据有问题
-    }
-
-    header_part = raw_output.substr(0, delimiter_pos);
-    body_part   = raw_output.substr(delimiter_pos + delimiter_len);
-    return true;
-}
-
-std::map<std::string, std::string> Connection::_parseCgiHeaders(const std::string& header_part)
-{
-    std::map<std::string, std::string> headers;
-    std::stringstream                  header_stream(header_part);
-    std::string                        line;
-
-    while (std::getline(header_stream, line)) {
-        if (!line.empty() && line[line.length() - 1] == '\r') { line.erase(line.length() - 1); }
-        if (line.empty()) continue;
-
-        size_t colon_pos = line.find(':');
-        if (colon_pos != std::string::npos) {
-            std::string key   = line.substr(0, colon_pos);
-            std::string value = line.substr(colon_pos + 1);
-
-            // Trim 空格
-            size_t first = value.find_first_not_of(" \t");
-            size_t last  = value.find_last_not_of(" \t");
-            if (first != std::string::npos && last != std::string::npos) {
-                value = value.substr(first, (last - first + 1));
-            } else {
-                value = "";
-            }
-            headers[key] = value;
-        }
-    }
-    return headers;
-}
-
-std::string Connection::_assembleHttpResponse(const std::map<std::string, std::string>& cgi_headers,
-                                              const std::string&                        body_part)
-{
-    std::string http_status = "200 OK";
-
-    // 确定状态码
-    if (cgi_headers.count("Status")) {
-        // 注意：C++98 中 map.at() 在某些编译器不可用，这里可以用 find() 或者直接 []
-        std::map<std::string, std::string>::const_iterator it = cgi_headers.find("Status");
-        if (it != cgi_headers.end()) http_status = it->second;
-    } else if (cgi_headers.count("Location")) {
-        http_status = "302 Found";
-    }
-
-    std::stringstream response;
-    response << "HTTP/1.1 " << http_status << "\r\n";
-
-    bool has_content_length = false;
-    for (std::map<std::string, std::string>::const_iterator it = cgi_headers.begin();
-         it != cgi_headers.end(); ++it) {
-        if (it->first == "Status") continue;  // 跳过 Status，因为上面首行已经处理了
-        if (it->first == "Content-Length") has_content_length = true;
-        response << it->first << ": " << it->second << "\r\n";
-    }
-
-    // 智能补全
-    if (!has_content_length) { response << "Content-Length: " << body_part.length() << "\r\n"; }
-    // if (!cgi_headers.count("Content-Type")) { response << "Content-Type: text/html\r\n"; }
-
-    response << "Server: Webserv/1.0\r\n";
-
-    if (_request.get_is_keep_alive())
-        response << "Connection: keep-alive\r\n\r\n";
-    else
-        response << "Connection: close\r\n\r\n";
-
-    // 塞入 Body
-    response << body_part;
-
-    return response.str();
 }
 
 void Connection::finalize_cgi_success(int cgi_fd)
