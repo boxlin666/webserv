@@ -77,12 +77,21 @@ class HttpResponse
     static void _init_status_msg_map(void);
     static void _init_ext_map(void);
 
+    //Response CGI generator
+    bool    _split_cgi_header_body(const std::string& raw_output, std::string& header_part);
+    std::map<std::string, std::string> _parse_cgi_headers(const std::string& header_part);
+
+    void    _prepare_cgi_response(const HttpRequest& request, const std::map<std::string, std::string>& cgi_headers);
+    void    _build_cgi_status_line(const HttpRequest& request, const std::map<std::string, std::string>& cgi_headers);
+    void    _build_cgi_headers_map(const HttpRequest& request, const std::map<std::string, std::string>& cgi_headers);
+
     public:
         HttpResponse();
         ~HttpResponse();
     
         // response = status line + header + body
-        void build(const HttpRequest& request,  const RequestHandler& response_ctx, int &status_code);
+        void build_static_response(const HttpRequest& request,  const RequestHandler& response_ctx, int &status_code);
+
         const std::string &get_full_response()const;
 
         //reset function for each turn of RUN loop, to clean up the old content inside!!
@@ -91,7 +100,9 @@ class HttpResponse
         //init static data for any connection http response
         static void init_response_map();
 
-        void build_from_cgi(const std::string& cgi_output);
+        void build_cgi_response(const HttpRequest& request,const std::string& cgi_output);
+
+        
 };
 
 #endif

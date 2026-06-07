@@ -66,17 +66,9 @@ class Connection {
     bool check_parse_finished();
     bool set_matched_server();
     void process_router_match();
-    void prepare_response();
+    void prepare_static_response();
     void handle_request_dispatch();
     void execute_cgi_pipeline();
-
-    // TODO: 逻辑分发
-    void _parseCgiOutputAndMakeResponse(const std::string& raw_output);
-    bool _splitCgiHeaderAndBody(const std::string& raw_output, std::string& header_part,
-                                std::string& body_part);
-    std::map<std::string, std::string> _parseCgiHeaders(const std::string& header_part);
-    std::string _assembleHttpResponse(const std::map<std::string, std::string>& cgi_headers,
-                                      const std::string&                        body_part);
 
     Connection(const Connection& other);
     Connection& operator=(const Connection& other);
