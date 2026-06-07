@@ -38,29 +38,45 @@ void Connection::handle_read_event(void)
     char    buffer[4096];
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read <= 0) {
+    if (bytes_read < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return ;
         this->set_state(CLOSED);
-        return;
+        return ;
     }
+    else if (bytes_read == 0)
+    {
+        this->set_state(CLOSED);
+        return ;
+    }
+    else 
+    {
+        buffer[bytes_read] = '\0';
+        // tempo debug msg don't remove it now pls!
+        std::string tmp_buff(buffer);
+        debug_request_msg_print("BUFFER INFO", tmp_buff);
+        // tempo debug msg don't remove it now pls!
 
-    buffer[bytes_read] = '\0';
+        // 1. 数据必须累积到 Connection 的 _in_buff
+        _in_buff.append(buffer, static_cast<std::size_t>(bytes_read)); 
+  
+        this->process_existing_in_buff();
+    }
+}
 
-    // tempo debug msg don't remove it now pls!
-    std::string tmp_buff(buffer);
-    debug_request_msg_print("BUFFER INFO", tmp_buff);
-    // tempo debug msg don't remove it now pls!
-
-    // 1. 数据必须累积到 Connection 的 _in_buff
-    _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
-    
+void Connection::process_existing_in_buff()
+{
+    debug_request_msg_print("Process in_buff", _in_buff);
     // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
     this->_status_code = this->_request.parse(this->_in_buff);
+    debug_request_msg_print("Process in_buff", _in_buff);
 
     // 3. 这里的关键：检查是否真的“请求完成”
     // 不要只依赖 _status_code，必须检查数据完整性
     if (this->check_parse_finished()) {
         std::cout << "[Debug] Request is fully complete, body size: "
-                  << _request.get_body().length() << std::endl;
+                << _request.get_body().length() << std::endl;
         this->handle_request_dispatch();  // 只有这时才处理
     } else {
         // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
@@ -114,7 +130,6 @@ void Connection::execute_cgi_pipeline()
 
     if (read_fd != -1) {  // 统一注册接口
         this->_cluster_mediator->register_cgi_fd(read_fd, POLLIN, this);
-        //this->_cluster_
     }
 
     if (write_fd != -1) {
@@ -153,18 +168,26 @@ void Connection::handle_write_event(void)
         // std::cout << "_out_buff = " << _out_buff << std::endl;
         this->_out_buff.erase(0, bytes_send);
     }
-
+     
     if (this->_out_buff.empty()) {
         // 🌟 增加判定：如果响应报文里包含了 "Connection: close"，或者请求本身就不支持长连接
-        if (this->_request.get_is_keep_alive() == false ||
-            this->_response.get_full_response().find("Connection: close") != std::string::npos) {
+        if ((this->_request.get_is_keep_alive() == false ||
+            this->_response.get_full_response().find("Connection: close") != std::string::npos) && this->_in_buff.empty()) {
             std::cout << "[Debug] Short connection detected. Switching to CLOSED." << std::endl;
             this->_state = CLOSED;
         } else {
-            std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
             this->_request.reset();
             this->_response.reset();
-            this->_state = WAITING;
+            this->_state = WAITING;   
+
+            if (!this->_in_buff.empty()) 
+            {
+                std::cout << "[Pipeline] Remaining data detected in _in_buff (" 
+                      << this->_in_buff.size() << " bytes). Driving next request inline." << std::endl;
+                this->process_existing_in_buff();
+            }
+            else
+                std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
         }
     }
 }
@@ -176,8 +199,8 @@ bool Connection::check_parse_finished()
 
     // 2. 契约校验 (Contract Validation)
     // 检查是否有 Content-Length 头部，如果有，确保 Body 已经读取完整
-    // 这里处理 POST, PUT 等带有 payload 的请求
-    if ((this->_request.get_method() == "POST" || this->_request.get_method() == "PUT") && !this->_request.get_is_chunked())
+    // 这里处理 POST, 等带有 payload 的请求
+    if (this->_request.get_method() == "POST" && !this->_request.get_is_chunked())
     {
         size_t expected_len = this->_request.get_content_length();
         size_t actual_len   = this->_request.get_body().length();
@@ -423,7 +446,11 @@ std::string Connection::_assembleHttpResponse(const std::map<std::string, std::s
     // if (!cgi_headers.count("Content-Type")) { response << "Content-Type: text/html\r\n"; }
 
     response << "Server: Webserv/1.0\r\n";
-    response << "Connection: keep-alive\r\n\r\n";
+
+    if (_request.get_is_keep_alive())
+        response << "Connection: keep-alive\r\n\r\n";
+    else
+        response << "Connection: close\r\n\r\n";
 
     // 塞入 Body
     response << body_part;
