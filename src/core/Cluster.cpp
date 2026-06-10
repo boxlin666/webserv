@@ -4,15 +4,25 @@
 #include <iterator>
 #include <set>
 
-Cluster::Cluster(void) {}
+Cluster::Cluster(void)
+{ _is_running = false; }
 
 Cluster::~Cluster(void)
 {
-    // TODOdelete ptr inside _server_map _connection_map
+    // TODO: delete ptr inside _server_map _connection_map
 }
 
 void Cluster::setup(const ConfigParser& config)
 {
+    if (!_sig_pipe.init()) {
+        throw std::runtime_error("Failed to initialize signal notification pipe");
+    }
+
+    Webserv::g_signal_bridge = &_sig_pipe;
+    std::signal(SIGINT, Webserv::cSignalHandler);
+    std::signal(SIGTERM, Webserv::cSignalHandler);
+    std::signal(SIGPIPE, SIG_IGN);
+
     this->init_servers_map(config);
     this->open_listener(config);
     this->init_poll_listen_fds();
@@ -20,6 +30,13 @@ void Cluster::setup(const ConfigParser& config)
     this->print_socket_map();
     this->print_servers_map();
     this->print_pfds();
+
+    // TODO: erase this pollfd
+    struct pollfd sig_pfd;
+    sig_pfd.fd      = _sig_pipe.getReadFd();
+    sig_pfd.events  = POLLIN;
+    sig_pfd.revents = 0;
+    _poll_fds.push_back(sig_pfd);
 }
 
 void Cluster::open_listener(const ConfigParser& config)
@@ -145,7 +162,7 @@ void Cluster::close_connection(size_t poll_idx)
 bool Cluster::handle_client_read_event(size_t poll_idx)
 {
     int fd = _poll_fds[poll_idx].fd;
- 
+
     std::map<int, Connection*>::iterator it = _connection_map.find(fd);
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
@@ -177,9 +194,7 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
 
     if (!conn.get_out_buff().empty()) { poll_event |= POLLOUT; }
 
-    if (conn.get_state() == Connection::CLOSED) {
-        return (false);
-    }
+    if (conn.get_state() == Connection::CLOSED) { return (false); }
     _poll_fds[poll_idx].events = poll_event;
     return true;
 }
@@ -189,7 +204,8 @@ void Cluster::run()
     // 获取当前时间的辅助变量，用来控制心跳频率（避免每次循环都去查字典，消耗性能）
     time_t last_check_time = std::time(NULL);
 
-    while (true) {
+    _is_running = true;
+    while (_is_running) {
         // 🚨 修正 1：将 -1 改为 1000ms（1秒）。
         // 这样即使没有任何网络请求，poll 每隔 1 秒也会醒来一次，执行后面的超时检查
         int ret = poll(_poll_fds.data(), _poll_fds.size(), 1000);
@@ -206,6 +222,13 @@ void Cluster::run()
             for (size_t i = 0; i < _poll_fds.size(); ++i) {
                 if (_poll_fds[i].fd == -1) continue;
 
+                if (_poll_fds[i].fd == _sig_pipe.getReadFd()) {
+                    if (_poll_fds[i].revents & POLLIN) {
+                        _handleSignalEvent();
+                        break;
+                    }
+                    continue;
+                }
                 if (_poll_fds[i].revents & (POLLERR | POLLNVAL)) {
                     this->_process_poll_errors(i);
                     continue;
@@ -233,6 +256,13 @@ void Cluster::run()
             last_check_time = current_time;
         }
     }
+}
+
+void Cluster::_handleSignalEvent()
+{
+    std::cout << "\n[Signal Detected] Initiating graceful shutdown sequence..." << std::endl;
+    _sig_pipe.clearNotification();
+    _is_running = false;
 }
 
 void Cluster::_manage_cgi_lifecycle()
@@ -269,8 +299,8 @@ void Cluster::_manage_cgi_lifecycle()
 }
 
 /**
-* Only checkout POLLERR and POLLNVAL right now !
-*/
+ * Only checkout POLLERR and POLLNVAL right now !
+ */
 void Cluster::_process_poll_errors(size_t index)
 {
     int fd = _poll_fds[index].fd;
@@ -296,7 +326,7 @@ void Cluster::_process_poll_errors(size_t index)
         if (_poll_fds[index].revents & POLLNVAL)
             std::cerr << " [POLLNVAL]";  // 非法 FD（你可能关早了）
 
-        //TODO handle cgi error ???
+        // TODO handle cgi error ???
     }
 
     // 普通客户端套接字连接出错，直接断开
@@ -340,7 +370,7 @@ void Cluster::_dispatch_read_event(size_t index)
     // =========================================================
     // 既然不是 Server 也不是 CGI，那必定是普通的 Client 连接
     if (this->handle_client_read_event(index) == false) {
-        // 如果返回 false，说明客户端断开了（如 recv 返回 0），或者发生严重错误 
+        // 如果返回 false，说明客户端断开了（如 recv 返回 0），或者发生严重错误
         std::cout << fd << std::endl;
         this->close_connection(index);
     }
@@ -361,21 +391,17 @@ void Cluster::_dispatch_write_event(size_t index)
             // TODO: 这里务必确保 Connection 内部已经 close(cgi_write_fd)
             // 只有 close 了写端，cgi 才会意识到输入结束
         }
-        return ;
+        return;
     }
     // 情况 B: 属于普通的客户端 Socket
-    if (this->handle_client_write_event(index) == false) 
-    {
-        this->close_connection(index);
-    }
+    if (this->handle_client_write_event(index) == false) { this->close_connection(index); }
 }
 
 void Cluster::_dispatch_pollhup_event(size_t index)
 {
     int fd = _poll_fds[index].fd;
 
-    if (this->_cgi_fd_map.count(fd) > 0)
-    {
+    if (this->_cgi_fd_map.count(fd) > 0) {
         Connection* conn = _cgi_fd_map[fd];
 
         // 识别 FD 身份
@@ -392,11 +418,11 @@ void Cluster::_dispatch_pollhup_event(size_t index)
         conn->handle_cgi_read();
         conn->finalize_cgi_success(fd);
         if (conn->get_state() == Connection::WRITING_RESP) {
-            this->_cgi_fd_map.erase(fd);     // 释放映射
+            this->_cgi_fd_map.erase(fd);  // 释放映射
             conn->get_cgi_handler().reset();
             std::cout << "[Server] CGI Pipe POLLHUP handled and removed successfully." << std::endl;
         }
-        return ;
+        return;
     }
 
     // 普通客户端套接字连接出错，直接断开
@@ -513,13 +539,12 @@ void Cluster::unregister_cgi_fd(int fd)
             _poll_fds[i].fd      = -1;  // 标记为 -1，内核下次就不看它了
             _poll_fds[i].events  = 0;   // 保险起见清空事件
             _poll_fds[i].revents = 0;
-            found = true;
-            std::cout << "[Cluster] Marked fd to unregiste from poll_fds " << fd << " as -1 for deferred cleanup."
-                      << std::endl;
+            found                = true;
+            std::cout << "[Cluster] Marked fd to unregiste from poll_fds " << fd
+                      << " as -1 for deferred cleanup." << std::endl;
             break;
         }
     }
-    if (!found)
-        return ;
+    if (!found) return;
     close(fd);
 }
