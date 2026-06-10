@@ -40,7 +40,7 @@ void NotificationPipe::clearNotification()
 {
     char buffer[128];
     // Drain the pipe completely since it's non-blocking
-    while (::read(_pipe_fds[0], buffer, sizeof(buffer)) > 0) {
+    while (read(_pipe_fds[0], buffer, sizeof(buffer)) > 0) {
         // Keep reading until empty (EAGAIN / EWOULDBLOCK)
     }
 }

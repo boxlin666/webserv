@@ -4,9 +4,8 @@
 #include <iterator>
 #include <set>
 
-Cluster::Cluster(void) {
-    _is_running = false;
-}
+Cluster::Cluster(void)
+{ _is_running = false; }
 
 Cluster::~Cluster(void)
 {
@@ -34,8 +33,8 @@ void Cluster::setup(const ConfigParser& config)
 
     // TODO: erase this pollfd
     struct pollfd sig_pfd;
-    sig_pfd.fd = _sig_pipe.getReadFd();
-    sig_pfd.events = POLLIN;
+    sig_pfd.fd      = _sig_pipe.getReadFd();
+    sig_pfd.events  = POLLIN;
     sig_pfd.revents = 0;
     _poll_fds.push_back(sig_pfd);
 }
@@ -163,7 +162,7 @@ void Cluster::close_connection(size_t poll_idx)
 bool Cluster::handle_client_read_event(size_t poll_idx)
 {
     int fd = _poll_fds[poll_idx].fd;
- 
+
     std::map<int, Connection*>::iterator it = _connection_map.find(fd);
     if (it == _connection_map.end() || it->second == NULL) { return false; }
     Connection& conn = *(it->second);
@@ -195,9 +194,7 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
 
     if (!conn.get_out_buff().empty()) { poll_event |= POLLOUT; }
 
-    if (conn.get_state() == Connection::CLOSED) {
-        return (false);
-    }
+    if (conn.get_state() == Connection::CLOSED) { return (false); }
     _poll_fds[poll_idx].events = poll_event;
     return true;
 }
@@ -226,8 +223,11 @@ void Cluster::run()
                 if (_poll_fds[i].fd == -1) continue;
 
                 if (_poll_fds[i].fd == _sig_pipe.getReadFd()) {
-                    _handleSignalEvent();
-                    break; // Break the current loop to trigger shutdown flow immediately
+                    if (_poll_fds[i].revents & POLLIN) {
+                        _handleSignalEvent();
+                        break;
+                    }
+                    continue;
                 }
                 if (_poll_fds[i].revents & (POLLERR | POLLNVAL)) {
                     this->_process_poll_errors(i);
@@ -258,9 +258,10 @@ void Cluster::run()
     }
 }
 
-void Cluster::_handleSignalEvent() {
-    std::cout << "\n[Signal Detected] Initiating graceful shutdown sequence..." << std::endl; 
-    _sig_pipe.clearNotification();  
+void Cluster::_handleSignalEvent()
+{
+    std::cout << "\n[Signal Detected] Initiating graceful shutdown sequence..." << std::endl;
+    _sig_pipe.clearNotification();
     _is_running = false;
 }
 
@@ -298,8 +299,8 @@ void Cluster::_manage_cgi_lifecycle()
 }
 
 /**
-* Only checkout POLLERR and POLLNVAL right now !
-*/
+ * Only checkout POLLERR and POLLNVAL right now !
+ */
 void Cluster::_process_poll_errors(size_t index)
 {
     int fd = _poll_fds[index].fd;
@@ -325,7 +326,7 @@ void Cluster::_process_poll_errors(size_t index)
         if (_poll_fds[index].revents & POLLNVAL)
             std::cerr << " [POLLNVAL]";  // 非法 FD（你可能关早了）
 
-        //TODO handle cgi error ???
+        // TODO handle cgi error ???
     }
 
     // 普通客户端套接字连接出错，直接断开
@@ -369,7 +370,7 @@ void Cluster::_dispatch_read_event(size_t index)
     // =========================================================
     // 既然不是 Server 也不是 CGI，那必定是普通的 Client 连接
     if (this->handle_client_read_event(index) == false) {
-        // 如果返回 false，说明客户端断开了（如 recv 返回 0），或者发生严重错误 
+        // 如果返回 false，说明客户端断开了（如 recv 返回 0），或者发生严重错误
         std::cout << fd << std::endl;
         this->close_connection(index);
     }
@@ -390,21 +391,17 @@ void Cluster::_dispatch_write_event(size_t index)
             // TODO: 这里务必确保 Connection 内部已经 close(cgi_write_fd)
             // 只有 close 了写端，cgi 才会意识到输入结束
         }
-        return ;
+        return;
     }
     // 情况 B: 属于普通的客户端 Socket
-    if (this->handle_client_write_event(index) == false) 
-    {
-        this->close_connection(index);
-    }
+    if (this->handle_client_write_event(index) == false) { this->close_connection(index); }
 }
 
 void Cluster::_dispatch_pollhup_event(size_t index)
 {
     int fd = _poll_fds[index].fd;
 
-    if (this->_cgi_fd_map.count(fd) > 0)
-    {
+    if (this->_cgi_fd_map.count(fd) > 0) {
         Connection* conn = _cgi_fd_map[fd];
 
         // 识别 FD 身份
@@ -421,11 +418,11 @@ void Cluster::_dispatch_pollhup_event(size_t index)
         conn->handle_cgi_read();
         conn->finalize_cgi_success(fd);
         if (conn->get_state() == Connection::WRITING_RESP) {
-            this->_cgi_fd_map.erase(fd);     // 释放映射
+            this->_cgi_fd_map.erase(fd);  // 释放映射
             conn->get_cgi_handler().reset();
             std::cout << "[Server] CGI Pipe POLLHUP handled and removed successfully." << std::endl;
         }
-        return ;
+        return;
     }
 
     // 普通客户端套接字连接出错，直接断开
@@ -542,13 +539,12 @@ void Cluster::unregister_cgi_fd(int fd)
             _poll_fds[i].fd      = -1;  // 标记为 -1，内核下次就不看它了
             _poll_fds[i].events  = 0;   // 保险起见清空事件
             _poll_fds[i].revents = 0;
-            found = true;
-            std::cout << "[Cluster] Marked fd to unregiste from poll_fds " << fd << " as -1 for deferred cleanup."
-                      << std::endl;
+            found                = true;
+            std::cout << "[Cluster] Marked fd to unregiste from poll_fds " << fd
+                      << " as -1 for deferred cleanup." << std::endl;
             break;
         }
     }
-    if (!found)
-        return ;
+    if (!found) return;
     close(fd);
 }

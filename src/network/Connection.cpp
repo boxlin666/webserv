@@ -55,7 +55,7 @@ void Connection::handle_read_event(void)
         buffer[bytes_read] = '\0';
         // tempo debug msg don't remove it now pls!
         std::string tmp_buff(buffer);
-        debug_request_msg_print("BUFFER INFO", tmp_buff);
+        // debug_request_msg_print("BUFFER INFO", tmp_buff);
         // tempo debug msg don't remove it now pls!
 
         // 1. 数据必须累积到 Connection 的 _in_buff
@@ -67,10 +67,10 @@ void Connection::handle_read_event(void)
 
 void Connection::process_existing_in_buff()
 {
-    debug_request_msg_print("Process in_buff", _in_buff);
+    // debug_request_msg_print("Process in_buff", _in_buff);
     // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
     this->_status_code = this->_request.parse(this->_in_buff);
-    debug_request_msg_print("Process in_buff", _in_buff);
+    // debug_request_msg_print("Process in_buff", _in_buff);
 
     // 3. 这里的关键：检查是否真的“请求完成”
     // 不要只依赖 _status_code，必须检查数据完整性
@@ -268,7 +268,7 @@ void Connection::prepare_response()
     this->_out_buff = this->_response.get_full_response();
 
     // tempo print debug, don't remove it now!
-    debug_request_msg_print("OUT BUFF", this->_out_buff);
+    // debug_request_msg_print("OUT BUFF", this->_out_buff);
 }
 
 void Connection::set_state(State state)
