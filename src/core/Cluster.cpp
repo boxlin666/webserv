@@ -4,15 +4,26 @@
 #include <iterator>
 #include <set>
 
-Cluster::Cluster(void) {}
+Cluster::Cluster(void) {
+    _is_running = false;
+}
 
 Cluster::~Cluster(void)
 {
-    // TODOdelete ptr inside _server_map _connection_map
+    // TODO: delete ptr inside _server_map _connection_map
 }
 
 void Cluster::setup(const ConfigParser& config)
 {
+    if (!_sig_pipe.init()) {
+        throw std::runtime_error("Failed to initialize signal notification pipe");
+    }
+
+    Webserv::g_signal_bridge = &_sig_pipe;
+    std::signal(SIGINT, Webserv::cSignalHandler);
+    std::signal(SIGTERM, Webserv::cSignalHandler);
+    std::signal(SIGPIPE, SIG_IGN);
+
     this->init_servers_map(config);
     this->open_listener(config);
     this->init_poll_listen_fds();
@@ -20,6 +31,13 @@ void Cluster::setup(const ConfigParser& config)
     this->print_socket_map();
     this->print_servers_map();
     this->print_pfds();
+
+    // TODO: erase this pollfd
+    struct pollfd sig_pfd;
+    sig_pfd.fd = _sig_pipe.getReadFd();
+    sig_pfd.events = POLLIN;
+    sig_pfd.revents = 0;
+    _poll_fds.push_back(sig_pfd);
 }
 
 void Cluster::open_listener(const ConfigParser& config)
@@ -189,7 +207,8 @@ void Cluster::run()
     // 获取当前时间的辅助变量，用来控制心跳频率（避免每次循环都去查字典，消耗性能）
     time_t last_check_time = std::time(NULL);
 
-    while (true) {
+    _is_running = true;
+    while (_is_running) {
         // 🚨 修正 1：将 -1 改为 1000ms（1秒）。
         // 这样即使没有任何网络请求，poll 每隔 1 秒也会醒来一次，执行后面的超时检查
         int ret = poll(_poll_fds.data(), _poll_fds.size(), 1000);
@@ -206,6 +225,10 @@ void Cluster::run()
             for (size_t i = 0; i < _poll_fds.size(); ++i) {
                 if (_poll_fds[i].fd == -1) continue;
 
+                if (_poll_fds[i].fd == _sig_pipe.getReadFd()) {
+                    _handleSignalEvent();
+                    break; // Break the current loop to trigger shutdown flow immediately
+                }
                 if (_poll_fds[i].revents & (POLLERR | POLLNVAL)) {
                     this->_process_poll_errors(i);
                     continue;
@@ -233,6 +256,12 @@ void Cluster::run()
             last_check_time = current_time;
         }
     }
+}
+
+void Cluster::_handleSignalEvent() {
+    std::cout << "\n[Signal Detected] Initiating graceful shutdown sequence..." << std::endl; 
+    _sig_pipe.clearNotification();  
+    _is_running = false;
 }
 
 void Cluster::_manage_cgi_lifecycle()

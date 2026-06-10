@@ -6,15 +6,15 @@
 #include <map>
 #include <vector>
 
-#include "IClusterMediator.hpp"
 #include "Connection.hpp"
+#include "IClusterMediator.hpp"
+#include "NotificationPipe.hpp"
 #include "PassiveSocket.hpp"
 #include "ServerConfig.hpp"
 
 class Connection;
 
-class Cluster : public IClusterMediator 
-{
+class Cluster : public IClusterMediator {
    private:
     std::map<int, Connection*>                 _connection_map;
     std::map<int, PassiveSocket*>              _socket_map;   // (listen_fd , PassiveSocket ptr)
@@ -23,11 +23,12 @@ class Cluster : public IClusterMediator
 
     std::vector<struct pollfd> _poll_fds;
 
-    void open_listener(const ConfigParser& config);
-    void init_servers_map(const ConfigParser& config);
-    void init_poll_listen_fds();
-    void add_to_poll_fds(
-        int fd);  // helper function just to fill out the struct poll_fd (listen fd Or Client fd)
+    Webserv::NotificationPipe _sig_pipe;
+    bool                      _is_running;
+    void                      open_listener(const ConfigParser& config);
+    void                      init_servers_map(const ConfigParser& config);
+    void                      init_poll_listen_fds();
+    void                      add_to_poll_fds(int fd);
 
     void handle_new_connection(int listen_fd, PassiveSocket* passive_socket);
     void close_connection(size_t poll_idx);
@@ -43,6 +44,7 @@ class Cluster : public IClusterMediator
 
     static bool is_invalid_fd(const struct pollfd& pfd);
     void        cleanup_inactive_fds();
+    void        _handleSignalEvent();
     void        _manage_cgi_lifecycle();
 
     Cluster(const Cluster& other);
