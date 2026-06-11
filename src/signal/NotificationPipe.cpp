@@ -51,4 +51,22 @@ void cSignalHandler(int signum)
         g_signal_bridge->notifyFromHandler();
     }
 }
+
+void resetCgiChildSignals()
+{
+    struct sigaction sa;
+
+    // 1. 初始化 sigaction 结构体
+    ::sigemptyset(&sa.sa_mask);
+    sa.sa_flags   = 0;
+    sa.sa_handler = SIG_DFL;
+
+    // 2. 恢复常规的终止信号
+    ::sigaction(SIGINT, &sa, NULL);
+    ::sigaction(SIGTERM, &sa, NULL);
+    ::sigaction(SIGQUIT, &sa, NULL);
+
+    // 3. 恢复 SIGPIPE 的默认行为
+    ::sigaction(SIGPIPE, &sa, NULL);
+}
 }  // namespace Webserv
