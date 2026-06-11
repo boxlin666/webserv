@@ -24,6 +24,7 @@ class NotificationPipe {
 };
 extern NotificationPipe* g_signal_bridge;
 void                     cSignalHandler(int signum);
+void                     resetCgiChildSignals();
 }  // namespace Webserv
 
 #endif

@@ -1,5 +1,6 @@
 #include "CGIHandler.hpp"
 #include "Utils.hpp"
+#include "NotificationPipe.hpp"
 
 // 1. 构造函数：必须严谨地初始化所有内置类型和状态
 CGIHandler::CGIHandler()
@@ -113,6 +114,9 @@ bool CGIHandler::execute(const HttpRequest& req)
 
     // 4. 子进程流 (The Child)
     if (_pid == 0) {
+        // 设置信号
+        Webserv::resetCgiChildSignals();
+        
         // 重定向 STDIN 和 STDOUT
         dup2(_pipeIn[0], STDIN_FILENO);
         dup2(_pipeOut[1], STDOUT_FILENO);
