@@ -42,8 +42,6 @@ void HttpResponse::build_static_response(const HttpRequest& request, const Reque
     if (this->_status_code == SUCCESS)
         this->_full_path = response_ctx.get_full_path();
 
-    std::cout << "[DEBUG1] BUILD RESPONSE body "  << this->_body  << std::endl;
-
     if (this->_status_code == SUCCESS)
     {
         if (request.get_method() == "GET" || request.get_method() == "HEAD")
@@ -55,8 +53,6 @@ void HttpResponse::build_static_response(const HttpRequest& request, const Reque
     }
 
     this->_status_code = ret;
-
-    std::cout << "[DEBUG2] BUILD RESPONSE body "  << this->_body  << std::endl;
 
     this->_prepare_response_data(request);
 
@@ -78,4 +74,6 @@ void HttpResponse::_append_full_response(void)
     }
     this->_full_response += "\r\n";
     this->_full_response.append(this->_body);
+
+    debug_request_msg_print("OUT_BUFF", _full_response);
 }

@@ -25,8 +25,7 @@ struct location {
     std::string upload_path;
     std::string cgi_path;
     std::string cgi_ext;
-
-    std::map<std::string, std::string> _cgi_param;  // cgi 扩展配置
+    std::string cgi_script;
     std::string index_file;
 };
 
