@@ -111,6 +111,8 @@ class HttpRequest {
 
     std::map<std::string, std::string> _header_map;
 
+    std::map<std::string, std::string> _cookies_map;
+
     // 记录当前状态
     e_request_state _state;
     e_chunk_state _chunk_state;

@@ -56,7 +56,6 @@ void ServerConfig::_init_handlers()
     _handler_map["root"]                 = &ServerConfig::_handle_root;
     _handler_map["methods"]              = &ServerConfig::_handle_methods;
     _handler_map["autoindex"]            = &ServerConfig::_handle_autoindex;
-    _handler_map["cgi_param"]            = &ServerConfig::_handle_cgi;
     _handler_map["listen"]               = &ServerConfig::_handle_listen;
     _handler_map["server_name"]          = &ServerConfig::_handle_server_name;
     _handler_map["root"]                 = &ServerConfig::_handle_root;
@@ -67,6 +66,7 @@ void ServerConfig::_init_handlers()
     _handler_map["upload_path"]          = &ServerConfig::_handle_upload_path;
     _handler_map["cgi_path"]             = &ServerConfig::_handle_cgi_path;
     _handler_map["cgi_ext"]              = &ServerConfig::_handle_cgi_ext;
+    _handler_map["cgi_script"]           = &ServerConfig::_handle_cgi_script;
 }
 
 bool ServerConfig::hasHandler(const std::string& directive) const
@@ -110,24 +110,6 @@ void ServerConfig::_handle_autoindex(std::vector<Token>& tokens, size_t& pos, lo
     } else {
         loc->autoindex = is_on;
     }
-
-    Utils::expect_semicolon(tokens, ++pos);
-}
-
-void ServerConfig::_handle_cgi(std::vector<Token>& tokens, size_t& pos, location* loc)
-{
-    // CGI 通常只能写在 location 里
-    if (loc == NULL) {
-        throw std::runtime_error("'cgi_param' directive is only allowed in location block");
-    }
-
-    if (++pos >= tokens.size()) throw std::runtime_error("Missing extension for cgi_param");
-    std::string ext = tokens[pos].content;  // 比如 ".py"
-
-    if (++pos >= tokens.size()) throw std::runtime_error("Missing executable path for cgi_param");
-    std::string path = tokens[pos].content;  // 比如 "/usr/bin/python3"
-
-    loc->_cgi_param[ext] = path;
 
     Utils::expect_semicolon(tokens, ++pos);
 }
@@ -352,6 +334,22 @@ void ServerConfig::_handle_cgi_ext(std::vector<Token>& tokens, size_t& pos, loca
 
     Utils::expect_semicolon(tokens, ++pos);
 }
+
+void ServerConfig::_handle_cgi_script(std::vector<Token>& tokens, size_t& pos, location* loc)
+{
+    if (++pos >= tokens.size() || tokens[pos].content == ";") {
+        throw std::runtime_error("Syntax error: Missing value for 'cgi_script'");
+    }
+
+    if (loc == NULL) {
+        this->_cgi_script = tokens[pos].content;
+    } else {
+        loc->cgi_script = tokens[pos].content;
+    }
+
+    Utils::expect_semicolon(tokens, ++pos);
+}
+
 
 void ServerConfig::fill_location_defaults(location& loc)
 {

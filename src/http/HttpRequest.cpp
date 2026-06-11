@@ -12,6 +12,7 @@ void HttpRequest::reset() {
     _body.clear();
     _headers.clear();
     _header_map.clear();
+    _cookies_map.clear();
 
     _state = PARSE_REQUEST_LINE;
     _chunk_state = CHUNK_NONE;

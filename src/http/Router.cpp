@@ -35,6 +35,14 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
                     if (file_name_ext == ctx.loc->cgi_ext)
                         ctx.is_cgi_potential = true;
                 }
+                else //if inside request, we don't precise the cgi script name, then we can fetch the one inside config file to complete the full path!
+                {
+                    if (req.get_method() == "POST")
+                    {
+                        ctx.is_cgi_potential = true;
+                        ctx.full_path += ctx.loc->cgi_script;
+                    }
+                }
             }
         }
     }
@@ -48,6 +56,10 @@ RouterCtx  Router::build_router_context(const HttpRequest& req, const ServerConf
         std::cout << "location prefix = " << ctx.loc->_prefix << std::endl;
         std::cout << "location root = " << ctx.loc->root << std::endl;
     }
+    if (ctx.is_cgi_potential == true)
+        std::cout << "cgi potential is TRUE";
+    else
+        std::cout << "cgi potential is FALSE";
     return (ctx);
 }
 

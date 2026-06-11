@@ -6,7 +6,7 @@
     "test": "vitest"
   },
   "devDependencies": {
-    "vitest": "^latest",
-    "typescript": "^latest"
+    "vitest": "latest",
+    "typescript": "latest"
   }
 }

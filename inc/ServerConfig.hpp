@@ -69,6 +69,7 @@ class ServerConfig {
     std::string _upload_path;
     std::string _cgi_path;
     std::string _cgi_ext;
+    std::string _cgi_script;
 
     std::map<std::string, LocationHandler> _handler_map;
     int string_to_port(const std::string& port_str)const;
@@ -80,7 +81,6 @@ class ServerConfig {
     void _handle_root(std::vector<Token>& tokens, size_t& pos, location* loc);
     void _handle_methods(std::vector<Token>& tokens, size_t& pos, location* loc);
     void _handle_autoindex(std::vector<Token>& tokens, size_t& pos, location* loc);
-    void _handle_cgi(std::vector<Token>& tokens, size_t& pos, location* loc);
     void _handle_listen(std::vector<Token>& tokens, size_t& pos, location* loc);
     void _handle_server_name(std::vector<Token>& tokens, size_t& pos, location* loc);
     void _handle_index(std::vector<Token>& tokens, size_t& pos, location* loc);
@@ -90,6 +90,7 @@ class ServerConfig {
     void _handle_upload_path(std::vector<Token>& tokens, size_t& pos, location* loc);
     void _handle_cgi_path(std::vector<Token>& tokens, size_t& pos, location* loc);
     void _handle_cgi_ext(std::vector<Token>& tokens, size_t& pos, location* loc);
+    void _handle_cgi_script(std::vector<Token>& tokens, size_t& pos, location* loc);
 
     std::vector<location>
         locations;  // 最长前缀匹配 不需要使用map,需要循环遍历vector得到最长匹配（我是说run
