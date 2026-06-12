@@ -36,6 +36,7 @@ class HttpResponse
 
         typedef std::pair<std::string, std::string> HeaderPair;
         std::vector<HeaderPair> _headers_vector;
+        std::vector<HeaderPair> _cgi_headers_vector;
 
         std::string _body;
        
@@ -79,11 +80,16 @@ class HttpResponse
 
     //Response CGI generator
     bool    _split_cgi_header_body(const std::string& raw_output, std::string& header_part);
-    std::map<std::string, std::string> _parse_cgi_headers(const std::string& header_part);
+    void    _parse_cgi_headers(const std::string& header_part);
 
-    void    _prepare_cgi_response(const HttpRequest& request, const std::map<std::string, std::string>& cgi_headers);
-    void    _build_cgi_status_line(const HttpRequest& request, const std::map<std::string, std::string>& cgi_headers);
-    void    _build_cgi_headers_map(const HttpRequest& request, const std::map<std::string, std::string>& cgi_headers);
+    void    _prepare_cgi_response(const HttpRequest& request);
+    void    _build_cgi_status_line(const HttpRequest& request);
+    void    _build_cgi_headers_map(const HttpRequest& request);
+    std::string    _get_cgi_header(const std::string& key, const std::string& value_sub, bool check_value) const;
+ 
+    void _add_cgi_header_vector(const std::string& key, const std::string& value);
+
+   
 
     public:
         HttpResponse();
