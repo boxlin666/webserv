@@ -14,18 +14,18 @@ void HttpResponse::build_cgi_response(const HttpRequest& request, const std::str
     }
 
     // 2. 解析：将头部字符串转化为字典
-    const std::map<std::string, std::string>& cgi_headers = _parse_cgi_headers(header_part); 
+    _parse_cgi_headers(header_part); 
 
     _full_response.reserve(cgi_output.length());
     // 3. 组装：将内容打包成合法的 HTTP 响应并存入输出缓冲区
-    _prepare_cgi_response(request, cgi_headers);
+    _prepare_cgi_response(request);
     _append_full_response();
 }
 
-void HttpResponse::_prepare_cgi_response(const HttpRequest& request, const std::map<std::string, std::string>& cgi_header)
+void HttpResponse::_prepare_cgi_response(const HttpRequest& request)
 {
-    _build_cgi_status_line(request, cgi_header);
-    _build_cgi_headers_map(request, cgi_header);
+    _build_cgi_status_line(request);
+    _build_cgi_headers_map(request);
 }
 
 bool HttpResponse::_split_cgi_header_body(const std::string& raw_output, std::string& header_part)
@@ -49,9 +49,8 @@ bool HttpResponse::_split_cgi_header_body(const std::string& raw_output, std::st
     return true;
 }
 
-std::map<std::string, std::string> HttpResponse::_parse_cgi_headers(const std::string& header_part)
+void    HttpResponse::_parse_cgi_headers(const std::string& header_part)
 {
-    std::map<std::string, std::string> headers;
     std::stringstream                  header_stream(header_part);
     std::string                        line;
 
@@ -72,39 +71,37 @@ std::map<std::string, std::string> HttpResponse::_parse_cgi_headers(const std::s
             } else {
                 value = "";
             }
-            headers[key] = value;
+            _add_cgi_header_vector(key, value);
         }
     }
-    return headers;
 }
 
-void HttpResponse::_build_cgi_status_line(const HttpRequest& request, const std::map<std::string, std::string>& cgi_headers)
+void HttpResponse::_build_cgi_status_line(const HttpRequest& request)
 {
     std::string str_status_code = "200 OK";
 
-    // 确定状态码
-    if (cgi_headers.count("Status")) {
-        // 注意：C++98 中 map.at() 在某些编译器不可用，这里可以用 find() 或者直接 []
-        std::map<std::string, std::string>::const_iterator it = cgi_headers.find("Status");
-        if (it != cgi_headers.end()) str_status_code = it->second;
-    } else if (cgi_headers.count("Location")) {
+    if (!_get_cgi_header("Status", "", false).empty())
+    {
+        str_status_code = _get_cgi_header("Status", "", false);
+    }
+    else if (!_get_cgi_header("Location", "", false).empty())
+    {
         str_status_code = "302 Found";
     }
-
     this->_status_line = request.get_version() + " " + str_status_code + "\r\n";
 }
 
-void HttpResponse::_build_cgi_headers_map(const HttpRequest& request, const std::map<std::string, std::string>& cgi_headers)
+void HttpResponse::_build_cgi_headers_map(const HttpRequest& request)
 {
     this->_add_header_vector("Server", "Cat server/1.0.0 (Fedora)");
     this->_add_header_vector("Date", this->_generate_date());
 
     bool has_content_length = false;
-    for (std::map<std::string, std::string>::const_iterator it = cgi_headers.begin();
-         it != cgi_headers.end(); ++it) {
-        if (it->first == "Status") continue;  // 跳过 Status，因为上面首行已经处理了
-        if (it->first == "Content-Length") has_content_length = true;
-        _add_header_vector(it->first, it->second);
+    for (std::size_t i = 0; i < _cgi_headers_vector.size(); i++)
+    {
+        if (_cgi_headers_vector[i].first == "Status") continue;
+        if (_cgi_headers_vector[i].first == "Content-Length") has_content_length = true;
+        _add_header_vector(_cgi_headers_vector[i].first, _cgi_headers_vector[i].second);
     }
 
     if (!has_content_length) { _add_header_vector("Content-Length", Utils::toString(this->_body_len));}
@@ -113,4 +110,32 @@ void HttpResponse::_build_cgi_headers_map(const HttpRequest& request, const std:
         this->_add_header_vector("Connection", "keep-alive");
     else if (request.get_is_keep_alive() == false)
         this->_add_header_vector("Connection", "close");
+}
+
+std::string HttpResponse::_get_cgi_header(const std::string& key, const std::string& value_sub, bool check_value) const 
+{
+    for (size_t i = 0; i < this->_cgi_headers_vector.size(); ++i) {
+        
+        // 1. 先对上 Key
+        if (this->_cgi_headers_vector[i].first == key) {
+            
+            // 分流 A：不检查内容，直接盲拿这个 Key 对应的第一个 Value
+            if (!check_value) {
+                return this->_cgi_headers_vector[i].second; 
+            }
+            
+            // 分流 B：开启检查，检查当前这个 Value 里是否包含目标特征（如 "id="）
+            if (this->_cgi_headers_vector[i].second.find(value_sub) != std::string::npos) {
+                return this->_cgi_headers_vector[i].second; // 找到了，直接返回这行完整的 Value
+            }
+        }
+    }
+    return ""; // 🌟 没找到符合条件的，返回空字符串，兼职之前的 "false" 角色
+}
+
+void HttpResponse::_add_cgi_header_vector(const std::string& key, const std::string& value)
+{
+    if (key.empty() || value.empty())
+        return ;
+    this->_cgi_headers_vector.push_back(std::make_pair(key, value));
 }
