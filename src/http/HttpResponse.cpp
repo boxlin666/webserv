@@ -63,6 +63,27 @@ void HttpResponse::build_static_response(const HttpRequest& request, const Reque
     this->_append_full_response();
 }
 
+std::string &HttpResponse::build_error_response(int &status_code, std::string &error_page_path, HttpRequest &request)
+{
+    std::string body;
+
+    this->_status_code = status_code;
+    if (!error_page_path.empty())
+    {
+        // 读取文件内容作为 body
+        std::ifstream file(error_page_path.c_str());
+        if (file.is_open())
+        {
+            std::ostringstream ss;
+            ss << file.rdbuf();
+            body = ss.str();
+        }
+    }
+    this->_prepare_response_data(request);
+    this->_append_full_response();
+    return _full_response;
+}
+
 void HttpResponse::_append_full_response(void)
 {
     this->_full_response.reserve(this->_status_line.size() + this->_body.size() + 1024);

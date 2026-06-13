@@ -4,10 +4,10 @@
 #include <string>
 
 #include "CGIHandler.hpp"
-#include "IClusterMediator.hpp"
 #include "HttpConstants.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
+#include "IClusterMediator.hpp"
 #include "PassiveSocket.hpp"
 #include "RequestHandler.hpp"
 #include "RouterCtx.hpp"
@@ -34,15 +34,17 @@ class Connection {
     State get_state(void) const;
     short get_poll_events() const;
 
+    int get_client_fd() const
+    { return _client_fd; }
     void handle_cgi_read();
     void handle_cgi_write();
 
     // TODO
     CGIHandler& get_cgi_handler(void);
-
-    void checkCGI();
-    bool isCGITimedOut();
-    void finalize_cgi_success(int cgi_fd);
+    void        buildErrorResponse(int status_code);
+    void        checkCGI();
+    bool        isCGITimedOut();
+    void        finalize_cgi_success(int cgi_fd);
 
    private:
     int                              _client_fd;
@@ -53,13 +55,13 @@ class Connection {
     const std::vector<ServerConfig*> _servers;
 
     IClusterMediator* _cluster_mediator;
-    HttpRequest    _request;
-    RouterCtx      _route_ctx;
-    RequestHandler _req_handler;
-    HttpResponse   _response;
-    CGIHandler     _cgi_handler;
+    HttpRequest       _request;
+    RouterCtx         _route_ctx;
+    RequestHandler    _req_handler;
+    HttpResponse      _response;
+    CGIHandler        _cgi_handler;
 
-    int  _status_code;
+    int _status_code;
 
     State _state;
 

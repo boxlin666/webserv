@@ -27,11 +27,13 @@ class ServerConfig {
     const std::string &get_root() const
     { return this->_root; }
 
-    const std::vector<std::string> &get_methods()const
+    const std::vector<std::string> &get_methods() const
     { return this->_methods; }
 
-    const std::vector<std::string> &get_index()const
+    const std::vector<std::string> &get_index() const
     { return this->_index; }
+
+    const std::string &get_error_page(int status_code) const;
 
     const std::vector<location>& get_locations(void)const;
 

@@ -262,6 +262,23 @@ void Connection::process_router_match()
             Router::build_router_context(this->_request, *(this->_matched_server), _status_code);
 }
 
+void Connection::buildErrorResponse(int status_code)
+{
+    std::map<int, std::string>::const_iterator it = _route_ctx.loc->error_pages.find(status_code);
+    std::string error_page_path;
+    if (it != _route_ctx.loc->error_pages.end()) {
+        error_page_path = _route_ctx.loc->upload_path + it->second;
+    }
+    else
+    {
+        error_page_path = _matched_server->get_error_page(status_code);
+        if(error_page_path != "")
+            error_page_path = _matched_server->get_root() + error_page_path;
+    }
+    this->_out_buff = _response.build_error_response(status_code, error_page_path, _request);
+    this->_state = Connection::WRITING_RESP;
+}
+
 void Connection::prepare_static_response()
 {
     this->_response.build_static_response(this->_request, this->_req_handler, this->_status_code);
@@ -334,8 +351,8 @@ void Connection::handle_cgi_read()
     } else if (status == -1) {
         // 外包搞砸了 (Pipe 破裂等报错)
         std::cerr << "[Error] CGI read failed!" << std::endl;
-        // this->buildErrorResponse(500);
-        this->_state = Connection::WRITING_RESP;
+        this->buildErrorResponse(500);
+        this->_cluster_mediator->update_client_events(this->_client_fd, POLLOUT);
     }
 }
 

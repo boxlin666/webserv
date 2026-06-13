@@ -465,3 +465,14 @@ void ServerConfig::print() const
         std::cout << std::endl;
     }
 }
+
+const std::string &ServerConfig::get_error_page(int status_code) const
+{
+    std::map<int, std::string>::const_iterator it = _error_pages.find(status_code);
+    if (it != _error_pages.end())
+    {
+        return it->second;
+    }
+    static const std::string empty = "";
+    return empty;
+}

@@ -252,7 +252,7 @@ void Cluster::run()
         // 每隔 1 秒执行一次 CGI 的心跳检查，避免过于频繁
         time_t current_time = std::time(NULL);
         if (current_time - last_check_time >= 1) {
-            //_manage_cgi_lifecycle(); // 🌟 我们把超时和收尸逻辑封装在这里
+            _manage_cgi_lifecycle(); // 🌟 我们把超时和收尸逻辑封装在这里
             last_check_time = current_time;
         }
     }
@@ -288,7 +288,8 @@ void Cluster::_manage_cgi_lifecycle()
             close(cgi_fd);
             conn->set_state(Connection::ERROR);
             _cgi_fd_map.erase(it++);
-            // conn->makeErrorResponse(504);
+            conn->buildErrorResponse(504);
+            this->update_client_events(conn->get_client_fd(), POLLOUT);
             // conn->setWriteReady();
 
         } else {
@@ -326,7 +327,7 @@ void Cluster::_process_poll_errors(size_t index)
         if (_poll_fds[index].revents & POLLNVAL)
             std::cerr << " [POLLNVAL]";  // 非法 FD（你可能关早了）
 
-        // TODO handle cgi error ???
+        // TODO: handle cgi error
     }
 
     // 普通客户端套接字连接出错，直接断开
@@ -371,7 +372,7 @@ void Cluster::_dispatch_read_event(size_t index)
     // 既然不是 Server 也不是 CGI，那必定是普通的 Client 连接
     if (this->handle_client_read_event(index) == false) {
         // 如果返回 false，说明客户端断开了（如 recv 返回 0），或者发生严重错误
-        std::cout << fd << std::endl;
+        // std::cout << fd << std::endl;
         this->close_connection(index);
     }
 }
