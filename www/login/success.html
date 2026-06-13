@@ -2,213 +2,128 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bio-Control Nucleus | Access Granted</title>
-    <link rel="icon" href="data:,">
     <style>
-        /* ================= 🟢 1. 默认：黑客绿后台 ================= */
-        :root {
-            --primary: #00ff66;
-            --primary-glow: rgba(0, 255, 102, 0.4);
-            --bg-gradient: linear-gradient(135deg, #020617 0%, #052e16 100%);
-            --card-bg: rgba(0, 0, 0, 0.75);
-            --card-border: rgba(0, 255, 102, 0.25);
-            --text-main: #34d399;
-            --text-sub: #059669;
-            --alert-red: #ff0055;
-            --alert-glow: rgba(255, 0, 85, 0.4);
+        /* ================= Default format web page (Green theme)================= */
+        body { 
+            font-family: monospace; 
+            background: #020617; 
+            color: #34d399; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            transition: background 0.4s ease; 
         }
-
-        /* ================= 🔴 2. 变异：生化红后台 ================= */
-        [data-theme="bio-red"] {
-            --primary: #ff0055;
-            --primary-glow: rgba(255, 0, 85, 0.4);
-            --bg-gradient: linear-gradient(135deg, #0f0505 0%, #450a0a 100%);
-            --card-border: rgba(255, 0, 85, 0.3);
-            --text-main: #f87171;
-            --text-sub: #b91c1c;
-        }
-
-        /* ================= 🟣 3. 变异：赛博霓虹紫后台 ================= */
-        [data-theme="cyber-purple"] {
-            --primary: #bc00ff;
-            --primary-glow: rgba(188, 0, 255, 0.4);
-            --bg-gradient: linear-gradient(135deg, #090514 0%, #2e0854 100%);
-            --card-border: rgba(188, 0, 255, 0.3);
-            --text-main: #c084fc;
-            --text-sub: #7e22ce;
-        }
-
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            background: var(--bg-gradient);
-            color: #f8fafc;
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
+        
+        .box { 
+            background: rgba(0, 0, 0, 0.8); 
+            padding: 2rem; 
+            border-radius: 8px; 
+            border: 2px solid #34d399; 
+            text-align: center; 
+            width: 320px; 
             transition: all 0.4s ease;
         }
+        
+        .vault { background: rgba(0, 0, 0, 0.6); padding: 1rem; border-radius: 4px; text-align: left; margin: 1.5rem 0; font-size: 0.9rem; line-height: 1.6; }
+        
+        /* default color is green */
+        h2, p, .vault, .nav-btn { color: #34d399; }
 
-        .matrix-box {
-            background: var(--card-bg);
-            padding: 2.5rem;
-            border-radius: 8px;
-            border: 2px solid var(--card-border);
-            box-shadow: 0 0 30px var(--primary-glow);
-            text-align: center;
-            max-width: 450px;
-            width: 85%;
-            transition: all 0.4s ease;
+        .nav-btn { 
+            display: block; 
+            margin-top: 0.75rem; 
+            padding: 0.6rem; 
+            border: 1px solid #34d399; 
+            text-decoration: none; 
+            font-weight: bold; 
+            cursor: pointer; 
+            background: transparent; 
+            width: 100%; 
+            box-sizing: border-box; 
         }
-
-        .status-badge {
-            font-size: 3.5rem;
-            margin-bottom: 0.5rem;
-            animation: pulse 2s infinite alternate;
-            filter: drop-shadow(0 0 10px var(--primary-glow));
+        
+        /* ================= Blue theme ================= */
+        html[data-theme="cyber-blue"] body { background: #020c1b; }
+        html[data-theme="cyber-blue"] .box { border-color: #38bdf8 !important; }
+        html[data-theme="cyber-blue"] h2, 
+        html[data-theme="cyber-blue"] p, 
+        html[data-theme="cyber-blue"] .vault, 
+        html[data-theme="cyber-blue"] .nav-btn { 
+            color: #38bdf8 !important; 
+            border-color: #38bdf8 !important;
         }
-
-        h2 {
-            color: #ffffff;
-            margin: 0 0 0.5rem 0;
-            font-size: 1.8rem;
-            letter-spacing: -1px;
-            text-shadow: 0 0 10px var(--primary-glow);
-        }
-
-        .status-text {
-            color: var(--text-main);
-            font-size: 0.9rem;
-            margin-bottom: 1.5rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .database-vault {
-            background: rgba(0, 0, 0, 0.6);
-            padding: 1.25rem;
-            border-radius: 4px;
-            border: 1px solid var(--text-sub);
-            text-align: left;
-            font-size: 0.85rem;
-            line-height: 1.6;
-            color: #e2e8f0;
-        }
-
-        .vault-title {
-            color: var(--primary);
-            font-weight: bold;
-            display: block;
-            margin-bottom: 0.5rem;
-            border-bottom: 1px dashed var(--text-sub);
-            padding-bottom: 3px;
-        }
-
-        .vault-tag {
-            color: var(--text-main);
-        }
-
-        .action-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            margin-top: 1.75rem;
-        }
-
-        .nav-btn {
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 0.9rem;
-            padding: 0.75rem;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .btn-home {
-            color: #ffffff;
-            border: 1px solid #ffffff;
-        }
-        .btn-home:hover {
-            background: #ffffff;
-            color: #000000;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
-        }
-
-        .btn-logout {
-            color: var(--alert-red);
-            border: 1px solid var(--alert-red);
-            box-shadow: 0 0 10px var(--alert-glow);
-        }
-        .btn-logout:hover {
-            background: var(--alert-red);
-            color: #ffffff;
-            box-shadow: 0 0 25px var(--alert-red);
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 0.8; }
-            100% { transform: scale(1.05); opacity: 1; }
+        
+        /* ================= Purple theme ================= */
+        html[data-theme="cyber-purple"] body { background: #090514; }
+        html[data-theme="cyber-purple"] .box { border-color: #c084fc !important; }
+        html[data-theme="cyber-purple"] h2, 
+        html[data-theme="cyber-purple"] p, 
+        html[data-theme="cyber-purple"] .vault, 
+        html[data-theme="cyber-purple"] .nav-btn { 
+            color: #c084fc !important; 
+            border-color: #c084fc !important;
         }
     </style>
 </head>
 <body>
 
-    <div class="matrix-box">
-        <div class="status-badge" id="vault-icon">☣️</div>
+    <div class="box">
+        <div style="font-size: 3rem;" id="vault-icon">🐱</div>
+        <h2>YES YOU DO HAVE A COOKIE 🍪!</h2>
+        <p>[ Welcome back, {{USERNAME}} ]</p>
         
-        <h2>ACCESS_GRANTED</h2>
-        <p class="status-text">[ Welcome back, {{USERNAME}} ]</p>
-        
-        <div class="database-vault">
-            <span class="vault-title">📂 SERVER_SIDE_SESSION_DECRYPTED:</span>
-            • <span class="vault-tag">AUTHORIZED_USER :</span> {{USERNAME}}<br>
-            • <span class="vault-tag">PASSWORD_TOKEN  :</span> {{PASSWORD}}<br>
-            • <span class="vault-tag">FAVORITE_COLOR   :</span> <span id="theme-log-text">{{COLOR}}</span>
+        <div class="vault">
+            <b style="color: white; display: block; margin-bottom: 0.5rem;">HERE IS YOUR INFORMATION BELOW:</b>
+            • USER : {{USERNAME}}<br>
+            • TOKEN: {{PASSWORD}}<br>
+            • COLOR: <span id="theme-log-text">{{COLOR}}</span>
         </div>
 
         <div class="action-group">
-            <a href="/index.html" class="nav-btn btn-home">
-                🏠 BACK TO MATRIX INDEX
-            </a>
+            <a href="/index.html" class="nav-btn">🏠 MATRIX INDEX</a>
             
-            <a href="/login/login.py?action=logout" class="nav-btn btn-logout">
-                🐾 PURGE SESSION / LOGOUT
-            </a>
+            <form action="/logout/logout.py" method="POST" style="margin: 0;">
+                <button type="submit" class="nav-btn" style="color: #ff0055; border-color: #ff0055;">🐾 PURGE SESSION</button>
+            </form>
         </div>
     </div>
 
     <script>
-        // === 🆕 BACKGROUND PREFERENCE SYNC ENGINE ===
-        
-        // 1. 同样的抓 Cookie 工具
-        function getLabCookie(name) {
-            let matches = document.cookie.match(new RegExp(
-                "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
-            ));
-            return matches ? decodeURIComponent(matches[1]) : null;
+        // Reading the prefered color to render the webpage and add the correspond emoji 
+        function getLabCookie(key) {
+            if (!document.cookie) return null; 
+            // step 1: ex request body input: "id=123; lab_mutation=blue" => ["id=123", "lab_mutation=blue"]
+            let cookieArray = document.cookie.split('; ');
+
+            // step 2: iterate to find out the value that matches with the key! 
+            for (let i = 0; i < cookieArray.length; i++) { 
+                //split the key and value into 2 parts with "="
+                let parts = cookieArray[i].split('=');
+                let currentKey = parts[0];
+                let currentValue = parts[1];
+
+                // find out the value that matches the key, return the value immediately
+                if (currentKey === key) { 
+                    return currentValue;
+            }
         }
 
-        // 2. 抓取前台大首页塞进硬盘里的“色彩喜好”
-        const savedMutation = getLabCookie('lab_mutation') || 'hacker-green';
+        // Nothing has been found out :(
+        return null;
+    }
 
-        // 3. 施加魔法：让后台的皮肤跟前台完全同步！
+        const savedMutation = getLabCookie('lab_mutation') || 'hacker-green';
         document.getElementById('theme-log-text').innerText = savedMutation.toUpperCase();
 
-        if (savedMutation === 'bio-red') {
-            document.documentElement.setAttribute('data-theme', 'bio-red');
-            document.getElementById('vault-icon').innerText = '🦁';
+        if (savedMutation === 'cyber-blue') {
+            document.documentElement.setAttribute('data-theme', 'cyber-blue');
+            document.getElementById('vault-icon').innerText = '🐳';
         } else if (savedMutation === 'cyber-purple') {
             document.documentElement.setAttribute('data-theme', 'cyber-purple');
             document.getElementById('vault-icon').innerText = '👾';
-        } else {
-            // 绿光生态
-            document.getElementById('vault-icon').innerText = '🐱';
         }
     </script>
 </body>

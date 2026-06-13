@@ -51,6 +51,6 @@ if user_id and os.path.exists(os.path.join(database_dir, f"{user_id}.txt")):
 #if the cookie.txt does not exist!
 else:
     """curl -v -b ./no_exist_cookie.txt http://localhost:8080/auth/auth_check.py""" 
-    print("Status: 403 Forbidden\r")
+    print("Status: 302 Found\r")
+    print("Location: /login/login_index.html\r")
     print("\r")
-    print("the Cookie file is missing or incorrect!")

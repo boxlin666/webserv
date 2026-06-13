@@ -3,33 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <title>Webserv Login</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #edf2f7; margin: 0; }
+        .box { background: white; padding: 2rem; border-radius: 12px; width: 280px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; text-align: center; color: #2d3748; }
+        form { display: flex; flex-direction: column; gap: 1rem; }
+        label { display: block; margin-bottom: 0.3rem; color: #4a5568; font-size: 0.9rem; }
+        input, select, button { width: 100%; padding: 0.6rem; border-radius: 6px; border: 1px solid #cbd5e0; box-sizing: border-box; }
+        button { background: #3182ce; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 0.5rem; }
+    </style>
 </head>
-<link rel="icon" href="data:,">
-<body style="font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#edf2f7; margin:0;">
-    <div style="background:white; padding:2.5rem; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.05); width:320px;">
-        <h2 style="margin-top:0; color:#2d3748; text-align:center;">Sign In</h2>
-        
-        <form action="/login/login.py" method="POST" style="display:flex; flex-direction:column; gap:1.2rem;">
+<body>
+    <div class="box">
+        <h2>Sign In</h2>
+        <form action="/login/login.py" method="POST">
             <div>
-                <label style="display:block; margin-bottom:0.4rem; color:#4a5568;">Username</label>
-                <input type="text" name="username" required style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #cbd5e0; box-sizing:border-box;">
+                <label>Username</label>
+                <input type="text" name="username" required>
             </div>
-            
             <div>
-                <label style="display:block; margin-bottom:0.4rem; color:#4a5568;">Password</label>
-                <input type="password" name="password" required style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #cbd5e0; box-sizing:border-box;">
+                <label>Password</label>
+                <input type="password" name="password" required>
             </div>
-
             <div>
-                <label style="display:block; margin-bottom:0.4rem; color:#4a5568;">Genetic Theme Choice</label>
-                <select name="color" style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #cbd5e0; background:white; box-sizing:border-box; cursor:pointer; font-weight: 500; color:#2d3748;">
-                    <option value="hacker-green">🐱 Hacker Green (Default)</option>
-                    <option value="bio-red" style="color: #ff0055;">🦁 Bio-Control Red</option>
-                    <option value="cyber-purple" style="color: #bc00ff;">👾 Cyberpunk Purple</option>
+                <label>Genetic Theme Choice</label>
+                <select name="color">
+                    <option value="hacker-green">🐱 Hacker Green</option>
+                    <option value="cyber-blue" style="color: #00d2ff; font-weight: bold;">🐳 Cyber Space Blue</option>
+                    <option value="cyber-purple" style="color: #bc00ff;">👾 Cyber Purple</option>
                 </select>
             </div>
-            
-            <button type="submit" style="background:#3182ce; color:white; border:none; padding:0.7rem; border-radius:6px; font-weight:bold; cursor:pointer;">Login</button>
+            <button type="submit">Login</button>
         </form>
     </div>
 </body>
