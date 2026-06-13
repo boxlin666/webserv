@@ -88,7 +88,7 @@ std::string build_full_path(const HttpRequest& req, const ServerConfig& server, 
         return (full_path);
     }
     if (req.get_path() == "/")
-        full_path = loc->root;
+        full_path = loc->root + "/";
     else {
         prefix        = loc->_prefix;
         relative_path = req.get_path().substr(prefix.length());

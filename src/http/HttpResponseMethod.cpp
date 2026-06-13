@@ -28,10 +28,10 @@ int HttpResponse::_handle_get(void)
 
 int HttpResponse::_handle_post(const HttpRequest& request) 
 {
-    std::size_t pos = this->_full_path.find_last_of('/');
+    //std::size_t pos = this->_full_path.find_last_of('/');
 
-    if (pos == this->_full_path.size() - 1)
-        return (this->_handle_static_post_dir());
+    //if (pos == this->_full_path.size() - 1)
+        //return (this->_handle_static_post_dir());
 
     return (this->_handle_static_post(request));
 }
@@ -76,8 +76,10 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
         }
         else if (errno == EACCES) return (PER_DENIED);
         else if (errno == ENOENT) return (NOT_FOUND);
-        else return (SERVER_ERROR);
+        else return (SERVER_ERROR); 
     }
+
+    std::cout << "handle static post called" << std::endl;
     if (!is_overwrite) this->_status_code = CREATED;
     total_size = request.get_body_len();
     if (total_size == 0)

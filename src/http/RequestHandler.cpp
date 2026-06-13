@@ -143,7 +143,7 @@ int RequestHandler::extract_parent_path(void)
         this->_parent_path = "/";
     else
         this->_parent_path = this->_full_path.substr(0, pos + 1);
-    //POST
+    //POST 
     if (pos + 1 == this->_full_path.size())
     {
         std::string file_name = "post_body" + Utils::generate_unique_id();
