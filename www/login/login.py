@@ -41,7 +41,7 @@ def parse_request_body():
 #Creating the database folder in ./www/database 
 database_dir = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "database"))
 
-OFFICIAL_COLORS = ["bio-red", "cyber-purple", "hacker-green"]
+OFFICIAL_COLORS = ["cyber-blue", "cyber-purple", "hacker-green"]
 
 form = parse_request_body()
 name = form.get("username")
@@ -53,7 +53,7 @@ if (not chosen_color) or (chosen_color not in OFFICIAL_COLORS):
     chosen_color = "hacker-green"
 
 # ----------------- Case 1: form submission or 1st Visit -----------------
-"""curl -v -X POST -d "username=cat&password=123&color=bio-red" http://localhost:8080/login/login.py"""
+"""curl -v -X POST -d "username=cat&password=123&color=cyber-blue" http://localhost:8080/login/login.py"""
 """curl -v -X POST -d "username=cat&password=123" http://localhost:8080/login/ (complete the cgi script filename inside the webserv program)"""
 """curl -v -X POST -d "username=cat&password=123" -c ./webserv_cookie.txt http://localhost:8080/login/login.py (creating the cookie file in user agent current folder)"""
 """curl -v GET http://localhost:8080/login/login.py"""
