@@ -264,17 +264,9 @@ void Connection::process_router_match()
 
 void Connection::buildErrorResponse(int status_code)
 {
-    std::map<int, std::string>::const_iterator it = _route_ctx.loc->error_pages.find(status_code);
+    _status_code = status_code;
     std::string error_page_path;
-    if (it != _route_ctx.loc->error_pages.end()) {
-        error_page_path = _route_ctx.loc->upload_path + it->second;
-    }
-    else
-    {
-        error_page_path = _matched_server->get_error_page(status_code);
-        if(error_page_path != "")
-            error_page_path = _matched_server->get_root() + error_page_path;
-    }
+    error_page_path = Router::get_error_page_path(_route_ctx, _matched_server, status_code);
     this->_out_buff = _response.build_error_response(status_code, error_page_path, _request);
     this->_state = Connection::WRITING_RESP;
 }

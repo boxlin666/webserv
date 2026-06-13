@@ -14,6 +14,7 @@
 #define REQ_HEADER_TOO_LONG 431
 #define SERVER_ERROR 500
 #define NO_METHOD 501
+#define Gateway_Timeout 504
 #define NO_HTTP_VERSION 505
 
 #define TRIGGER_CGI 1001

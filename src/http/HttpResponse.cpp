@@ -66,8 +66,6 @@ void HttpResponse::build_static_response(const HttpRequest& request, const Reque
 
 std::string &HttpResponse::build_error_response(int &status_code, std::string &error_page_path, HttpRequest &request)
 {
-    std::string body;
-
     this->_status_code = status_code;
     if (!error_page_path.empty())
     {
@@ -77,7 +75,8 @@ std::string &HttpResponse::build_error_response(int &status_code, std::string &e
         {
             std::ostringstream ss;
             ss << file.rdbuf();
-            body = ss.str();
+            this->_body = ss.str();
+            this->_body_len = this->_body.size();
         }
     }
     this->_prepare_response_data(request);
