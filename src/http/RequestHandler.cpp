@@ -106,6 +106,10 @@ int RequestHandler::creatable_resource_validator(void)
         if (access(this->_full_path.c_str(), W_OK) != 0)
             return (PER_DENIED);
     }
+
+    ret = this->check_ext_post_file();
+    if (ret!= SUCCESS)
+        return (ret);
   
     //if we POST a file whose filename has not been recoginized by webserv yet.
     ret = this->extract_parent_path();
@@ -142,9 +146,27 @@ int RequestHandler::extract_parent_path(void)
     //POST
     if (pos + 1 == this->_full_path.size())
     {
-        std::string file_name = "post_body" + Utils::generate_unique_id_pure98();
+        std::string file_name = "post_body" + Utils::generate_unique_id();
 
         this->_full_path += file_name;
+    }
+    return (SUCCESS);
+}
+
+int RequestHandler::check_ext_post_file(void)const
+{
+    std::size_t pos = this->_full_path.find_last_of('/');
+    
+    if (pos != std::string::npos)
+    {
+        std::string file_name = this->_full_path.substr(pos + 1, this->_full_path.length());
+        pos = file_name.find_last_of('.');
+        if (pos != std::string::npos)
+        {
+            std::string file_name_ext = file_name.substr(pos, file_name.length()); 
+            if (file_name_ext == ".html" || file_name_ext == ".py")
+                return (METHOD_NOT_ALLOWED);
+        }
     }
     return (SUCCESS);
 }

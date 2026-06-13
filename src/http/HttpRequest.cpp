@@ -10,9 +10,7 @@ void HttpRequest::reset() {
     _path.clear();
     _http_version.clear();
     _body.clear();
-    _headers.clear();
     _header_map.clear();
-    _cookies_map.clear();
 
     _state = PARSE_REQUEST_LINE;
     _chunk_state = CHUNK_NONE;
@@ -81,8 +79,13 @@ int HttpRequest::validate_and_prepare_payload()
 
     if (has_cl && has_te) return (BAD_REQUEST);
 
-    if (this->_method == "POST" && !has_cl && !has_te) return (NO_LENGTH);
-    
+    if (!has_cl && !has_te)
+    { 
+        _header_map["content-length"] = "0";
+        _state = PARSE_FINISHED;
+        return (SUCCESS);
+    }
+
     if (has_cl && this->_content_length > 0)
         _state = PARSE_BODY;
     else if (has_te && this->_header_map["transfer-encoding"] == "chunked") 

@@ -28,7 +28,7 @@ class Utils
         
         static void expect_semicolon(const std::vector<Token>& tokens, size_t& pos);
 
-        static std::string generate_unique_id_pure98();
+        static std::string generate_unique_id();
 
         static void replaceAll(std::string &input);
 

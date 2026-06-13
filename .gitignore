@@ -13,3 +13,4 @@ test/__pycache__/
 tmp/
 YoupiBanane/
 node_modules/
+www/database/*

@@ -17,6 +17,7 @@ void HttpResponse::reset(void)
     this->_set_status(SUCCESS); //default OK at the beginning! 
     this->_status_line.clear();
     this->_headers_vector.clear();
+    this->_cgi_headers_vector.clear();
     this->_body.clear();
     this->_body_last_modif_date.clear();
     this->_full_response.clear();

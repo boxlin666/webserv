@@ -38,18 +38,18 @@ def parse_request_body():
     except Exception:
         return {}
 
-# ================== 主程序逻辑分流 ==================
-
-#user_id = get_user_id_from_cookie()
 #Creating the database folder in ./www/database 
 database_dir = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "database"))
+
+OFFICIAL_COLORS = ["bio-red", "cyber-purple", "hacker-green"]
 
 form = parse_request_body()
 name = form.get("username")
 pwd = form.get("password")
 chosen_color = form.get("color")
 
-if not chosen_color:
+#------------------------the main logic here------------------------------
+if (not chosen_color) or (chosen_color not in OFFICIAL_COLORS):
     chosen_color = "hacker-green"
 
 # ----------------- Case 1: form submission or 1st Visit -----------------
@@ -68,7 +68,6 @@ if name and pwd: #form submission
     print(f"Set-Cookie: lab_mutation={chosen_color}; Expires={expires}; Path=/\r")
     print("\r")
 
-
     #Create database folder if not exist
     if not os.path.exists(database_dir): 
         os.makedirs(database_dir)
@@ -85,43 +84,3 @@ else: # 1st visit
     login_page_path = os.path.join(SCRIPT_DIR, "login_index.html")
     with open(login_page_path, "r", encoding="utf-8") as page:
         print(page.read())
-
-def is_logout_request():
-    """🆕 检查当前请求是否带有 ?action=logout 的注销信号"""
-    query_string = os.environ.get('QUERY_STRING', '')
-    params = urllib.parse.parse_qs(query_string)
-    return "logout" in params.get("action", [])
-
-# ================== 主程序逻辑分流 ==================
-"""
-# ----------------- 分流 1：🆕 收到注销请求 -----------------
-if is_logout_request():
-    # 如果用户带了钥匙过来，我们去后方大本营把档案袋【物理毁灭】
-    if user_id:
-        session_file = os.path.join(database_dir, f"{user_id}.txt")
-        if os.path.exists(session_file):
-            try:
-                os.remove(session_file) # 斩草除根！
-            except Exception:
-                pass
-
-    # 核心：下发毒药 Cookie（Max-Age=0），命令客户端本地硬盘立刻抹除 id
-    print("Set-Cookie: id=deleted; Max-Age=0; Path=/\r")
-    print("\r")
-
-    # 注销完毕后，直接重新加载干净的登录页面，强行重置状态
-    login_page_path = os.path.join(SCRIPT_DIR, "login_index.html")
-    with open(login_page_path, "r", encoding="utf-8") as page:
-        print(page.read())
-
-# ----------------- 分流 2：正常带 Cookie 登录成功 -----------------
-elif user_id and os.path.exists(os.path.join(database_dir, f"{user_id}.txt")):
-    with open(os.path.join(database_dir, f"{user_id}.txt"), "r") as f:
-        lines = f.readlines()
-    username = lines[0].strip()
-    password = lines[1].strip()
-    
-    print("\r")
-    success_page_path = os.path.join(SCRIPT_DIR, "success.html")
-    with open(success_page_path, "r", encoding="utf-8") as page:
-        print(page.read().replace("{{USERNAME}}", username).replace("{{PASSWORD}}", password))"""

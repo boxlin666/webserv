@@ -31,17 +31,13 @@ void Utils::expect_semicolon(const std::vector<Token>& tokens, size_t& pos) {
     pos++;
 }
 
-std::string Utils::generate_unique_id_pure98() 
+std::string Utils::generate_unique_id() 
 {
     std::stringstream ss;
-    // 1. 加入当前系统时间戳（精确到秒）
     ss << std::time(NULL); 
-    // 2. 加入当前进程运行的时钟数（增加微秒级随机性）
     ss << "_" << std::clock(); 
-    // 3. 加入两个大随机数
-    ss << "_" << std::rand() << std::rand();
-    
-    return ss.str(); // 返回如: "1779951199_12500_218391038"
+    ss << "_" << std::rand() << std::rand(); 
+    return ss.str(); 
 }
 
 void Utils::replaceAll(std::string &input)

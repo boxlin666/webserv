@@ -103,15 +103,13 @@ class HttpRequest {
     std::string _path;
 
     std::string _http_version;  // HTTP 1.1
-    std::map<std::string, std::string> _headers;
+    //std::map<std::string, std::string> _headers;
     std::string         _body;
     std::string         _querystring;
 
     bool _is_keep_alive;
 
     std::map<std::string, std::string> _header_map;
-
-    std::map<std::string, std::string> _cookies_map;
 
     // 记录当前状态
     e_request_state _state;
