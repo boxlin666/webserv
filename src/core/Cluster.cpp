@@ -420,7 +420,8 @@ void Cluster::_dispatch_pollhup_event(size_t index)
         conn->finalize_cgi_success(fd);
         if (conn->get_state() == Connection::WRITING_RESP) {
             this->_cgi_fd_map.erase(fd);  // 释放映射
-            conn->get_cgi_handler().reset();
+            //conn->get_cgi_handler().reset();
+            conn->clean_up_cgi_handler();
             std::cout << "[Server] CGI Pipe POLLHUP handled and removed successfully." << std::endl;
         }
         return;

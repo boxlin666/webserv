@@ -389,5 +389,7 @@ void Connection::finalize_cgi_success(int cgi_fd)
 bool Connection::isCGITimedOut()
 { return _cgi_handler.isTimeout(); }
 
-CGIHandler& Connection::get_cgi_handler(void)
-{ return (_cgi_handler); }
+void Connection::clean_up_cgi_handler(void)
+{
+    _cgi_handler.reset();
+}

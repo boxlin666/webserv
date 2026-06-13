@@ -40,7 +40,7 @@ class Connection {
     void handle_cgi_write();
 
     // TODO
-    CGIHandler& get_cgi_handler(void);
+    void        clean_up_cgi_handler(void);
     void        buildErrorResponse(int status_code);
     void        checkCGI();
     bool        isCGITimedOut();
