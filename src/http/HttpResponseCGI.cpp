@@ -1,6 +1,7 @@
-#include "HttpResponse.hpp"
-#include "HttpRequest.hpp"
 #include <iostream>
+
+#include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
 
 void HttpResponse::build_cgi_response(const HttpRequest& request, const std::string& cgi_output)
 {
@@ -14,7 +15,7 @@ void HttpResponse::build_cgi_response(const HttpRequest& request, const std::str
     }
 
     // 2. 解析：将头部字符串转化为字典
-    _parse_cgi_headers(header_part); 
+    _parse_cgi_headers(header_part);
 
     _full_response.reserve(cgi_output.length());
     // 3. 组装：将内容打包成合法的 HTTP 响应并存入输出缓冲区
@@ -44,15 +45,15 @@ bool HttpResponse::_split_cgi_header_body(const std::string& raw_output, std::st
 
     header_part = raw_output.substr(0, delimiter_pos);
 
-    this->_body = raw_output.substr(delimiter_pos + delimiter_len);
+    this->_body     = raw_output.substr(delimiter_pos + delimiter_len);
     this->_body_len = this->_body.length();
     return true;
 }
 
-void    HttpResponse::_parse_cgi_headers(const std::string& header_part)
+void HttpResponse::_parse_cgi_headers(const std::string& header_part)
 {
-    std::stringstream                  header_stream(header_part);
-    std::string                        line;
+    std::stringstream header_stream(header_part);
+    std::string       line;
 
     while (std::getline(header_stream, line)) {
         if (!line.empty() && line[line.length() - 1] == '\r') { line.erase(line.length() - 1); }
@@ -80,12 +81,9 @@ void HttpResponse::_build_cgi_status_line(const HttpRequest& request)
 {
     std::string str_status_code = "200 OK";
 
-    if (!_get_cgi_header("Status", "", false).empty())
-    {
+    if (!_get_cgi_header("Status", "", false).empty()) {
         str_status_code = _get_cgi_header("Status", "", false);
-    }
-    else if (!_get_cgi_header("Location", "", false).empty())
-    {
+    } else if (!_get_cgi_header("Location", "", false).empty()) {
         str_status_code = "302 Found";
     }
     this->_status_line = request.get_version() + " " + str_status_code + "\r\n";
@@ -97,14 +95,15 @@ void HttpResponse::_build_cgi_headers_map(const HttpRequest& request)
     this->_add_header_vector("Date", this->_generate_date());
 
     bool has_content_length = false;
-    for (std::size_t i = 0; i < _cgi_headers_vector.size(); i++)
-    {
+    for (std::size_t i = 0; i < _cgi_headers_vector.size(); i++) {
         if (_cgi_headers_vector[i].first == "Status") continue;
         if (_cgi_headers_vector[i].first == "Content-Length") has_content_length = true;
         _add_header_vector(_cgi_headers_vector[i].first, _cgi_headers_vector[i].second);
     }
 
-    if (!has_content_length) { _add_header_vector("Content-Length", Utils::toString(this->_body_len));}
+    if (!has_content_length) {
+        _add_header_vector("Content-Length", Utils::toString(this->_body_len));
+    }
 
     if (request.get_is_keep_alive() == true)
         this->_add_header_vector("Connection", "keep-alive");
@@ -112,30 +111,26 @@ void HttpResponse::_build_cgi_headers_map(const HttpRequest& request)
         this->_add_header_vector("Connection", "close");
 }
 
-std::string HttpResponse::_get_cgi_header(const std::string& key, const std::string& value_sub, bool check_value) const 
+std::string HttpResponse::_get_cgi_header(const std::string& key, const std::string& value_sub,
+                                          bool check_value) const
 {
     for (size_t i = 0; i < this->_cgi_headers_vector.size(); ++i) {
-        
         // 1. 先对上 Key
         if (this->_cgi_headers_vector[i].first == key) {
-            
             // 分流 A：不检查内容，直接盲拿这个 Key 对应的第一个 Value
-            if (!check_value) {
-                return this->_cgi_headers_vector[i].second; 
-            }
-            
+            if (!check_value) { return this->_cgi_headers_vector[i].second; }
+
             // 分流 B：开启检查，检查当前这个 Value 里是否包含目标特征（如 "id="）
             if (this->_cgi_headers_vector[i].second.find(value_sub) != std::string::npos) {
-                return this->_cgi_headers_vector[i].second; // 找到了，直接返回这行完整的 Value
+                return this->_cgi_headers_vector[i].second;  // 找到了，直接返回这行完整的 Value
             }
         }
     }
-    return ""; // 🌟 没找到符合条件的，返回空字符串，兼职之前的 "false" 角色
+    return "";  // 🌟 没找到符合条件的，返回空字符串，兼职之前的 "false" 角色
 }
 
 void HttpResponse::_add_cgi_header_vector(const std::string& key, const std::string& value)
 {
-    if (key.empty() || value.empty())
-        return ;
+    if (key.empty() || value.empty()) return;
     this->_cgi_headers_vector.push_back(std::make_pair(key, value));
 }
