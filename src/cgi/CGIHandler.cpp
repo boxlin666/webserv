@@ -235,13 +235,14 @@ int CGIHandler::receiveFromScript()
     char    buffer[8192];  // 8K 局部缓冲区
     ssize_t bytes_read = read(_pipeOut[0], buffer, sizeof(buffer));
     updateTime();
-
+    
     if (bytes_read > 0) {
         // 防御性编程：检查是否超过服务器配置的 CGI 最大响应限制，防止内存溢出 (OOM)
         // TODO: MAX_CGI_RESPONSE_SIZE 改成conf中的配置
         if (_outBuffer.size() + bytes_read > MAX_CGI_RESPONSE_SIZE) {
             _state = CGI_ERROR;
             _close_all_pipes();
+            std::cerr << "[DEBUG] exceed max response size" << std::endl;
             return -1;
         }
         // 安全地追加数据
