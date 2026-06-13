@@ -48,6 +48,7 @@ class RequestHandler
         int process_directory(const RouterCtx &router_ctx);
         int process_file(const struct stat& st, const std::string& tmp_full_path);
         int extract_parent_path(void);
+        int check_ext_post_file(void)const;
 
         RequestHandler(const RequestHandler& other);
         RequestHandler& operator=(const RequestHandler& other);
