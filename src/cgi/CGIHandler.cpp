@@ -40,7 +40,7 @@ void CGIHandler::_prepareEnvMap(const HttpRequest& req)
         _envMap["CONTENT_LENGTH"] = req_content_length;
     }
 
-    std::string req_content_type = req.get_header("Content-Type");
+    std::string req_content_type = req.get_header("content-type");
 
     if (req_content_type.empty()) 
         _envMap["CONTENT_TYPE"] = ""; 
@@ -52,12 +52,12 @@ void CGIHandler::_prepareEnvMap(const HttpRequest& req)
     for (map_it = req.get_header_map().begin(); map_it != req.get_header_map().end(); map_it++)
     {
         env_key = map_it->first;
-        if (map_it->first != "Content-Type" && map_it->first != "Content-Length")
+        if (map_it->first != "content-type" && map_it->first != "content-length")
         {
             Utils::replaceAll(env_key);
             Utils::toUpper(env_key);
+            _envMap["HTTP_" + env_key] = map_it->second;
         }
-        _envMap["HTTP_" + env_key] = map_it->second;
     }
     printEnvMap(_envMap);
 }

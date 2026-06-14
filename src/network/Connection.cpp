@@ -333,7 +333,11 @@ void Connection::handle_cgi_read()
 
         // 找外包拿最终的完整数据
         const std::string &full_cgi_output = _cgi_handler.getRawResponse();
-        this->_response.build_cgi_response(_request, full_cgi_output);
+        if(this->_response.build_cgi_response(_request, full_cgi_output) == false)
+        {
+            buildErrorResponse(502);
+            return;
+        }
         this->_out_buff = this->_response.get_full_response();
         this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
         

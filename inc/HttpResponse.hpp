@@ -90,6 +90,10 @@ class HttpResponse {
 
     void _add_cgi_header_vector(const std::string& key, const std::string& value);
 
+    bool _validate_cgi_content_type() const;
+
+    bool _is_error_response() const;
+
     int         _handle_directory(const HttpRequest& request, bool is_auto_index);
     bool        _is_directory(const std::string& path) const;
     std::string _generate_autoindex(const std::string& dir_path, const std::string& uri);
@@ -110,7 +114,7 @@ class HttpResponse {
     // init static data for any connection http response
     static void init_response_map();
 
-    void build_cgi_response(const HttpRequest& request, const std::string& cgi_output);
+    bool build_cgi_response(const HttpRequest& request, const std::string& cgi_output);
 
     std::string& build_error_response(int& status_code, std::string& error_page_path,
                                       HttpRequest& request);

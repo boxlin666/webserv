@@ -5,6 +5,8 @@ import os
 import sys
 import urllib.parse
 
+print("Content-Type: text/html; charset=utf-8\r")
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 database_dir = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "database"))
 

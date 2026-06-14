@@ -4,6 +4,8 @@
 
 #include "HttpRequest.hpp"
 
+#include "HttpRequest.hpp"
+
 HttpResponse::HttpResponse(void)
 { this->reset(); }
 
@@ -67,19 +69,24 @@ void HttpResponse::build_static_response(const HttpRequest&    request,
 std::string& HttpResponse::build_error_response(int& status_code, std::string& error_page_path,
                                                 HttpRequest& request)
 {
-    this->_status_code = status_code;
+    _status_code = status_code;
+    // _body.clear();
+    // _full_response.clear();
     if (!error_page_path.empty()) {
         // 读取文件内容作为 body
         std::ifstream file(error_page_path.c_str());
         if (file.is_open()) {
             std::ostringstream ss;
             ss << file.rdbuf();
-            this->_body     = ss.str();
-            this->_body_len = this->_body.size();
+            _body = ss.str();
         }
+    } else {
+        _body = "<html><body><h1>" + Utils::toString(_status_code)
+        +" " + _status_msg_map[_status_code] + "</h1></body></html>";
     }
-    this->_prepare_response_data(request);
-    this->_append_full_response();
+    _body_len = _body.size();
+    _prepare_response_data(request);
+    _append_full_response();
     return _full_response;
 }
 
