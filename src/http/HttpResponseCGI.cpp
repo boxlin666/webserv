@@ -3,24 +3,24 @@
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 
-void HttpResponse::build_cgi_response(const HttpRequest& request, const std::string& cgi_output)
+bool HttpResponse::build_cgi_response(const HttpRequest& request, const std::string& cgi_output)
 {
     std::string header_part;
 
-    // 1. 切割：如果切割失败（非法数据），直接拉闸报错
     if (!_split_cgi_header_body(cgi_output, header_part)) {
         std::cerr << "[CGI Parse Error] No header-body delimiter found!" << std::endl;
-        // this->buildErrorResponse(500);
-        return;
+        return false;
     }
-
-    // 2. 解析：将头部字符串转化为字典
     _parse_cgi_headers(header_part);
 
+    if (!_validate_cgi_content_type()) {
+        std::cerr << "[CGI Parse Error] Missing or invalid Content-Type!" << std::endl;
+        return false;
+    }
     _full_response.reserve(cgi_output.length());
-    // 3. 组装：将内容打包成合法的 HTTP 响应并存入输出缓冲区
     _prepare_cgi_response(request);
     _append_full_response();
+    return true;
 }
 
 void HttpResponse::_prepare_cgi_response(const HttpRequest& request)
@@ -64,7 +64,6 @@ void HttpResponse::_parse_cgi_headers(const std::string& header_part)
             std::string key   = line.substr(0, colon_pos);
             std::string value = line.substr(colon_pos + 1);
 
-            // Trim 空格
             size_t first = value.find_first_not_of(" \t");
             size_t last  = value.find_last_not_of(" \t");
             if (first != std::string::npos && last != std::string::npos) {
@@ -126,11 +125,20 @@ std::string HttpResponse::_get_cgi_header(const std::string& key, const std::str
             }
         }
     }
-    return "";  // 🌟 没找到符合条件的，返回空字符串，兼职之前的 "false" 角色
+    return "";
 }
 
 void HttpResponse::_add_cgi_header_vector(const std::string& key, const std::string& value)
 {
     if (key.empty() || value.empty()) return;
     this->_cgi_headers_vector.push_back(std::make_pair(key, value));
+}
+
+bool HttpResponse::_validate_cgi_content_type() const
+{
+    std::string val = _get_cgi_header("Content-Type", "", false);
+    if (val.empty()) return false;
+    size_t slash = val.find('/');
+    if (slash == std::string::npos || slash == 0) return false;
+    return true;
 }
