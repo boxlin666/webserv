@@ -29,7 +29,8 @@ void    HttpResponse::_init_status_msg_map(void)
     /* 5xx */
     HttpResponse::_status_msg_map[SERVER_ERROR] = "Internal Server Error";
     HttpResponse::_status_msg_map[NO_METHOD] = "Not Implemented";
-    HttpResponse::_status_msg_map[Gateway_Timeout] = "Gateway Timeout";
+    HttpResponse::_status_msg_map[BAD_GATEWAY] = "Bad Gateway";
+    HttpResponse::_status_msg_map[GATEWAY_TIMEOUT] = "Gateway Timeout";
     HttpResponse::_status_msg_map[NO_HTTP_VERSION] = "HTTP Version Not Supported";
 }
 

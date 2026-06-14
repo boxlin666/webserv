@@ -407,9 +407,9 @@ void Cluster::_dispatch_pollhup_event(size_t index)
 
         // 识别 FD 身份
         if (_socket_map.count(fd))
-            std::cerr << "[DEBUG] (Type: Listen Socket)";
+            std::cerr << "[DEBUG] (Type: Listen Socket)\n";
         else if (_cgi_fd_map.count(fd))
-            std::cerr << " [DEBUG] (Type: CGI Pipe) dispatch pollhup event";
+            std::cerr << "[DEBUG] (Type: CGI Pipe) dispatch pollhup event";
         else
             std::cerr << " (Type: Client Socket)";
 
