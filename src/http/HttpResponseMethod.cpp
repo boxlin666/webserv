@@ -70,11 +70,11 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
             fd = open(this->_full_path.c_str(), O_WRONLY | O_TRUNC, 0644);
             if (fd == -1)
             {
-                if (errno == EACCES) return (PER_DENIED);
+                if (errno == EACCES) return (FORBIDDEN);
                 return (SERVER_ERROR);
             }
         }
-        else if (errno == EACCES) return (PER_DENIED);
+        else if (errno == EACCES) return (FORBIDDEN);
         else if (errno == ENOENT) return (NOT_FOUND);
         else return (SERVER_ERROR); 
     }
@@ -119,6 +119,6 @@ int HttpResponse::_handle_delete(void)
     if (errno == ENOENT)
         return (NOT_FOUND);
     else if (errno == EACCES || errno == EPERM)
-        return (PER_DENIED);
+        return (FORBIDDEN);
     return (SERVER_ERROR);
 }

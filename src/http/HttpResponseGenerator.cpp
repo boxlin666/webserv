@@ -25,7 +25,7 @@ void HttpResponse::_build_headers_map(const HttpRequest& request)
 
     if (this->_status_code != DELETED)
     {
-        if (!this->_body.empty())
+        if (!this->_body.empty() && !_has_header("Content-Type"))
             this->_add_header_vector("Content-Type", this->_generate_content_type());
         this->_add_header_vector("Content-Length", Utils::toString(this->_body_len));
     }
@@ -41,6 +41,15 @@ void HttpResponse::_add_header_vector(const std::string& key, const std::string&
     if (key.empty() || value.empty())
         return ;
     this->_headers_vector.push_back(std::make_pair(key, value));
+}
+
+bool HttpResponse::_has_header(const std::string& key) const
+{
+    for (size_t i = 0; i < _headers_vector.size(); i++) {
+        if (_headers_vector[i].first == key)
+            return true;
+    }
+    return false;
 }
 
 std::string HttpResponse::_generate_date(void)const
