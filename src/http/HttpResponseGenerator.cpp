@@ -26,16 +26,14 @@ void HttpResponse::_build_headers_map(const HttpRequest& request)
     this->_add_header_vector("Date", this->_generate_date());
 
     if (this->_status_code != DELETED) {
-        if (!this->_body.empty())
-        {
-            if (this->_is_error_response())  // 4xx 5xx
-                this->_add_header_vector("Content-Type", "text/html; charset=utf-8");
-            else
-                this->_add_header_vector("Content-Type", this->_generate_content_type());
-        }
+        if (this->_is_error_response())  // 4xx 5xx
+            this->_add_header_vector("Content-Type", "text/html; charset=utf-8");
+        else
+            this->_add_header_vector("Content-Type", this->_generate_content_type());
         this->_add_header_vector("Content-Length", Utils::toString(this->_body_len));
     }
-    this->_add_header_vector("Last-Modified", this->_body_last_modif_date);
+    if (this->_status_code == SUCCESS && !this->_body_last_modif_date.empty())
+        this->_add_header_vector("Last-Modified", this->_body_last_modif_date);
     if (request.get_is_keep_alive() == true)
         this->_add_header_vector("Connection", "keep-alive");
     else if (request.get_is_keep_alive() == false)
