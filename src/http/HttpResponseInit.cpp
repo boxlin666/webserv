@@ -18,7 +18,7 @@ void    HttpResponse::_init_status_msg_map(void)
 
     /* 4xx */
     HttpResponse::_status_msg_map[BAD_REQUEST] = "Bad Request";
-    HttpResponse::_status_msg_map[PER_DENIED] = "Permission Denied"; 
+    HttpResponse::_status_msg_map[FORBIDDEN] = "Forbidden"; 
     HttpResponse::_status_msg_map[NOT_FOUND] = "Not Found";
     HttpResponse::_status_msg_map[METHOD_NOT_ALLOWED] = "Method Not Allowed";
     HttpResponse::_status_msg_map[NO_LENGTH] = "Length Required";
