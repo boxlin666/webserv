@@ -77,6 +77,7 @@ void Connection::process_existing_in_buff()
     if (this->check_parse_finished()) {
         std::cout << "[Debug] Request is fully complete, body size: "
                 << _request.get_body().length() << std::endl;
+        this->_request.parse_multipart_body();
         this->handle_request_dispatch();  // 只有这时才处理
     } else {
         // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN

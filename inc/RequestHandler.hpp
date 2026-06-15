@@ -39,6 +39,7 @@ class RequestHandler
         std::size_t _res_body_len;
         bool _is_auto_index;
         bool _is_cgi_mode;
+        std::string _multipart_filename;
 
         int dispatch_resource_check(const HttpRequest& req, const RouterCtx &route_ctx);
         int cgi_resource_validator(const RouterCtx& route_ctx);
