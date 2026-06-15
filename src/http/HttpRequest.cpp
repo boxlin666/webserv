@@ -11,13 +11,15 @@ void HttpRequest::reset() {
     _http_version.clear();
     _body.clear();
     _header_map.clear();
-
+    _content_type_vector.clear();
     _state = PARSE_REQUEST_LINE;
     _chunk_state = CHUNK_NONE;
     _content_length = 0;
     _chunk_size = 0;
     _is_keep_alive = true; //in HTTP/1.1, by default, keep alive is true!
     _is_chunked = false;
+    _boundary_value = "";
+    _multipart_filename = "";
 }
 
 // 构造函数直接调用 reset 即可
@@ -137,6 +139,41 @@ int HttpRequest::parse_request_header(std::string& line)
         else if (value == "close")
             this->_is_keep_alive = false;
     }
+    if (key == "content-type")
+        return (_parse_content_type(value));
+    return (SUCCESS);
+}
+
+int HttpRequest::_parse_content_type(const std::string& content_type_value)
+{
+    std::stringstream ss(content_type_value);
+    std::string token;
+    bool is_multipart = false;
+    bool found_boundary = false;
+
+    while (std::getline(ss, token, ';'))
+    {
+        std::size_t first = token.find_first_not_of(" \t\r\n");
+
+        if (first != std::string::npos)
+        {
+            std::size_t last = token.find_last_not_of(" \t\r\n");
+            std::string cleaned_token = token.substr(first, (last - first + 1));
+            if (cleaned_token == "multipart/form-data")
+                is_multipart = true;
+            else if (cleaned_token.rfind("boundary=", 0) == 0)
+            {
+                _boundary_value = cleaned_token.substr(9);
+                if (_boundary_value.length() >= 2 && _boundary_value[0] == '"' && _boundary_value[_boundary_value.length() -1] == '"')
+                    _boundary_value = _boundary_value.substr(1, _boundary_value.length() - 2);
+                if (_boundary_value.empty()) return (BAD_REQUEST);
+                found_boundary = true;
+            }
+            _content_type_vector.push_back(cleaned_token);
+        }
+    }
+    if (_content_type_vector.empty()) return (BAD_REQUEST);
+    if (found_boundary == false && is_multipart == true) return (BAD_REQUEST);
     return (SUCCESS);
 }
 
@@ -154,6 +191,31 @@ int HttpRequest::parse_body(std::string& input_data) {
         _state = PARSE_FINISHED;
     }
     return (SUCCESS);
+}
+
+int HttpRequest::parse_multipart_body(void)
+{
+    if (_boundary_value.empty())  return (0);
+    
+    std::size_t header_end = _body.find("\r\n\r\n");
+    std::size_t content_start = header_end + 4;
+
+    std::string multipart_header = _body.substr(0, header_end);
+    std::size_t filename_pos_start = multipart_header.find("filename=\"");
+    std::size_t filename_pos_end;
+    if (filename_pos_start != std::string::npos)
+    {
+       filename_pos_end = multipart_header.find("\"", filename_pos_start + 10);
+       if (filename_pos_end != std::string::npos)
+       {
+            std::size_t filename_len = filename_pos_end - (filename_pos_start + 10);
+            _multipart_filename = multipart_header.substr(filename_pos_start + 10, filename_len); 
+       }
+    }
+    std::string boundary = "--" + _boundary_value;
+    std::size_t content_end = _body.find(boundary, content_start);
+    this->_body = _body.substr(content_start, content_end - content_start - 2);
+    return (0);
 }
 
 bool HttpRequest::parse_chunk_size(std::string &chunk_size_str)
@@ -346,4 +408,9 @@ bool HttpRequest::get_is_keep_alive(void)const
 bool HttpRequest::get_is_chunked(void)const
 {
     return (this->_is_chunked);
+}
+
+const std::string& HttpRequest::get_multipart_filename()const
+{
+    return (this->_multipart_filename);
 }

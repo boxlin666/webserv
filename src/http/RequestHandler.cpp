@@ -26,6 +26,7 @@ void RequestHandler::process_request_handler(const HttpRequest &req, const Route
     }
     this->_full_path = route_ctx.full_path;
     this->_is_cgi_mode = route_ctx.is_cgi_potential;
+    this->_multipart_filename = req.get_multipart_filename();
 
     this->_req_body = req.get_body(); // 确保你有这个成员变量      
     std::cout << "[Debug] Handler synced body. Size: " << this->_res_body_len << std::endl;
@@ -145,13 +146,15 @@ int RequestHandler::extract_parent_path(void)
         this->_parent_path = "/";
     else
         this->_parent_path = this->_full_path.substr(0, pos + 1);
-    //POST 
-    if (pos + 1 == this->_full_path.size())
+    //POST  
+    if (pos + 1 == this->_full_path.size() && _multipart_filename.empty())
     {
         std::string file_name = "post_body" + Utils::generate_unique_id();
 
         this->_full_path += file_name;
     }
+    if (!_multipart_filename.empty())
+        this->_full_path += _multipart_filename;
     return (SUCCESS);
 }
 
