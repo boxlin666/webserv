@@ -107,7 +107,6 @@ class HttpRequest {
     std::string _path;
 
     std::string _http_version;  // HTTP 1.1
-    // std::map<std::string, std::string> _headers;
     std::string _body;
     std::string _querystring;
 

@@ -306,10 +306,6 @@ int HttpRequest::parse(std::string& input_data)
 {
     int ret = SUCCESS;
 
-    //tempo debug msg don't remove it now pls!
-     debug_request_msg_print("INPUT DATA", input_data);
-    //tempo debug msg don't remove it now pls!
-
     while (_state != PARSE_ERROR && _state != PARSE_FINISHED) 
     {
         if (_state == PARSE_REQUEST_LINE || _state == PARSE_HEADER) 

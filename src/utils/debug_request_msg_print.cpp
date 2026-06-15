@@ -1,19 +1,49 @@
 #include <iostream>
-#include "Utils.hpp"
+#include <string>
+#include <algorithm>
+#include <cctype>
 
-void debug_request_msg_print(const std::string &variable, const std::string &content)
+#define RESET   "\033[0m"
+#define RED     "\033[31m"     
+#define GREEN   "\033[32m"      
+#define YELLOW  "\033[33m"      
+#define BLUE    "\033[34m"      
+#define PURPLE  "\033[35m"      
+#define CYAN    "\033[36m"      
+#define WHITE   "\033[37m"      
+
+
+void debug_msg_print(const std::string& variable, const std::string& content, 
+                     const std::string& color, size_t max_len = 200) 
 {
-    std::cout << "\n---start of " << variable  << "---" << std::endl; 
-    // 使用 C++98 的经典迭代器遍历
-    for (std::string::const_iterator it = content.begin(); it != content.end(); ++it) {
-        char c = *it;
-        if (c == '\r') {
-            std::cout << "\\r";
-        } else if (c == '\n') {
-            std::cout << "\\n\n"; // 打印出 \n 两个字符，然后真正换行
-        } else {
-            std::cout << c;
+    std::cout << "\n" << color << "---start of " << variable << "---" << RESET << std::endl; 
+
+    size_t print_len = std::min(content.size(), max_len); 
+    
+    for (size_t i = 0; i < print_len; ++i) {
+        char ch = content[i];
+
+        if (ch == '\r') 
+        {
+            std::cout << YELLOW << "\\r" << RESET;
+        } 
+        else if (ch == '\n') 
+        {
+            std::cout << YELLOW << "\\n" << RESET << "\n"; 
+        } 
+        else if (isprint(static_cast<unsigned char>(ch))) {
+            std::cout << color << ch << RESET;
+        }  
+        else  //no printable char is RED
+        {
+            std::cout << RED << "." << RESET; 
         }
-    } 
-    std::cout << "\n---end of " << variable  << "---\n" << std::endl;
+    }
+
+    if (content.size() > max_len) 
+    {
+        std::cout << WHITE << "\n... [Truncated! Total size: " << content.size() << " bytes]" << RESET;
+    }
+
+    std::cout << "\n" << color << "---end of " << variable << "---\n" << RESET << std::endl;
 }

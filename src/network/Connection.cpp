@@ -10,6 +10,7 @@ Connection::Connection(int client_fd, PassiveSocket* matched_socket,
                        IClusterMediator*                 cluster_mediator)
     : _client_fd(client_fd),
       _in_buff(""),
+      _back_up_in_buff(""),
       _out_buff(""),
       _matched_socket(matched_socket),
       _matched_server(NULL),
@@ -48,10 +49,7 @@ void Connection::handle_read_event(void)
         return;
     } else {
         buffer[bytes_read] = '\0';
-        // tempo debug msg don't remove it now pls!
         std::string tmp_buff(buffer);
-        // debug_request_msg_print("BUFFER INFO", tmp_buff);
-        // tempo debug msg don't remove it now pls!
 
         // 1. 数据必须累积到 Connection 的 _in_buff
         _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
@@ -62,10 +60,8 @@ void Connection::handle_read_event(void)
 
 void Connection::process_existing_in_buff()
 {
-    // debug_request_msg_print("Process in_buff", _in_buff);
     // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
     this->_status_code = this->_request.parse(this->_in_buff);
-    // debug_request_msg_print("Process in_buff", _in_buff);
 
     if (this->_status_code != SUCCESS) {
         this->handle_request_dispatch();
@@ -74,12 +70,15 @@ void Connection::process_existing_in_buff()
 
     // 3. 这里的关键：检查是否真的“请求完成”
     // 不要只依赖 _status_code，必须检查数据完整性
-    if (this->check_parse_finished()) {
+    if (this->check_parse_finished()) 
+    {
         std::cout << "[Debug] Request is fully complete, body size: "
                   << _request.get_body().length() << std::endl;
         this->_request.parse_multipart_body();
         this->handle_request_dispatch();  // 只有这时才处理
-    } else {
+    } 
+    else
+    {
         // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
         std::cout << "[Debug] Waiting for more body data..." << std::endl;
     }
@@ -278,9 +277,6 @@ void Connection::prepare_static_response()
 {
     this->_response.build_static_response(this->_request, this->_req_handler, this->_status_code);
     this->_out_buff = this->_response.get_full_response();
-
-    // tempo print debug, don't remove it now!
-    // debug_request_msg_print("OUT BUFF", this->_out_buff);
 }
 
 void Connection::set_state(State state)

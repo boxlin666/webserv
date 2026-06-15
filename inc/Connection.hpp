@@ -49,6 +49,7 @@ class Connection {
    private:
     int                              _client_fd;
     std::string                      _in_buff;
+    std::string                      _back_up_in_buff;
     std::string                      _out_buff;
     PassiveSocket*                   _matched_socket;
     ServerConfig*                    _matched_server;
