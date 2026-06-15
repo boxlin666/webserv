@@ -92,6 +92,9 @@ class HttpRequest {
     void set_is_chunked(bool is_chunked)
     { _is_chunked = is_chunked; }
 
+    void set_is_keep_alive(bool is_keep_alive)
+    { _is_keep_alive = is_keep_alive; }
+    
     bool is_header_parsed() const
     {
         // 只要状态大于 PARSE_HEADER，说明 Request Line 和 Header 都已经处理完了

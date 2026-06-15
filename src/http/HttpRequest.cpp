@@ -76,6 +76,8 @@ int HttpRequest::validate_and_prepare_payload()
         return (REQ_HEADER_TOO_LONG);
     if (this->_header_map.find("host") == this->_header_map.end())
         return (BAD_REQUEST);
+    if (this->_header_map["host"].empty())
+        return (BAD_REQUEST);
     bool has_cl = this->_header_map.count("content-length");
     bool has_te = this->_header_map.count("transfer-encoding");
 
