@@ -6,9 +6,11 @@ def main():
     print("Content-Type: text/plain\r\n\r\n", end="")
     sys.stdout.flush()
 
+    loop_times = 10000000
     try:
-        while True:
+        while loop_times:
             print("Hello world!")
+            loop_times -= 1
             time.sleep(0.0001)
 
     except BrokenPipeError:
