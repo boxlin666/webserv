@@ -11,7 +11,12 @@ bool HttpResponse::build_cgi_response(const HttpRequest& request, const std::str
         std::cerr << "[CGI Parse Error] No header-body delimiter found!" << std::endl;
         return false;
     }
-    _parse_cgi_headers(header_part);
+
+    if (!_parse_cgi_headers(header_part))
+    {
+        std::cerr << "[CGI Parse Error] Missing Location URL when the status code is 302!" << std::endl;
+        return false;
+    }
 
     if (!_validate_cgi_content_type()) {
         std::cerr << "[CGI Parse Error] Missing or invalid Content-Type!" << std::endl;
@@ -40,7 +45,7 @@ bool HttpResponse::_split_cgi_header_body(const std::string& raw_output, std::st
     }
 
     if (delimiter_pos == std::string::npos) {
-        return false;  // 没找到合法边界，说明数据有问题
+        return false;
     }
 
     header_part = raw_output.substr(0, delimiter_pos);
@@ -50,7 +55,7 @@ bool HttpResponse::_split_cgi_header_body(const std::string& raw_output, std::st
     return true;
 }
 
-void HttpResponse::_parse_cgi_headers(const std::string& header_part)
+bool HttpResponse::_parse_cgi_headers(const std::string& header_part)
 {
     std::stringstream header_stream(header_part);
     std::string       line;
@@ -74,15 +79,20 @@ void HttpResponse::_parse_cgi_headers(const std::string& header_part)
             _add_cgi_header_vector(key, value);
         }
     }
+
+    std::string str_status_code = _get_cgi_header_value("Status", "", false);
+    if (str_status_code == "302 Found" && _get_cgi_header_value("Location", "", false).empty())
+        return (false);
+    return (true);
 }
 
 void HttpResponse::_build_cgi_status_line(const HttpRequest& request)
 {
     std::string str_status_code = "200 OK";
 
-    if (!_get_cgi_header("Status", "", false).empty()) {
-        str_status_code = _get_cgi_header("Status", "", false);
-    } else if (!_get_cgi_header("Location", "", false).empty()) {
+    if (!_get_cgi_header_value("Status", "", false).empty()) {
+        str_status_code = _get_cgi_header_value("Status", "", false);
+    } else if (!_get_cgi_header_value("Location", "", false).empty()) {
         str_status_code = "302 Found";
     }
     this->_status_line = request.get_version() + " " + str_status_code + "\r\n";
@@ -110,19 +120,17 @@ void HttpResponse::_build_cgi_headers_map(const HttpRequest& request)
         this->_add_header_vector("Connection", "close");
 }
 
-std::string HttpResponse::_get_cgi_header(const std::string& key, const std::string& value_sub,
+std::string HttpResponse::_get_cgi_header_value(const std::string& key, const std::string& value,
                                           bool check_value) const
 {
-    for (size_t i = 0; i < this->_cgi_headers_vector.size(); ++i) {
-        // 1. 先对上 Key
-        if (this->_cgi_headers_vector[i].first == key) {
-            // 分流 A：不检查内容，直接盲拿这个 Key 对应的第一个 Value
+    for (std::size_t i = 0; i < this->_cgi_headers_vector.size(); i++) 
+    { 
+        if (this->_cgi_headers_vector[i].first == key) 
+        {     
             if (!check_value) { return this->_cgi_headers_vector[i].second; }
 
-            // 分流 B：开启检查，检查当前这个 Value 里是否包含目标特征（如 "id="）
-            if (this->_cgi_headers_vector[i].second.find(value_sub) != std::string::npos) {
-                return this->_cgi_headers_vector[i].second;  // 找到了，直接返回这行完整的 Value
-            }
+            if (this->_cgi_headers_vector[i].second == value)
+                return this->_cgi_headers_vector[i].second; 
         }
     }
     return "";
@@ -136,7 +144,7 @@ void HttpResponse::_add_cgi_header_vector(const std::string& key, const std::str
 
 bool HttpResponse::_validate_cgi_content_type() const
 {
-    std::string val = _get_cgi_header("Content-Type", "", false);
+    std::string val = _get_cgi_header_value("Content-Type", "", false);
     if (val.empty()) return false;
     size_t slash = val.find('/');
     if (slash == std::string::npos || slash == 0) return false;

@@ -80,12 +80,12 @@ class HttpResponse {
 
     // Response CGI generator
     bool _split_cgi_header_body(const std::string& raw_output, std::string& header_part);
-    void _parse_cgi_headers(const std::string& header_part);
+    bool _parse_cgi_headers(const std::string& header_part);
 
     void        _prepare_cgi_response(const HttpRequest& request);
     void        _build_cgi_status_line(const HttpRequest& request);
     void        _build_cgi_headers_map(const HttpRequest& request);
-    std::string _get_cgi_header(const std::string& key, const std::string& value_sub,
+    std::string _get_cgi_header_value(const std::string& key, const std::string& value,
                                 bool check_value) const;
 
     void _add_cgi_header_vector(const std::string& key, const std::string& value);

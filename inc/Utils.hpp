@@ -37,7 +37,8 @@ class Utils
         static void to_lowercase(std::string &str) ;
 };
 
-void debug_request_msg_print(const std::string &variable, const std::string &content);
+void debug_msg_print(const std::string& variable, const std::string& content, 
+                     const std::string& color, size_t max_len = 200); 
 
 void printEnvMap(const std::map<std::string, std::string>& env_map);
 
