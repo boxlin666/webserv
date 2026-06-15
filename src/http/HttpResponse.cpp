@@ -102,7 +102,7 @@ void HttpResponse::_append_full_response(void)
     this->_full_response += "\r\n";
     this->_full_response.append(this->_body);
 
-    debug_request_msg_print("OUT_BUFF", _full_response);
+    debug_msg_print("RESPONSE_MSG", _full_response, "\033[32m", 400);
 }
 
 int HttpResponse::_handle_directory(const HttpRequest& request, bool is_auto_index)
