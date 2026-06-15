@@ -72,7 +72,7 @@ int RequestHandler::cgi_resource_validator(const RouterCtx& route_ctx)
     if (access(cgi_executable.c_str(), X_OK) == 0)
         return (SUCCESS);
 
-    return (PER_DENIED);
+    return (FORBIDDEN);
 }
  
 int RequestHandler::existing_resource_validator(const RouterCtx& route_ctx)
@@ -81,10 +81,12 @@ int RequestHandler::existing_resource_validator(const RouterCtx& route_ctx)
 
     if (stat(this->_full_path.c_str(), &st) == -1)
     {
+        std::cerr << "[DEBUG] stat failed: " << this->_full_path 
+              << " errno: " << strerror(errno) << std::endl;
         if (errno == ENOENT)
             return (NOT_FOUND);
         else if (errno == EACCES)
-            return (PER_DENIED);
+            return (FORBIDDEN);
         return (SERVER_ERROR);
     }
     if (S_ISDIR(st.st_mode))
@@ -105,7 +107,7 @@ int RequestHandler::creatable_resource_validator(void)
     if (stat(this->_full_path.c_str(), &st) == 0)
     {
         if (access(this->_full_path.c_str(), W_OK) != 0)
-            return (PER_DENIED);
+            return (FORBIDDEN);
     }
 
     ret = this->check_ext_post_file();
@@ -122,13 +124,13 @@ int RequestHandler::creatable_resource_validator(void)
         if (errno == ENOENT)
             return (NOT_FOUND);
         else if (errno == EACCES)
-            return (PER_DENIED);
+            return (FORBIDDEN);
         return (SERVER_ERROR);
     }
     if (!S_ISDIR(st_parent.st_mode)) //KO if _parent_path is not a real parent directory
-        return (PER_DENIED);
+        return (FORBIDDEN);
     if (access(this->_parent_path.c_str(), W_OK) != 0) //We can not write inside this directory
-        return (PER_DENIED);
+        return (FORBIDDEN);
     return (SUCCESS);
 }
 
@@ -218,7 +220,7 @@ int RequestHandler::process_directory(const RouterCtx& route_ctx)
 int RequestHandler::process_file(const struct stat& st, const std::string &input_path)
 {
     if (access(input_path.c_str(), R_OK) == -1)
-        return (PER_DENIED);
+        return (FORBIDDEN);
     this->_body_last_modif_date = Utils::formatHttpDate(st.st_mtime);
     this->_set_res_body_len(st.st_size);
     return (SUCCESS);
@@ -243,6 +245,11 @@ std::size_t RequestHandler::get_res_body_len()const
 std::string RequestHandler::get_req_body()const
 {
     return (this->_req_body);
+}
+
+bool RequestHandler::is_auto_index() const
+{
+    return _is_auto_index;
 }
 
 bool RequestHandler::is_cgi_mode()const

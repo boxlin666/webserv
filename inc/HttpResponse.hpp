@@ -1,6 +1,7 @@
 #ifndef HTTP_RESPONSE_HPP
 #define HTTP_RESPONSE_HPP
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>  //tmp header missing config data
@@ -61,8 +62,8 @@ class HttpResponse {
     void _build_headers_map(const HttpRequest& request);
     void _add_header(const std::string& key, const std::string& value);
 
-    void _add_header_vector(const std::string& key, const std::string& value);
-
+    void        _add_header_vector(const std::string& key, const std::string& value);
+    bool        _has_header(const std::string& key) const;
     std::string _generate_date(void) const;
     std::string _generate_content_type(void) const;
 
@@ -92,6 +93,10 @@ class HttpResponse {
     bool _validate_cgi_content_type() const;
 
     bool _is_error_response() const;
+
+    int         _handle_directory(const HttpRequest& request, bool is_auto_index);
+    bool        _is_directory(const std::string& path) const;
+    std::string _generate_autoindex(const std::string& dir_path, const std::string& uri);
 
    public:
     HttpResponse();

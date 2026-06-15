@@ -5,7 +5,7 @@
 #define CREATED 201
 #define DELETED 204
 #define BAD_REQUEST 400
-#define PER_DENIED 403
+#define FORBIDDEN 403
 #define NOT_FOUND 404
 #define METHOD_NOT_ALLOWED 405
 #define NO_LENGTH 411

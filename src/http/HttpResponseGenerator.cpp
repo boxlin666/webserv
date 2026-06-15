@@ -25,8 +25,9 @@ void HttpResponse::_build_headers_map(const HttpRequest& request)
     this->_add_header_vector("Server", "Cat server/1.0.0 (Fedora)");
     this->_add_header_vector("Date", this->_generate_date());
 
-    if (this->_status_code != DELETED) {
-        if (this->_is_error_response())  // 4xx 5xx
+    if (this->_status_code != DELETED)
+    {
+        if (this->_is_error_response() ||(!this->_body.empty() && !_has_header("Content-Type")))
             this->_add_header_vector("Content-Type", "text/html; charset=utf-8");
         else
             this->_add_header_vector("Content-Type", this->_generate_content_type());
@@ -44,6 +45,15 @@ void HttpResponse::_add_header_vector(const std::string& key, const std::string&
 {
     if (key.empty() || value.empty()) return;
     this->_headers_vector.push_back(std::make_pair(key, value));
+}
+
+bool HttpResponse::_has_header(const std::string& key) const
+{
+    for (size_t i = 0; i < _headers_vector.size(); i++) {
+        if (_headers_vector[i].first == key)
+            return true;
+    }
+    return false;
 }
 
 std::string HttpResponse::_generate_date(void) const

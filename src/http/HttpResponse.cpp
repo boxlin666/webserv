@@ -4,6 +4,8 @@
 
 #include "HttpRequest.hpp"
 
+#include "HttpRequest.hpp"
+
 HttpResponse::HttpResponse(void)
 { this->reset(); }
 
@@ -42,9 +44,13 @@ void HttpResponse::build_static_response(const HttpRequest&    request,
     if (this->_status_code == SUCCESS) this->_full_path = response_ctx.get_full_path();
 
     if (this->_status_code == SUCCESS) {
-        if (request.get_method() == "GET" || request.get_method() == "HEAD")
-            ret = this->_handle_get();
-        else if (request.get_method() == "POST")
+        if (request.get_method() == "GET" || request.get_method() == "HEAD") {
+            bool autoindex = response_ctx.is_auto_index();
+            if (_is_directory(this->_full_path))
+                ret = this->_handle_directory(request, autoindex);
+            else
+                ret = this->_handle_get();
+        } else if (request.get_method() == "POST")
             ret = this->_handle_post(request);
         else if (request.get_method() == "DELETE")
             ret = this->_handle_delete();
@@ -97,4 +103,60 @@ void HttpResponse::_append_full_response(void)
     this->_full_response.append(this->_body);
 
     debug_request_msg_print("OUT_BUFF", _full_response);
+}
+
+int HttpResponse::_handle_directory(const HttpRequest& request, bool is_auto_index)
+{
+    // 找 index 文件（根据配置的 index 文件名）
+    std::string index_path = this->_full_path + "/index.html";
+    struct stat st;
+    if (stat(index_path.c_str(), &st) == 0 && S_ISREG(st.st_mode)) {
+        this->_full_path = index_path;
+        int ret          = this->_handle_get();
+        this->_body_len  = this->_body.size();
+        return ret;
+    }
+
+    if (is_auto_index) {
+        this->_body     = _generate_autoindex(this->_full_path, request.get_path());
+        this->_body_len = this->_body.size();
+        this->_add_header_vector("Content-Type", "text/html; charset=utf-8");
+        return SUCCESS;
+    }
+
+    return FORBIDDEN;
+}
+
+bool HttpResponse::_is_directory(const std::string& path) const
+{
+    struct stat st;
+
+    if (stat(path.c_str(), &st) == -1) return false;
+    return S_ISDIR(st.st_mode);
+}
+
+std::string HttpResponse::_generate_autoindex(const std::string& dir_path, const std::string& uri)
+{
+    DIR* dir = opendir(dir_path.c_str());
+    if (!dir) return "";
+
+    std::string html;
+    html += "<html>\r\n";
+    html += "<head><title>Index of " + uri + "</title></head>\r\n";
+    html += "<body>\r\n";
+    html += "<h1>Index of " + uri + "</h1><hr>\r\n";
+    html += "<pre>\r\n";
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        std::string name = entry->d_name;
+        if (name == ".") continue;
+        if (entry->d_type == DT_DIR) name += "/";
+        html += "<a href=\"" + name + "\">" + name + "</a>\r\n";
+    }
+    closedir(dir);
+
+    html += "</pre><hr>\r\n";
+    html += "</body></html>\r\n";
+    return html;
 }
