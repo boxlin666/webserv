@@ -122,12 +122,8 @@ class HttpRequest {
     e_chunk_state _chunk_state;
     std::size_t              _content_length;
     std::size_t              _chunk_size;    // 用于处理 chunked 传输
-    bool                _is_chunked;
     std::string     _boundary_value;
     std::string     _multipart_filename;
-    e_chunk_state   _chunk_state;
-    std::size_t     _content_length;
-    std::size_t     _chunk_size;  // 用于处理 chunked 传输
     bool            _is_chunked;
 
     int parse_request_line(std::string& line);
