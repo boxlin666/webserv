@@ -68,12 +68,13 @@ bool HttpResponse::_parse_cgi_headers(const std::string& header_part)
             } else {
                 value = "";
             }
+            Utils::to_lowercase(key);
             _add_cgi_header_vector(key, value);
         }
     }
 
-    std::string str_status_code = _get_cgi_header_value("Status", "", false);
-    if (str_status_code == "302 Found" && _get_cgi_header_value("Location", "", false).empty())
+    std::string str_status_code = _get_cgi_header_value("status", "", false);
+    if (str_status_code == "302 Found" && _get_cgi_header_value("location", "", false).empty())
     {
         std::cerr << "[CGI Parse Error] Missing Location URL when the status code is 302!" << std::endl;
         return (false);
@@ -85,9 +86,9 @@ void HttpResponse::_build_cgi_status_line(const HttpRequest& request)
 {
     std::string str_status_code = "200 OK";
 
-    if (!_get_cgi_header_value("Status", "", false).empty()) {
-        str_status_code = _get_cgi_header_value("Status", "", false);
-    } else if (!_get_cgi_header_value("Location", "", false).empty()) {
+    if (!_get_cgi_header_value("status", "", false).empty()) {
+        str_status_code = _get_cgi_header_value("status", "", false);
+    } else if (!_get_cgi_header_value("location", "", false).empty()) {
         str_status_code = "302 Found";
     }
     this->_status_line = request.get_version() + " " + str_status_code + "\r\n";
@@ -139,7 +140,7 @@ void HttpResponse::_add_cgi_header_vector(const std::string& key, const std::str
 
 bool HttpResponse::_validate_cgi_content_type() const
 {
-    std::string val = _get_cgi_header_value("Content-Type", "", false);
+    std::string val = _get_cgi_header_value("content-type", "", false);
     if (val.empty()) 
     {
         std::cerr << "[CGI Parse Error] Missing or invalid Content-Type!" << std::endl;
@@ -155,7 +156,7 @@ bool HttpResponse::_validate_cgi_content_type() const
     int nb_of_content_header = 0;
     for (std::size_t i = 0; i < _cgi_headers_vector.size(); i++)
     {
-        if (_cgi_headers_vector[i].first == "Content-Type" &&
+        if (_cgi_headers_vector[i].first == "content-type" &&
             !_get_cgi_header_value(_cgi_headers_vector[i].first, "", false).empty())
             nb_of_content_header++;
     }
@@ -170,7 +171,7 @@ bool HttpResponse::_validate_cgi_content_type() const
 
 bool HttpResponse::_validate_cgi_content_length() const
 {
-    std::string val = _get_cgi_header_value("Content-Length", "", false);
+    std::string val = _get_cgi_header_value("content-length", "", false);
 
     if (val.empty()) return true; 
 
