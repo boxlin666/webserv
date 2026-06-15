@@ -1013,3 +1013,65 @@ def test_huge_body_strict_pixel_count_fixed(manage_server):
         pytest.fail("【严重 Bug】服务器面对 10MB 洪水连续冲刷直接崩溃断联")
     finally:
         s.close()
+
+# 假设你的基本 URL 已经在别处定义，如果没有，可以在这里补上
+BASE_URL = "http://localhost:8080"
+
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_no_permission_file(manage_server):
+    """
+    测试对于 chmod 000 没有任何权限的文件：
+    - 在 ./www/ 目录下的文件，GET 请求返回 403
+    - 在 ./www/uploads/ 目录下的文件，POST 和 DELETE 请求返回 403
+    """
+    # 📌 1. 定义两个不同的测试路径
+    get_file_path = "./www/test.txt"
+    upload_dir = "./www/uploads"
+    post_delete_file_path = os.path.join(upload_dir, "test.txt")
+    
+    # 确保 uploads 目录存在
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # 📌 2. 创建 GET 测试文件并砸成 000
+    with open(get_file_path, "w") as f:
+        f.write("GET target file with chmod 000 permissions.")
+    os.chmod(get_file_path, 0o000)
+
+    # 📌 3. 创建 POST/DELETE 测试文件并砸成 000
+    with open(post_delete_file_path, "w") as f:
+        f.write("POST/DELETE target file with chmod 000 permissions.")
+    os.chmod(post_delete_file_path, 0o000)
+
+    try:
+        # =================================================================
+        # 🔥 测试 1: GET 请求 -> 目标是 ./www/test.txt (映射为 /test.txt)
+        # =================================================================
+        get_url = f"{BASE_URL}/test.txt"
+        get_response = requests.get(get_url)
+        assert get_response.status_code == 403, f"GET expected 403 but got {get_response.status_code}"
+
+        # =================================================================
+        # 🔥 测试 2: POST 请求 -> 目标是 ./www/uploads/test.txt (映射为 /uploads/test.txt)
+        # =================================================================
+        post_url = f"{BASE_URL}/uploads/test.txt"
+        post_response = requests.post(post_url, data={"data": "hack into it"})
+        assert post_response.status_code == 403, f"POST expected 403 but got {post_response.status_code}"
+
+        # =================================================================
+        # 🔥 🔥 测试 3: DELETE 请求 -> 目标同样是 ./www/uploads/test.txt
+        # =================================================================
+        delete_response = requests.delete(post_url)
+        assert delete_response.status_code == 403, f"DELETE expected 403 but got {delete_response.status_code}"
+
+    finally:
+        # 📌 4. 🧹 善后清理：两个文件都必须恢复权限后再删除，否则会留下权限垃圾
+        
+        # 清理 ./www/test.txt
+        if os.path.exists(get_file_path):
+            os.chmod(get_file_path, 0o0644)
+            os.remove(get_file_path)
+            
+        # 清理 ./www/uploads/test.txt
+        if os.path.exists(post_delete_file_path):
+            os.chmod(post_delete_file_path, 0o0644)
+            os.remove(post_delete_file_path)

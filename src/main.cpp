@@ -7,11 +7,32 @@
 #include "ConfigParser.hpp"
 #include "HttpResponse.hpp"
 
+bool validate_ext_config_file(const std::string& config_filename)
+{
+    std::size_t pos_ext = config_filename.find_last_of(".");
+    if (pos_ext == std::string::npos) return (false);
+    
+    std::string config_ext = config_filename.substr(pos_ext);
+    if (config_ext != ".conf") return (false);
+    
+    return (true);
+}
+
+
 int main(int argc, char** argv)
 {
     if (argc != 2) {
         std::cerr << "Usage: ./webserv <config_file>" << std::endl;
         return (1);
+    }
+    else
+    {
+        std::string  config_filename(argv[1]);
+        if (!validate_ext_config_file(config_filename))
+        {
+            std::cerr << "Incorrect extension of configuration file" << std::endl;
+            return (1);
+        }
     }
 
     try {
