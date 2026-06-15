@@ -7,21 +7,12 @@ bool HttpResponse::build_cgi_response(const HttpRequest& request, const std::str
 {
     std::string header_part;
 
-    if (!_split_cgi_header_body(cgi_output, header_part)) {
-        std::cerr << "[CGI Parse Error] No header-body delimiter found!" << std::endl;
-        return false;
-    }
-
-    if (!_parse_cgi_headers(header_part))
+    if (!_split_cgi_header_body(cgi_output, header_part) ||  !_parse_cgi_headers(header_part)
+        || !_validate_cgi_content_type() ||  !_validate_cgi_content_length()) 
     {
-        std::cerr << "[CGI Parse Error] Missing Location URL when the status code is 302!" << std::endl;
         return false;
     }
 
-    if (!_validate_cgi_content_type()) {
-        std::cerr << "[CGI Parse Error] Missing or invalid Content-Type!" << std::endl;
-        return false;
-    }
     _full_response.reserve(cgi_output.length());
     _prepare_cgi_response(request);
     _append_full_response();
@@ -45,6 +36,7 @@ bool HttpResponse::_split_cgi_header_body(const std::string& raw_output, std::st
     }
 
     if (delimiter_pos == std::string::npos) {
+        std::cerr << "[CGI Parse Error] No header-body delimiter found!" << std::endl;
         return false;
     }
 
@@ -76,13 +68,17 @@ bool HttpResponse::_parse_cgi_headers(const std::string& header_part)
             } else {
                 value = "";
             }
+            Utils::to_lowercase(key);
             _add_cgi_header_vector(key, value);
         }
     }
 
-    std::string str_status_code = _get_cgi_header_value("Status", "", false);
-    if (str_status_code == "302 Found" && _get_cgi_header_value("Location", "", false).empty())
+    std::string str_status_code = _get_cgi_header_value("status", "", false);
+    if (str_status_code == "302 Found" && _get_cgi_header_value("location", "", false).empty())
+    {
+        std::cerr << "[CGI Parse Error] Missing Location URL when the status code is 302!" << std::endl;
         return (false);
+    }
     return (true);
 }
 
@@ -90,9 +86,9 @@ void HttpResponse::_build_cgi_status_line(const HttpRequest& request)
 {
     std::string str_status_code = "200 OK";
 
-    if (!_get_cgi_header_value("Status", "", false).empty()) {
-        str_status_code = _get_cgi_header_value("Status", "", false);
-    } else if (!_get_cgi_header_value("Location", "", false).empty()) {
+    if (!_get_cgi_header_value("status", "", false).empty()) {
+        str_status_code = _get_cgi_header_value("status", "", false);
+    } else if (!_get_cgi_header_value("location", "", false).empty()) {
         str_status_code = "302 Found";
     }
     this->_status_line = request.get_version() + " " + str_status_code + "\r\n";
@@ -144,9 +140,45 @@ void HttpResponse::_add_cgi_header_vector(const std::string& key, const std::str
 
 bool HttpResponse::_validate_cgi_content_type() const
 {
-    std::string val = _get_cgi_header_value("Content-Type", "", false);
-    if (val.empty()) return false;
+    std::string val = _get_cgi_header_value("content-type", "", false);
+    if (val.empty()) 
+    {
+        std::cerr << "[CGI Parse Error] Missing or invalid Content-Type!" << std::endl;
+        return false;
+    }
     size_t slash = val.find('/');
-    if (slash == std::string::npos || slash == 0) return false;
+    if (slash == std::string::npos || slash == 0)
+    {
+        std::cerr << "[CGI Parse Error] Missing or invalid Content-Type!" << std::endl;
+        return false;
+    }
+
+    int nb_of_content_header = 0;
+    for (std::size_t i = 0; i < _cgi_headers_vector.size(); i++)
+    {
+        if (_cgi_headers_vector[i].first == "content-type" &&
+            !_get_cgi_header_value(_cgi_headers_vector[i].first, "", false).empty())
+            nb_of_content_header++;
+    }
+    
+    if (nb_of_content_header > 1) 
+    {
+        std::cerr << "[CGI Parse Error] Multiple Content-Type Header!" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool HttpResponse::_validate_cgi_content_length() const
+{
+    std::string val = _get_cgi_header_value("content-length", "", false);
+
+    if (val.empty()) return true; 
+
+    if (Utils::toString(this->_body_len) != val)
+    {
+        std::cerr << "[CGI Parse Error] Invalid content length!" << std::endl;
+        return false;
+    }
     return true;
 }
