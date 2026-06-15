@@ -64,6 +64,7 @@ void Connection::process_existing_in_buff()
     this->_status_code = this->_request.parse(this->_in_buff);
 
     if (this->_status_code != SUCCESS) {
+        _request.set_is_keep_alive(false);
         this->handle_request_dispatch();
         return;
     }
