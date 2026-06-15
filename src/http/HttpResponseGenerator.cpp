@@ -25,12 +25,13 @@ void HttpResponse::_build_headers_map(const HttpRequest& request)
     this->_add_header_vector("Server", "Cat server/1.0.0 (Fedora)");
     this->_add_header_vector("Date", this->_generate_date());
 
-    if (this->_status_code != DELETED)
-    {
-        if (this->_is_error_response() ||(!this->_body.empty() && !_has_header("Content-Type")))
-            this->_add_header_vector("Content-Type", "text/html; charset=utf-8");
-        else
-            this->_add_header_vector("Content-Type", this->_generate_content_type());
+    if (this->_status_code != DELETED) {
+        if (!_has_header("Content-Type")) {
+            if (this->_is_error_response() || !this->_body.empty())
+                this->_add_header_vector("Content-Type", "text/html; charset=utf-8");
+            else
+                this->_add_header_vector("Content-Type", this->_generate_content_type());
+        }
         this->_add_header_vector("Content-Length", Utils::toString(this->_body_len));
     }
     if (this->_status_code == SUCCESS && !this->_body_last_modif_date.empty())
@@ -50,8 +51,7 @@ void HttpResponse::_add_header_vector(const std::string& key, const std::string&
 bool HttpResponse::_has_header(const std::string& key) const
 {
     for (size_t i = 0; i < _headers_vector.size(); i++) {
-        if (_headers_vector[i].first == key)
-            return true;
+        if (_headers_vector[i].first == key) return true;
     }
     return false;
 }
@@ -81,6 +81,4 @@ std::string HttpResponse::_generate_content_type(void) const
 }
 
 bool HttpResponse::_is_error_response() const
-{
-    return _status_code > 400;
-}
+{ return _status_code >= 400; }

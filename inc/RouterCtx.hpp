@@ -11,18 +11,9 @@ struct RouterCtx {
     const location*     loc;
     std::string         final_root;  // according to the location section
     std::string         full_path;
-    std::string         error_page_path;
     bool is_cgi_potential;  // first check if cgi or not (but not enough, shoud double check in
                             // RequestHandler)
-    RouterCtx()
-        : server(NULL),
-          loc(NULL),
-          final_root(""),
-          full_path(""),
-          error_page_path(""),
-          is_cgi_potential(false)
-    {
-    }
+    RouterCtx() : server(NULL), loc(NULL), final_root(""), full_path(""), is_cgi_potential(false) {}
 };
 
 #endif
