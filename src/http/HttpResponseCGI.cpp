@@ -7,7 +7,6 @@ bool HttpResponse::build_cgi_response(const HttpRequest& request, const std::str
 {
     std::string header_part;
 
-    std::cerr << "CGI CHECKING"  << std::endl;
     if (!_split_cgi_header_body(cgi_output, header_part) ||  !_parse_cgi_headers(header_part)
         || !_validate_cgi_content_type() ||  !_validate_cgi_content_length()) 
     {
@@ -177,7 +176,6 @@ bool HttpResponse::_validate_cgi_content_length() const
 
     if (Utils::toString(this->_body_len) != val)
     {
-        std::cout << "body len: " << _body_len << " content length: " << val  << std::endl;
         std::cerr << "[CGI Parse Error] Invalid content length!" << std::endl;
         return false;
     }
