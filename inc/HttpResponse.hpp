@@ -92,6 +92,8 @@ class HttpResponse {
 
     bool _validate_cgi_content_type() const;
 
+    bool _validate_cgi_content_length() const;
+
     bool _is_error_response() const;
 
     int         _handle_directory(const HttpRequest& request, bool is_auto_index);
