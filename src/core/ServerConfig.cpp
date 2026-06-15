@@ -40,10 +40,42 @@ void    ServerConfig::set_listen_addrs(const std::string& listen_data)
         port = this->string_to_port(port_str);
         //TODO check the host syntaxe format!!
         host = listen_data.substr(0, colon_pos);
+        if (!check_host_format(host))
+            throw std::runtime_error("Invalid character in listen data: " + listen_data);
         if (host == "localhost")
             host = "127.0.0.1";
     }
     this->_listen_addrs.push_back(std::make_pair(host, port));
+}
+
+bool    ServerConfig::check_host_format(const std::string& host)const
+{
+    if (host == "localhost") return (true);
+
+    std::vector<std::string> host_vector;
+    std::string copy_host(host);
+
+    //TO DO!
+    while (!copy_host.empty())
+    {
+        std::size_t pos_dot = copy_host.find(".");
+        if (pos_dot != std::string::npos)
+        {
+            host_vector.push_back(copy_host.substr(0, pos_dot));
+            std::cout << "token : " << copy_host.substr(0, pos_dot) << std::endl;
+            copy_host = copy_host.substr(pos_dot + 1);
+            std::cout << "copy host: " << copy_host << std::endl;
+        }
+        else 
+        {
+            std::cout << " npos copy host: " << copy_host << std::endl;
+            host_vector.push_back(copy_host);
+            copy_host.clear(); 
+        }
+    }
+    std::cout << "host vector size = " << host_vector.size() << std::endl;
+    if (host_vector.size() != 4) return (false);
+    return (true);
 }
 
 const std::vector<location>& ServerConfig::get_locations(void)const
