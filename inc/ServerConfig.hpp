@@ -6,6 +6,11 @@
 #include <vector>
 #include <utility>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <cstring>
+
 #include "ConfigParser.hpp"
 #include "Utils.hpp"
 #include "Location.hpp"
@@ -78,6 +83,8 @@ class ServerConfig {
     void                                   _init_handlers();  // 在构造函数中调用，初始化映射表
 
     void set_listen_addrs(const std::string& port_str);
+    
+    bool validate_listen_fd(const std::string& host, const std::string& port)const;
 
     // 具体的指令处理器（小函数）
     void _handle_root(std::vector<Token>& tokens, size_t& pos, location* loc);

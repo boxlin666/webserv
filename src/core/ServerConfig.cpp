@@ -34,16 +34,32 @@ void    ServerConfig::set_listen_addrs(const std::string& listen_data)
     }
     else
     {
-        if (colon_pos + 1 == std::string::npos)
-            throw std::runtime_error("Invalid character in listen data: " + listen_data);
+        if (colon_pos + 1 == listen_data.size())
+            throw std::runtime_error("Missing port number in listen data: " + listen_data);
         std::string port_str = listen_data.substr(colon_pos + 1);
         port = this->string_to_port(port_str);
-        //TODO check the host syntaxe format!!
         host = listen_data.substr(0, colon_pos);
-        if (host == "localhost")
-            host = "127.0.0.1";
+
+        if (!validate_listen_fd(host, port_str)) return ;
     }
     this->_listen_addrs.push_back(std::make_pair(host, port));
+}
+
+bool    ServerConfig::validate_listen_fd(const std::string& host, const std::string& port_str)const
+{
+    struct addrinfo hints, *result = NULL;
+
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = 0;
+
+    int status = getaddrinfo(host.c_str(), port_str.c_str(), &hints, &result);
+    if (status != 0)
+        throw std::runtime_error("Invalid listen host '" + host + "': " + gai_strerror(status));
+    if (result != NULL)
+        freeaddrinfo(result);
+    return (true);
 }
 
 const std::vector<location>& ServerConfig::get_locations(void)const
