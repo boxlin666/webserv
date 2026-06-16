@@ -19,13 +19,18 @@ std::string Utils::formatHttpDate(time_t raw_time)
     return (std::string(buf));
 }
 
-void Utils::expect_semicolon(const std::vector<Token>& tokens, size_t& pos) {
+void Utils::expect_semicolon(const std::vector<Token>& tokens, size_t& pos) 
+{
+    const std::string& current_line = Utils::toString(tokens[pos].line);
+
     if (pos >= tokens.size()) {
-        throw std::runtime_error("Syntax error: Unexpected end of file, missing ';'");
+        throw std::runtime_error("Syntax error on line [" + current_line
+            + "Unexpected end of file, missing ';'");
     }
     
     if (tokens[pos].content != ";") {
-        throw std::runtime_error("Syntax error: expected ';' but found '" + tokens[pos].content + "'");
+        throw std::runtime_error("Syntax error on line [" + current_line 
+            + "] expected ';' but found '" + tokens[pos].content + "'");
     }
     
     pos++;
@@ -35,7 +40,7 @@ std::string Utils::generate_unique_id()
 {
     std::stringstream ss;
     ss << std::time(NULL); 
-    ss << "_" << std::clock(); 
+    ss << "_" << std::clock();
     ss << "_" << std::rand() << std::rand(); 
     return ss.str(); 
 }
