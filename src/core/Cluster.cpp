@@ -252,7 +252,8 @@ void Cluster::run()
         // 每隔 1 秒执行一次 CGI 的心跳检查，避免过于频繁
         time_t current_time = std::time(NULL);
         if (current_time - last_check_time >= 1) {
-            _manage_cgi_lifecycle(); // 🌟 我们把超时和收尸逻辑封装在这里
+            _check_timeouts(current_time);
+            _manage_cgi_lifecycle();  // 🌟 我们把超时和收尸逻辑封装在这里
             last_check_time = current_time;
         }
     }
@@ -296,6 +297,24 @@ void Cluster::_manage_cgi_lifecycle()
             ++it;
         }
         conn->checkCGI();
+    }
+}
+
+void Cluster::_check_timeouts(time_t now)
+{
+    std::map<int, Connection*>::iterator it;
+    
+    for (it = _connection_map.begin(); it != _connection_map.end(); ++it)
+    {
+        Connection* conn = it->second;
+        if (!conn->is_waiting_body())
+            continue;
+        if (now - conn->get_request_start_time() > REQUEST_TIMEOUT_LIMIT)
+        {
+            conn->set_request_keep_alive(false);
+            conn->buildErrorResponse(408);
+            this->update_client_events(conn->get_client_fd(), POLLOUT);
+        }
     }
 }
 
@@ -420,7 +439,7 @@ void Cluster::_dispatch_pollhup_event(size_t index)
         conn->finalize_cgi_success(fd);
         if (conn->get_state() == Connection::WRITING_RESP) {
             this->_cgi_fd_map.erase(fd);  // 释放映射
-            //conn->get_cgi_handler().reset();
+            // conn->get_cgi_handler().reset();
             conn->clean_up_cgi_handler();
             std::cout << "[Server] CGI Pipe POLLHUP handled and removed successfully." << std::endl;
         }

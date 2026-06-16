@@ -12,6 +12,8 @@
 #include "PassiveSocket.hpp"
 #include "ServerConfig.hpp"
 
+#define REQUEST_TIMEOUT_LIMIT 1000
+
 class Connection;
 
 class Cluster : public IClusterMediator {
@@ -46,6 +48,7 @@ class Cluster : public IClusterMediator {
     void        cleanup_inactive_fds();
     void        _handleSignalEvent();
     void        _manage_cgi_lifecycle();
+    void        _check_timeouts(time_t now);
 
     Cluster(const Cluster& other);
     Cluster& operator=(const Cluster& other);
