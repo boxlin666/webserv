@@ -1,6 +1,8 @@
 #ifndef CONNECTION_HPP
 #define CONNECTION_HPP
 
+#include <time.h>
+
 #include <string>
 
 #include "CGIHandler.hpp"
@@ -39,12 +41,16 @@ class Connection {
     void handle_cgi_read();
     void handle_cgi_write();
 
-    // TODO
-    void        clean_up_cgi_handler(void);
-    void        buildErrorResponse(int status_code);
-    void        checkCGI();
-    bool        isCGITimedOut();
-    void        finalize_cgi_success(int cgi_fd);
+    void clean_up_cgi_handler(void);
+    void buildErrorResponse(int status_code);
+    void checkCGI();
+    bool isCGITimedOut();
+    void finalize_cgi_success(int cgi_fd);
+
+    void   on_data_received();
+    bool   is_waiting_body() const;
+    time_t get_request_start_time() const;
+    void   set_request_keep_alive(bool is_keep_alive);
 
    private:
     int                              _client_fd;
@@ -65,6 +71,8 @@ class Connection {
     int _status_code;
 
     State _state;
+
+    time_t _request_start_time;
 
     bool check_parse_finished();
     bool set_matched_server();

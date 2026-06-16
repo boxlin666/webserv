@@ -21,6 +21,7 @@ void    HttpResponse::_init_status_msg_map(void)
     HttpResponse::_status_msg_map[FORBIDDEN] = "Forbidden"; 
     HttpResponse::_status_msg_map[NOT_FOUND] = "Not Found";
     HttpResponse::_status_msg_map[METHOD_NOT_ALLOWED] = "Method Not Allowed";
+    HttpResponse::_status_msg_map[REQUEST_TIMEOUT] = "Request Timeout";
     HttpResponse::_status_msg_map[NO_LENGTH] = "Length Required";
     HttpResponse::_status_msg_map[BODY_TOO_LARGE] = "Content Too Large";
     HttpResponse::_status_msg_map[URI_TOO_LONG] = "URI Too Long";

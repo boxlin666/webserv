@@ -71,15 +71,12 @@ void Connection::process_existing_in_buff()
 
     // 3. 这里的关键：检查是否真的“请求完成”
     // 不要只依赖 _status_code，必须检查数据完整性
-    if (this->check_parse_finished()) 
-    {
+    if (this->check_parse_finished()) {
         std::cout << "[Debug] Request is fully complete, body size: "
                   << _request.get_body().length() << std::endl;
         this->_request.parse_multipart_body();
         this->handle_request_dispatch();  // 只有这时才处理
-    } 
-    else
-    {
+    } else {
         // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
         std::cout << "[Debug] Waiting for more body data..." << std::endl;
     }
@@ -388,3 +385,22 @@ bool Connection::isCGITimedOut()
 
 void Connection::clean_up_cgi_handler(void)
 { _cgi_handler.reset(); }
+
+void Connection::on_data_received()
+{
+    if (_request_start_time == 0) _request_start_time = time(NULL);
+}
+
+bool Connection::is_waiting_body() const {
+    return this->_request.get_state() != HttpRequest::PARSE_FINISHED && _status_code == SUCCESS;
+}
+
+time_t Connection::get_request_start_time() const
+{
+    return _request_start_time;
+}
+
+void Connection::set_request_keep_alive(bool is_keep_alive)
+{
+    _request.set_is_keep_alive(is_keep_alive);
+}

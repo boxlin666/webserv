@@ -40,17 +40,16 @@ class HttpRequest {
     HttpRequest(void);
     ~HttpRequest(void);
 
-    const std::string& get_method() const;
-    const std::string& get_path() const;
-    const std::string& get_querystring() const;
-    const std::string& get_version() const;
-    const std::string& get_body() const;
-    const std::string& get_header(const std::string& key) const;  // 方便查找特定头
-    std::size_t        get_content_length() const;
-    std::size_t        get_body_len() const;
-    bool               get_is_keep_alive() const;
-    bool               get_is_chunked() const;
-
+    const std::string&       get_method() const;
+    const std::string&       get_path() const;
+    const std::string&       get_querystring() const;
+    const std::string&       get_version() const;
+    const std::string&       get_body() const;
+    const std::string&       get_header(const std::string& key) const;  // 方便查找特定头
+    std::size_t              get_content_length() const;
+    std::size_t              get_body_len() const;
+    bool                     get_is_keep_alive() const;
+    bool                     get_is_chunked() const;
     static const std::string empty_string;
 
     // tempo add for compilation with response
@@ -94,15 +93,15 @@ class HttpRequest {
 
     void set_is_keep_alive(bool is_keep_alive)
     { _is_keep_alive = is_keep_alive; }
-    
+
     bool is_header_parsed() const
     {
         // 只要状态大于 PARSE_HEADER，说明 Request Line 和 Header 都已经处理完了
         return _state > PARSE_HEADER;
     }
 
-    int parse_multipart_body(void);
-    const std::string& get_multipart_filename(void)const;
+    int                parse_multipart_body(void);
+    const std::string& get_multipart_filename(void) const;
 
    private:
     // request line 部分
@@ -121,9 +120,9 @@ class HttpRequest {
 
     // 记录当前状态
     e_request_state _state;
-    e_chunk_state _chunk_state;
-    std::size_t              _content_length;
-    std::size_t              _chunk_size;    // 用于处理 chunked 传输
+    e_chunk_state   _chunk_state;
+    std::size_t     _content_length;
+    std::size_t     _chunk_size;  // 用于处理 chunked 传输
     std::string     _boundary_value;
     std::string     _multipart_filename;
     bool            _is_chunked;

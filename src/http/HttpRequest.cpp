@@ -8,7 +8,7 @@ const std::string HttpRequest::empty_string = "";
 void HttpRequest::reset() {
     _method.clear();
     _path.clear();
-    _http_version.clear();
+    _http_version = "HTTP/1.1";
     _body.clear();
     _header_map.clear();
     _content_type_vector.clear();
