@@ -33,12 +33,12 @@ void PassiveSocket::_set_options()
 
 void PassiveSocket::_bind_and_listen()
 {
-    struct addrinfo hints, *result;
+    struct addrinfo hints, *result = NULL;
 
     std::memset(&hints, 0, sizeof(hints));
     hints.ai_family   = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags    = AI_PASSIVE;
+    hints.ai_flags    = 0;
 
     std::string port_str = Utils::toString(this->_port);
 
@@ -50,7 +50,8 @@ void PassiveSocket::_bind_and_listen()
         throw std::runtime_error("bind failed on port " + port_str);
     }
 
-    freeaddrinfo(result);
+    if (result != NULL)
+        freeaddrinfo(result);
 
     if (listen(this->_fd, 128) < 0) throw std::runtime_error("listen failed");
 }

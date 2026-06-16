@@ -35,6 +35,7 @@ class Utils
         static void toUpper(std::string &input);
 
         static void to_lowercase(std::string &str) ;
+
 };
 
 void debug_msg_print(const std::string& variable, const std::string& content, 
