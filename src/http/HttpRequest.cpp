@@ -341,6 +341,9 @@ int HttpRequest::parse(std::string& input_data)
             break;
         }
     }
+
+    if (ret == BAD_REQUEST) this->_is_keep_alive = false;
+
     return (ret);
 }
 
