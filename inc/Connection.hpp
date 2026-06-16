@@ -51,6 +51,7 @@ class Connection {
     bool   is_waiting_body() const;
     time_t get_request_start_time() const;
     void   set_request_keep_alive(bool is_keep_alive);
+    bool   get_request_keep_alive() const;
 
    private:
     int                              _client_fd;

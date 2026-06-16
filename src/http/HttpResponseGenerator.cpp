@@ -26,11 +26,13 @@ void HttpResponse::_build_headers_map(const HttpRequest& request)
     this->_add_header_vector("Date", this->_generate_date());
 
     if (this->_status_code != DELETED) {
-        if (!_has_header("Content-Type")) {
-            if (this->_is_error_response() || !this->_body.empty())
-                this->_add_header_vector("Content-Type", "text/html; charset=utf-8");
-            else
-                this->_add_header_vector("Content-Type", this->_generate_content_type());
+        if (!this->_body.empty()) {
+            if (!_has_header("Content-Type")) {
+                if (this->_is_error_response())
+                    this->_add_header_vector("Content-Type", "text/html; charset=utf-8");
+                else
+                    this->_add_header_vector("Content-Type", this->_generate_content_type());
+            }
         }
         this->_add_header_vector("Content-Length", Utils::toString(this->_body_len));
     }

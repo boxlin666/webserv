@@ -268,7 +268,8 @@ void Connection::buildErrorResponse(int status_code)
     if (_route_ctx.server != NULL)
         error_page_path = Router::get_error_page_path(_route_ctx, _matched_server, status_code);
     this->_out_buff = _response.build_error_response(status_code, error_page_path, _request);
-    this->_state    = Connection::WRITING_RESP;
+    if (!this->_request.get_is_keep_alive()) { this->_in_buff.clear(); }
+    this->_state = Connection::WRITING_RESP;
 }
 
 void Connection::prepare_static_response()
@@ -391,16 +392,14 @@ void Connection::on_data_received()
     if (_request_start_time == 0) _request_start_time = time(NULL);
 }
 
-bool Connection::is_waiting_body() const {
-    return this->_request.get_state() != HttpRequest::PARSE_FINISHED && _status_code == SUCCESS;
-}
+bool Connection::is_waiting_body() const
+{ return this->_request.get_state() != HttpRequest::PARSE_FINISHED && _status_code == SUCCESS; }
 
 time_t Connection::get_request_start_time() const
-{
-    return _request_start_time;
-}
+{ return _request_start_time; }
 
 void Connection::set_request_keep_alive(bool is_keep_alive)
-{
-    _request.set_is_keep_alive(is_keep_alive);
-}
+{ _request.set_is_keep_alive(is_keep_alive); }
+
+bool Connection::get_request_keep_alive() const
+{ return _request.get_is_keep_alive();}

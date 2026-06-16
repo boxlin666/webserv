@@ -12,7 +12,7 @@
 #include "PassiveSocket.hpp"
 #include "ServerConfig.hpp"
 
-#define REQUEST_TIMEOUT_LIMIT 1000
+#define REQUEST_TIMEOUT_LIMIT 10000
 
 class Connection;
 

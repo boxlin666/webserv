@@ -192,8 +192,13 @@ bool Cluster::handle_client_write_event(size_t poll_idx)
 
     short poll_event = conn.get_poll_events();
 
+    if (!conn.get_request_keep_alive()) {
+        close_connection(poll_idx);
+        return true;
+    }
     if (!conn.get_out_buff().empty()) { poll_event |= POLLOUT; }
 
+    
     if (conn.get_state() == Connection::CLOSED) { return (false); }
     _poll_fds[poll_idx].events = poll_event;
     return true;
@@ -303,17 +308,20 @@ void Cluster::_manage_cgi_lifecycle()
 void Cluster::_check_timeouts(time_t now)
 {
     std::map<int, Connection*>::iterator it;
-    
-    for (it = _connection_map.begin(); it != _connection_map.end(); ++it)
-    {
+
+    for (it = _connection_map.begin(); it != _connection_map.end(); ++it) {
         Connection* conn = it->second;
-        if (!conn->is_waiting_body())
-            continue;
-        if (now - conn->get_request_start_time() > REQUEST_TIMEOUT_LIMIT)
-        {
+        if (!conn->is_waiting_body()) continue;
+        if (now - conn->get_request_start_time() > REQUEST_TIMEOUT_LIMIT) {
             conn->set_request_keep_alive(false);
             conn->buildErrorResponse(408);
             this->update_client_events(conn->get_client_fd(), POLLOUT);
+            for (size_t i = 0; i < _poll_fds.size(); i++) {
+                if (_poll_fds[i].fd == conn->get_client_fd()) {
+                    close_connection(i);
+                    return;
+                }
+            }
         }
     }
 }
