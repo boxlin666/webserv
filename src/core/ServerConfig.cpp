@@ -156,22 +156,21 @@ void ServerConfig::_handle_server_name(std::vector<Token>& tokens, size_t& pos, 
         throw std::runtime_error(
             "Syntax error: 'server_name' directive is not allowed in location block");
     }
+    
+    current_line = tokens[pos].line;
 
     if (pos + 1 >= tokens.size() || tokens[pos + 1].content == ";") {
         throw std::runtime_error("Syntax error: Missing value for 'server_name'");
     }
 
-    current_line = tokens[pos + 1].line;
-
     // 循环读取多个域名 (如 server_name a.com b.com;)
     while (++pos < tokens.size() && tokens[pos].content != ";" && tokens[pos].line == current_line) {
         this->_server_names.push_back(tokens[pos].content);
+        std::cout << "tokens content = " << tokens[pos].content << std::endl;
     }
 
-    //和expect_semocolon 逻辑上有点重复 暂时备注了 有需要再去掉备注
-    /*if (pos >= tokens.size()) {
-        throw std::runtime_error("Syntax error: Missing ';' after server_name");
-    }*/
+    if (this->_server_names.size() == 0)
+        throw std::runtime_error("Syntax error: Missing server_name value after server_name directive");
     Utils::expect_semicolon(tokens, pos);
 }
 
@@ -183,7 +182,7 @@ void ServerConfig::_handle_index(std::vector<Token>& tokens, size_t& pos, locati
         throw std::runtime_error("Syntax error: Missing value for 'index'");
     }
 
-    current_line  = tokens[pos + 1].line;
+    current_line  = tokens[pos].line;
 
     while (++pos < tokens.size() && tokens[pos].content != ";" && tokens[pos].line == current_line) {
         if (loc == NULL) {
@@ -267,7 +266,7 @@ void ServerConfig::_handle_methods(std::vector<Token>& tokens, size_t& pos, loca
         throw std::runtime_error("Syntax error: Missing value for 'methods'");
     }
 
-    current_line = tokens[pos + 1].line;
+    current_line = tokens[pos].line;
 
     while (++pos < tokens.size() && tokens[pos].content != ";" && tokens[pos].line == current_line) {
         if (loc == NULL) {
