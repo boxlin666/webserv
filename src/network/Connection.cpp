@@ -54,6 +54,8 @@ void Connection::handle_read_event(void)
         // 1. 数据必须累积到 Connection 的 _in_buff
         _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
 
+        _back_up_in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
+
         this->process_existing_in_buff();
     }
 }
@@ -74,6 +76,7 @@ void Connection::process_existing_in_buff()
     if (this->check_parse_finished()) {
         std::cout << "[Debug] Request is fully complete, body size: "
                   << _request.get_body().length() << std::endl;
+        //debug_msg_print("REQUEST_MSG", _back_up_in_buff, "\033[31m", 400);
         this->_request.parse_multipart_body();
         this->handle_request_dispatch();  // 只有这时才处理
     } else {
@@ -168,6 +171,9 @@ void Connection::handle_write_event(void)
         // std::cout << "_out_buff = " << _out_buff << std::endl;
         this->_out_buff.erase(0, bytes_send);
     }
+
+    if (!this->_in_buff.empty() && this->_status_code == BAD_REQUEST)
+        this->_in_buff.clear();
 
     if (this->_out_buff.empty()) {
         // 🌟 增加判定：如果响应报文里包含了 "Connection: close"，或者请求本身就不支持长连接
