@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <cstring>
+#include <unistd.h>
 
 #include "ConfigParser.hpp"
 #include "Utils.hpp"
