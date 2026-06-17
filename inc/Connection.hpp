@@ -47,7 +47,7 @@ class Connection {
     bool isCGITimedOut();
     void finalize_cgi_success(int cgi_fd);
 
-    bool   is_waiting_body() const;
+    bool   is_waiting_request_msg() const;
     time_t get_last_recv_time() const;
 
     void   set_request_keep_alive(bool is_keep_alive);

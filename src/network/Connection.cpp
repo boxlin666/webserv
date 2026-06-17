@@ -55,6 +55,8 @@ void Connection::handle_read_event(void)
     }
     else 
     {
+        if (_state == WAITING) this->set_state(READING_REQ);
+
         _update_last_recv_time();
    
         // 1. 数据必须累积到 Connection 的 _in_buff
@@ -178,7 +180,7 @@ void Connection::handle_write_event(void)
         this->_out_buff.erase(0, bytes_send);
     }
 
-    if (!this->_in_buff.empty() && this->_status_code == BAD_REQUEST)
+    if (!this->_in_buff.empty() && (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT))
         this->_in_buff.clear();
 
     if (this->_out_buff.empty()) {
@@ -191,15 +193,19 @@ void Connection::handle_write_event(void)
         } else {
             this->_request.reset();
             this->_response.reset();
-            this->_state = WAITING;
-
+            
             if (!this->_in_buff.empty()) {
                 std::cout << "[Pipeline] Remaining data detected in _in_buff ("
                           << this->_in_buff.size() << " bytes). Driving next request inline."
                           << std::endl;
+                this->_state = READING_REQ;
                 this->process_existing_in_buff();
-            } else
+            } 
+            else
+            {
+                this->_state = WAITING;
                 std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
+            }
         }
     }
 }
@@ -406,11 +412,9 @@ void Connection::_update_last_recv_time()
    _last_recv_time = time(NULL);
 }
 
-bool Connection::is_waiting_body() const 
+bool Connection::is_waiting_request_msg() const 
 {
-    if (this->_request.get_state() == HttpRequest::PARSE_BODY && _status_code == SUCCESS)
-        return (true);
-    else if (this->_request.get_state() == HttpRequest::PARSE_CHUNKED && _status_code == SUCCESS)
+    if (_state == READING_REQ &&  this->_request.get_state() < HttpRequest::PARSE_FINISHED && _status_code == SUCCESS)
         return (true);
     return (false);
 }
