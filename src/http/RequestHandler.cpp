@@ -69,7 +69,7 @@ int RequestHandler::cgi_resource_validator(const RouterCtx& route_ctx)
 
     // 3. 只要执行程序在，哪怕 youpla.bla 本身不存在，我们也返回 SUCCESS
     // 这样接下来的 execute_cgi_pipeline 就会被触发
-    if (access(cgi_executable.c_str(), X_OK) == 0 && access(this->_full_path.c_str(), R_OK) == 0)
+    if (access(cgi_executable.c_str(), X_OK) == 0)
         return (SUCCESS);
 
     return (FORBIDDEN);
