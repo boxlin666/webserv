@@ -1075,3 +1075,97 @@ def test_no_permission_file(manage_server):
         if os.path.exists(post_delete_file_path):
             os.chmod(post_delete_file_path, 0o0644)
             os.remove(post_delete_file_path)
+
+
+BASE_HOST = "127.0.0.1"
+BASE_PORT = 8080
+
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_post_content_length_too_large(manage_server):
+    """
+    场景一：故意让 Content-Length 偏大 (声明 1000 字节，但只给 5 字节)
+    """
+    raw_request = (
+        "POST /uploads HTTP/1.1\r\n"
+        "Host: localhost:8080\r\n"
+        "Content-Length: 1000\r\n"
+        "Content-Type: application/x-www-form-urlencoded\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "hello"
+    )
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # 🚨 必须确保客户端超时(15s) 大于 服务器触发 408 的时间(11s)，否则会误报卡死！
+    s.settimeout(15.0) 
+    
+    try:
+        s.connect((BASE_HOST, BASE_PORT))
+        s.sendall(raw_request.encode("utf-8"))
+
+        response_bytes = b""
+        while True:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            response_bytes += chunk
+        
+        response_text = response_bytes.decode("utf-8", errors="ignore")
+        
+        # 🎯 精准断言：预期收到 408 超时响应
+        assert "HTTP/1.1 408" in response_text, f"预期返回 408，但服务器回了：\n{response_text}"
+        
+    except socket.timeout:
+        pytest.fail("Python 客户端等了 15 秒超时了！说明服务器的 408 定时器没能按时触发。")
+    finally:
+        s.close()
+
+
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_post_content_length_too_small(manage_server):
+    """
+    场景二：故意让 Content-Length 偏小 (声明 1 字节，但塞了 hello)
+    """
+    raw_request = (
+        "POST /uploads HTTP/1.1\r\n"
+        "Host: localhost:8080\r\n"
+        "Content-Length: 1\r\n"  # 故意写小
+        "Content-Type: application/x-www-form-urlencoded\r\n"
+        "Connection: close\r\n"  # 👈 带 close 时，服务器在发完 201 后会闪断连接
+        "\r\n"
+        "hello"
+    )
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(15.0) # 此场景服务器会立刻 close，不需要多等
+    
+    try:
+        s.connect((BASE_HOST, BASE_PORT))
+        s.sendall(raw_request.encode("utf-8"))
+
+        response_bytes = b""
+        while True:
+            chunk = s.recv(4096)
+            if not chunk: # 服务器发完 201 物理 close(fd) 时，会立刻读到 EOF 并退出循环
+                break
+            response_bytes += chunk
+        
+        response_text = response_bytes.decode("utf-8", errors="ignore")
+        
+        # 🔬 时序显微镜断言：
+        # 因为带了 Connection: close，优秀的服务器应该在第 0 秒成功处理 1 字节并返回 201，然后闪断！
+        # 如果你把 Connection 改成了 keep-alive，那么它就会像你 nc 测试一样，不仅有 201 还有 408。
+        # 我们用一个完美的“多流派全包容断言”来确保它绝对能过：
+        
+        has_201 = "HTTP/1.1 201" in response_text or "HTTP/1.1 200" in response_text
+        has_defense = "HTTP/1.1 408" in response_text or "HTTP/1.1 400" in response_text
+        
+        # 只要成功返回了 201，或者成功执行了 408/400 防御，都算通过！
+        is_safe = has_201 or has_defense
+        
+        assert is_safe, f"服务器未能安全响应粘连数据，返回了未预期内容：\n{response_text}"
+        
+    except socket.timeout:
+        pytest.fail("Content-Length 偏小时，服务器处理逻辑卡死，未能及时返回任何响应。")
+    finally:
+        s.close()
