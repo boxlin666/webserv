@@ -306,7 +306,7 @@ void Cluster::_check_timeouts(time_t now)
     
     for (it = _connection_map.begin(); it != _connection_map.end(); ++it)
     {
-        Connection* conn = it->second;
+        Connection* conn = it->second; 
         if (!conn->is_waiting_body())
             continue;
         if (now - conn->get_last_recv_time() > REQUEST_TIMEOUT_LIMIT && conn->get_last_recv_time() != 0)
