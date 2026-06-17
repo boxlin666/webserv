@@ -21,9 +21,9 @@ Connection::Connection(int client_fd, PassiveSocket* matched_socket,
       _req_handler(),
       _response(),
       _status_code(200),
-      _state(WAITING),
-      _last_recv_time(0)
+      _state(WAITING)
 {
+    _update_last_recv_time();
 }
 
 Connection::~Connection(void) {}
@@ -41,18 +41,22 @@ void Connection::handle_read_event(void)
     char    buffer[4096];
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+    if (bytes_read < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)  return;
+     
         this->set_state(CLOSED);
         return;
-    } else if (bytes_read == 0) {
+    } 
+    else if (bytes_read == 0) 
+    {
         this->set_state(CLOSED);
         return;
-    } else {
+    }
+    else 
+    {
         _update_last_recv_time();
-        buffer[bytes_read] = '\0';
-        std::string tmp_buff(buffer);
-
+   
         // 1. 数据必须累积到 Connection 的 _in_buff
         _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
 
@@ -72,18 +76,18 @@ void Connection::process_existing_in_buff()
         this->handle_request_dispatch();
         return;
     }
+    debug_msg_print("REQUEST_MSG", _back_up_in_buff, "\033[31m", 400);
 
     // 3. 这里的关键：检查是否真的“请求完成”
     // 不要只依赖 _status_code，必须检查数据完整性
     if (this->check_parse_finished()) {
         std::cout << "[Debug] Request is fully complete, body size: "
                   << _request.get_body().length() << std::endl;
-        //debug_msg_print("REQUEST_MSG", _back_up_in_buff, "\033[31m", 400);
         this->_request.parse_multipart_body();
         this->handle_request_dispatch();  // 只有这时才处理
     } else {
         // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
-        std::cout << "[Debug] Waiting for more body data..." << std::endl;
+        //std::cout << "[Debug] Waiting for more body data..." << std::endl;
     }
 }
 
