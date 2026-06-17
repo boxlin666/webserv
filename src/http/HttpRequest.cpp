@@ -124,15 +124,22 @@ int HttpRequest::parse_request_header(std::string& line)
     else
         value = "";
     Utils::to_lowercase(key);
+
+    if (_header_map.count("content-length") > 0 && key == "content-length") return (BAD_REQUEST);
+
     _header_map[key] = value;
     if (key == "content-length")
     {
+        std::string cl_str= _header_map["content-length"].c_str();
+
+        if (cl_str.empty() || cl_str[0] == '-' || !Utils::is_digit_str(cl_str)) return (BAD_REQUEST);
+
         _content_length = strtoul(_header_map["content-length"].c_str(), NULL, 10);
-        if (this->_content_length > GLOBAL_MAX_ALLOWED)
-        {
-            //std::cout << "==============REQUEST PARSER ISSUE!!!=================" << std::endl;
-            return (BODY_TOO_LARGE);
-        }
+        
+        if (errno == ERANGE && this->_content_length == ULLONG_MAX) return (BAD_REQUEST);
+
+        if (this->_content_length > GLOBAL_MAX_ALLOWED) return (BODY_TOO_LARGE);
+        
     }
     else if (key == "connection")
     {

@@ -69,3 +69,15 @@ static int char_to_lower(int c) {
 void Utils::to_lowercase(std::string &str) {
     std::transform(str.begin(), str.end(), str.begin(), char_to_lower);
 }
+
+bool Utils::is_digit_str(const std::string& str)
+{
+    if (str.empty()) return (false);
+
+    for (std::size_t i = 0; i < str.size(); ++i) 
+    {
+        if (!std::isdigit(static_cast<unsigned char>(str[i]))) 
+            return (false); 
+    }
+    return (true);
+}

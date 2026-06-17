@@ -36,6 +36,7 @@ class Utils
 
         static void to_lowercase(std::string &str) ;
 
+        static bool is_digit_str(const std::string& str) ;
 };
 
 void debug_msg_print(const std::string& variable, const std::string& content, 
