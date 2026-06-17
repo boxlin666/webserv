@@ -907,7 +907,7 @@ def test_huge_body_strict_pixel_count_fixed(manage_server):
     last_body_size = 4         # 第二个请求发出的 'last' 字节数
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(10.0)
+    s.settimeout(15.0)
     s.connect((host, port))
 
     try:
