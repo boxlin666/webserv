@@ -47,9 +47,9 @@ class Connection {
     bool isCGITimedOut();
     void finalize_cgi_success(int cgi_fd);
 
-    void   on_data_received();
     bool   is_waiting_body() const;
-    time_t get_request_start_time() const;
+    time_t get_last_recv_time() const;
+
     void   set_request_keep_alive(bool is_keep_alive);
 
    private:
@@ -72,7 +72,7 @@ class Connection {
 
     State _state;
 
-    time_t _request_start_time;
+    time_t _last_recv_time;
 
     bool check_parse_finished();
     bool set_matched_server();
@@ -80,6 +80,8 @@ class Connection {
     void prepare_static_response();
     void handle_request_dispatch();
     void execute_cgi_pipeline();
+
+    void   _update_last_recv_time();
 
     Connection(const Connection& other);
     Connection& operator=(const Connection& other);

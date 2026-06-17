@@ -21,7 +21,8 @@ Connection::Connection(int client_fd, PassiveSocket* matched_socket,
       _req_handler(),
       _response(),
       _status_code(200),
-      _state(WAITING)
+      _state(WAITING),
+      _last_recv_time(0)
 {
 }
 
@@ -48,6 +49,7 @@ void Connection::handle_read_event(void)
         this->set_state(CLOSED);
         return;
     } else {
+        _update_last_recv_time();
         buffer[bytes_read] = '\0';
         std::string tmp_buff(buffer);
 
@@ -392,18 +394,19 @@ bool Connection::isCGITimedOut()
 void Connection::clean_up_cgi_handler(void)
 { _cgi_handler.reset(); }
 
-void Connection::on_data_received()
+void Connection::_update_last_recv_time()
 {
-    if (_request_start_time == 0) _request_start_time = time(NULL);
+    _last_recv_time = time(NULL);
 }
 
-bool Connection::is_waiting_body() const {
+bool Connection::is_waiting_body() const 
+{
     return this->_request.get_state() != HttpRequest::PARSE_FINISHED && _status_code == SUCCESS;
 }
 
-time_t Connection::get_request_start_time() const
+time_t Connection::get_last_recv_time() const
 {
-    return _request_start_time;
+    return _last_recv_time;
 }
 
 void Connection::set_request_keep_alive(bool is_keep_alive)

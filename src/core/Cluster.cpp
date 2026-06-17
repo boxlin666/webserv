@@ -252,7 +252,7 @@ void Cluster::run()
         // 每隔 1 秒执行一次 CGI 的心跳检查，避免过于频繁
         time_t current_time = std::time(NULL);
         if (current_time - last_check_time >= 1) {
-            //_check_timeouts(current_time);
+            _check_timeouts(current_time);
             _manage_cgi_lifecycle();  // 🌟 我们把超时和收尸逻辑封装在这里
             last_check_time = current_time;
         }
@@ -309,7 +309,7 @@ void Cluster::_check_timeouts(time_t now)
         Connection* conn = it->second;
         if (!conn->is_waiting_body())
             continue;
-        if (now - conn->get_request_start_time() > REQUEST_TIMEOUT_LIMIT)
+        if (now - conn->get_last_recv_time() > REQUEST_TIMEOUT_LIMIT)
         {
             conn->set_request_keep_alive(false);
             conn->buildErrorResponse(408);
