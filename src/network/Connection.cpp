@@ -76,13 +76,13 @@ void Connection::process_existing_in_buff()
         this->handle_request_dispatch();
         return;
     }
-    debug_msg_print("REQUEST_MSG", _back_up_in_buff, "\033[31m", 400);
 
     // 3. 这里的关键：检查是否真的“请求完成”
     // 不要只依赖 _status_code，必须检查数据完整性
     if (this->check_parse_finished()) {
         std::cout << "[Debug] Request is fully complete, body size: "
                   << _request.get_body().length() << std::endl;
+        debug_msg_print("REQUEST_MSG", _back_up_in_buff, "\033[31m", 400);
         this->_request.parse_multipart_body();
         this->handle_request_dispatch();  // 只有这时才处理
     } else {
