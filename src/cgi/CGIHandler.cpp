@@ -287,7 +287,10 @@ void CGIHandler::updateTime()
 bool CGIHandler::isTimeout()
 {
     // 只有在执行状态才需要判断超时
-    if (_state != CGI_EXECUTING || _pid <= 0) { return false; }
+    if (_state != CGI_EXECUTING || _pid <= 0)  return false; 
+
+    //if we have not updated since the constructeur CGIHandler called!
+    if (_last_activity_time == 0) return false;
 
     if ((std::time(NULL) - _last_activity_time) > CGI_TIMEOUT_SEC) {
         std::cerr << "[CGI Timeout] Process " << _pid << " is taking too long. Killing it."

@@ -309,7 +309,7 @@ void Cluster::_check_timeouts(time_t now)
         Connection* conn = it->second;
         if (!conn->is_waiting_body())
             continue;
-        if (now - conn->get_last_recv_time() > REQUEST_TIMEOUT_LIMIT)
+        if (now - conn->get_last_recv_time() > REQUEST_TIMEOUT_LIMIT && conn->get_last_recv_time() != 0)
         {
             conn->set_request_keep_alive(false);
             conn->buildErrorResponse(408);
