@@ -163,15 +163,37 @@ void ServerConfig::_handle_server_name(std::vector<Token>& tokens, size_t& pos, 
         throw std::runtime_error("Syntax error: Missing value for 'server_name'");
     }
 
-    // 循环读取多个域名 (如 server_name a.com b.com;)
-    while (++pos < tokens.size() && tokens[pos].content != ";" && tokens[pos].line == current_line) {
+    // iterate to read multiple server name (ex server_name a.com b.com;)
+    while (++pos < tokens.size() && tokens[pos].content != ";" && tokens[pos].line == current_line) 
+    {
+	if (!_is_valid_server_name(tokens[pos].content))
+		throw std::runtime_error("Syntax error: server name value '" + tokens[pos].content + "' is invalid");
         this->_server_names.push_back(tokens[pos].content);
-        std::cout << "tokens content = " << tokens[pos].content << std::endl;
     }
 
     if (this->_server_names.size() == 0)
         throw std::runtime_error("Syntax error: Missing server_name value after server_name directive");
     Utils::expect_semicolon(tokens, pos);
+}
+
+bool ServerConfig::_is_valid_server_name(const std::string& server_name) const 
+{
+	if (server_name.empty())
+		return (false);
+
+	for (std::size_t i = 0; i < server_name.length(); ++i) 
+	{
+		char c = server_name[i];
+		if (std::iscntrl(c) || c <= 32 || c == 127)
+	    		return (false);
+	
+		if (c == '/' || c == '?' || c == '#') 
+	    		return (false);
+	
+		if (c == '\\' || c == '*' || c == '^' || c == '`') 
+	    		return (false);
+	}
+	return (true);
 }
 
 void ServerConfig::_handle_index(std::vector<Token>& tokens, size_t& pos, location* loc)
