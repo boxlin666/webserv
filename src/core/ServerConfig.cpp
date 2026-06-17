@@ -103,6 +103,16 @@ void ServerConfig::_handle_root(std::vector<Token>& tokens, size_t& pos, locatio
 
     std::string path = tokens[pos].content;
 
+    struct stat info;
+    if (stat(path.c_str(), &info) != 0)
+           throw std::runtime_error("Configuration error: 'root' path \"" + path + "\" does not exist!");
+    else if (!S_ISDIR(info.st_mode))
+            throw std::runtime_error("Configuration error: 'root' path \"" + path + "\" is a file, but a directory is required!");
+
+    if (access(path.c_str(), R_OK | X_OK) != 0) 
+        throw std::runtime_error("Configuration error: 'root' path \"" + path +
+            "\" exists, but server process has NO permission to access it (Permission denied)!");
+    
     if (loc == NULL) {
         // 当前在解析 server 块，存给 ServerConfig 自己的成员变量
         this->_root = path;
@@ -333,10 +343,27 @@ void ServerConfig::_handle_upload_path(std::vector<Token>& tokens, size_t& pos, 
         throw std::runtime_error("Syntax error: Missing value for 'upload_path'");
     }
 
-    if (loc == NULL) {
+    std::string path = tokens[pos].content;
+
+    struct stat info;
+    if (stat(path.c_str(), &info) != 0)
+           throw std::runtime_error("Configuration error: 'upload_path' \"" + path + "\" does not exist!");
+    else if (!S_ISDIR(info.st_mode))
+            throw std::runtime_error("Configuration error: 'upload_path' \"" + path + "\" is a file, but a directory is required!");
+
+    if (access(path.c_str(), R_OK | W_OK | X_OK) != 0) 
+        throw std::runtime_error("Configuration error: 'upload_path' \"" + path +
+            "\" exists, but server process has NO permission to access it (Permission denied)!");
+
+
+    if (loc == NULL) 
+    {
         this->_upload_path = tokens[pos].content;
-    } else {
+    } 
+    else 
+    {
         loc->upload_path = tokens[pos].content;
+        loc->root = tokens[pos].content;
     }
 
     Utils::expect_semicolon(tokens, ++pos);
@@ -347,6 +374,18 @@ void ServerConfig::_handle_cgi_path(std::vector<Token>& tokens, size_t& pos, loc
     if (++pos >= tokens.size() || tokens[pos].content == ";") {
         throw std::runtime_error("Syntax error: Missing value for 'cgi_path'");
     }
+
+    std::string path = tokens[pos].content;
+
+    struct stat info;
+    if (stat(path.c_str(), &info) != 0)
+        throw std::runtime_error("Configuration error: 'cgi_path' \"" + path + "\" does not exist!");
+    else if (!S_ISREG(info.st_mode)) 
+           throw std::runtime_error("Configuration error: 'cgi_path' \"" + path + "\" is a directory, but an executable file is required!");
+      
+    if (access(path.c_str(), X_OK) != 0)
+        throw std::runtime_error("Configuration error: 'cgi_path' \"" + path +
+            "\" exists, but server process has NO executable permission (X_OK Denied)!"); 
 
     if (loc == NULL) {
         this->_cgi_path = tokens[pos].content;
