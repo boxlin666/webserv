@@ -87,7 +87,7 @@ void Connection::process_existing_in_buff()
         this->handle_request_dispatch();  // 只有这时才处理
     } else {
         // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
-        //std::cout << "[Debug] Waiting for more body data..." << std::endl;
+        std::cout << "[Debug] Waiting for more body data..." << std::endl;
     }
 }
 
@@ -99,7 +99,7 @@ void Connection::handle_request_dispatch()
     try {
         this->set_matched_server();
         this->process_router_match();
-
+        
         if (_status_code == SUCCESS) {
             this->_req_handler.process_request_handler(this->_request, this->_route_ctx,
                                                        _status_code);
@@ -215,6 +215,9 @@ bool Connection::check_parse_finished()
     if (this->_request.get_method() == "POST" && !this->_request.get_is_chunked()) {
         size_t expected_len = this->_request.get_content_length();
         size_t actual_len   = this->_request.get_body().length();
+
+        std::cout << "expected_len = " << expected_len << std::endl;
+        std::cout << "actual_len = " << actual_len << std::endl;
 
         // 如果期望长度大于已读长度，说明数据还在路上，或者解析器过早进入了 FINISHED
         if (actual_len < expected_len) {
@@ -400,12 +403,16 @@ void Connection::clean_up_cgi_handler(void)
 
 void Connection::_update_last_recv_time()
 {
-    _last_recv_time = time(NULL);
+   _last_recv_time = time(NULL);
 }
 
 bool Connection::is_waiting_body() const 
 {
-    return this->_request.get_state() != HttpRequest::PARSE_FINISHED && _status_code == SUCCESS;
+    if (this->_request.get_state() == HttpRequest::PARSE_BODY && _status_code == SUCCESS)
+        return (true);
+    else if (this->_request.get_state() == HttpRequest::PARSE_CHUNKED && _status_code == SUCCESS)
+        return (true);
+    return (false);
 }
 
 time_t Connection::get_last_recv_time() const
