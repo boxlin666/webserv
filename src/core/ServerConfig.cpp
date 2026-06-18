@@ -257,7 +257,10 @@ void ServerConfig::_handle_error_page(std::vector<Token>& tokens, size_t& pos, l
     std::vector<int> codes;
 
     while (pos < tokens.size() && std::isdigit(tokens[pos].content[0])) {
-        codes.push_back(std::atoi(tokens[pos].content.c_str()));
+        if (tokens[pos].content.length() == 3 && Utils::is_digit_str(tokens[pos].content))
+            codes.push_back(std::atoi(tokens[pos].content.c_str()));
+        else
+            throw std::runtime_error("Syntax error: Invalid status code " + tokens[pos].content  + " for 'error_page'");
         pos++;
     }
 
@@ -289,6 +292,7 @@ void ServerConfig::_handle_client_max_body_size(std::vector<Token>& tokens, size
     }
 
     std::string val        = tokens[pos].content;
+    std::string num_val    = val;
     long long   multiplier = 1;
     char        last_char  = val[val.length() - 1];
 
@@ -299,8 +303,22 @@ void ServerConfig::_handle_client_max_body_size(std::vector<Token>& tokens, size
     else if (last_char == 'g' || last_char == 'G')
         multiplier = 1024 * 1024 * 1024;
 
-    // std::atoll 会自动忽略字符串末尾的非数字字符（比如 "10m" 会被转成 10）
-    long long size = std::atoll(val.c_str()) * multiplier;
+    if (std::isalpha(last_char) && multiplier >= 1024)
+        num_val = val.substr(0, val.length() - 1);
+
+    if (num_val.empty() || !Utils::is_digit_str(num_val))
+        throw std::runtime_error("Syntax error: Invalid client_max_body_size value '" + val + "'");
+
+    errno = 0;
+    long long parsed_num = std::strtoll(num_val.c_str(), NULL, 10);
+
+    if (errno == ERANGE || parsed_num > LLONG_MAX / multiplier ||(parsed_num * multiplier) > 1099511627776LL)
+        throw std::runtime_error("Configuration error: 'client_max_body_size' value " + val +  " is overflowed");
+
+    long long size = parsed_num * multiplier;
+
+    if (size < 0 || (multiplier > 1 && size < parsed_num))
+        throw std::runtime_error("Configuration error: 'client_max_body_size' value " + val + "is overflowed");
 
     if (loc == NULL) {
         this->_client_max_body_size = size;
@@ -478,15 +496,8 @@ void ServerConfig::fill_location_defaults(location& loc)
             loc.index.push_back("index.html");
     }
 
-    std::cout << " loc prefix = " << loc._prefix << std::endl;
-    std::cout << " loc max body size = " << loc.client_max_body_size << std::endl;
-    std::cout << " client max body size = " << this->_client_max_body_size << std::endl;
-
-
     if (loc.client_max_body_size == 1048576 && this->_client_max_body_size != 1048576) 
         loc.client_max_body_size = this->_client_max_body_size;
-    std::cout << " loc max body size = " << loc.client_max_body_size << std::endl;
-   
 
     for (std::map<int, std::string>::const_iterator it = this->_error_pages.begin(); 
          it != this->_error_pages.end(); ++it) 
