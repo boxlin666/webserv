@@ -44,19 +44,24 @@ void Connection::handle_read_event(void)
 
         this->set_state(CLOSED);
         return;
-    } else if (bytes_read == 0) {
-        // 客户端提前关闭连接，检查请求是否完整
-        if (this->_request.get_state() != HttpRequest::PARSE_FINISHED ||
-            !this->check_parse_finished()) {
-            // body 没收完但客户端已断开 → 408
-            this->_status_code = REQUEST_TIMEOUT;
-            this->_request.set_is_keep_alive(false);
-            this->handle_request_dispatch();
-        } else {
-            this->set_state(CLOSED);
+    } 
+    else if (bytes_read == 0) 
+    {
+        if ((!_in_buff.empty() || _state == READING_REQ))
+        {
+            if (_status_code == BODY_TOO_LARGE)
+                buildErrorResponse(BODY_TOO_LARGE);
+            else
+                buildErrorResponse(BAD_REQUEST);
         }
-        return;
-    } else {
+        else
+        {
+            this->set_state(CLOSED);
+            return;
+        }
+    }
+    else 
+    {
         if (_state == WAITING) this->set_state(READING_REQ);
 
         _update_last_recv_time();
@@ -182,8 +187,7 @@ void Connection::handle_write_event(void)
         this->_out_buff.erase(0, bytes_send);
     }
 
-    if (!this->_in_buff.empty() &&
-        (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT))
+    if (!this->_in_buff.empty() && (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT || this->_status_code == BODY_TOO_LARGE))
         this->_in_buff.clear();
 
     if (this->_out_buff.empty()) {
@@ -201,6 +205,7 @@ void Connection::handle_write_event(void)
                 std::cout << "[Pipeline] Remaining data detected in _in_buff ("
                           << this->_in_buff.size() << " bytes). Driving next request inline."
                           << std::endl;
+                std::cout << "_in_buff: "  << this->_in_buff << std::endl;
                 this->_state = READING_REQ;
                 this->process_existing_in_buff();
             } else {
