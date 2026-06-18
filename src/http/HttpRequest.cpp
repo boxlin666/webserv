@@ -134,6 +134,8 @@ int HttpRequest::parse_request_header(std::string& line)
 
         if (cl_str.empty() || cl_str[0] == '-' || !Utils::is_digit_str(cl_str)) return (BAD_REQUEST);
 
+        errno = 0;
+
         _content_length = strtoul(_header_map["content-length"].c_str(), NULL, 10);
         
         if (errno == ERANGE && this->_content_length == ULLONG_MAX) return (BAD_REQUEST);
