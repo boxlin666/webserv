@@ -22,9 +22,7 @@ Connection::Connection(int client_fd, PassiveSocket* matched_socket,
       _response(),
       _status_code(200),
       _state(WAITING)
-{
-    _update_last_recv_time();
-}
+{ _update_last_recv_time(); }
 
 Connection::~Connection(void) {}
 
@@ -41,24 +39,28 @@ void Connection::handle_read_event(void)
     char    buffer[4096];
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read < 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)  return;
-     
+    if (bytes_read < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+
         this->set_state(CLOSED);
         return;
-    } 
-    else if (bytes_read == 0) 
-    {
-        this->set_state(CLOSED);
+    } else if (bytes_read == 0) {
+        // 客户端提前关闭连接，检查请求是否完整
+        if (this->_request.get_state() != HttpRequest::PARSE_FINISHED ||
+            !this->check_parse_finished()) {
+            // body 没收完但客户端已断开 → 408
+            this->_status_code = REQUEST_TIMEOUT;
+            this->_request.set_is_keep_alive(false);
+            this->handle_request_dispatch();
+        } else {
+            this->set_state(CLOSED);
+        }
         return;
-    }
-    else 
-    {
+    } else {
         if (_state == WAITING) this->set_state(READING_REQ);
 
         _update_last_recv_time();
-   
+
         // 1. 数据必须累积到 Connection 的 _in_buff
         _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
 
@@ -101,7 +103,7 @@ void Connection::handle_request_dispatch()
     try {
         this->set_matched_server();
         this->process_router_match();
-        
+
         if (_status_code == SUCCESS) {
             this->_req_handler.process_request_handler(this->_request, this->_route_ctx,
                                                        _status_code);
@@ -180,7 +182,8 @@ void Connection::handle_write_event(void)
         this->_out_buff.erase(0, bytes_send);
     }
 
-    if (!this->_in_buff.empty() && (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT))
+    if (!this->_in_buff.empty() &&
+        (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT))
         this->_in_buff.clear();
 
     if (this->_out_buff.empty()) {
@@ -193,16 +196,14 @@ void Connection::handle_write_event(void)
         } else {
             this->_request.reset();
             this->_response.reset();
-            
+
             if (!this->_in_buff.empty()) {
                 std::cout << "[Pipeline] Remaining data detected in _in_buff ("
                           << this->_in_buff.size() << " bytes). Driving next request inline."
                           << std::endl;
                 this->_state = READING_REQ;
                 this->process_existing_in_buff();
-            } 
-            else
-            {
+            } else {
                 this->_state = WAITING;
                 std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
             }
@@ -408,23 +409,18 @@ void Connection::clean_up_cgi_handler(void)
 { _cgi_handler.reset(); }
 
 void Connection::_update_last_recv_time()
-{
-   _last_recv_time = time(NULL);
-}
+{ _last_recv_time = time(NULL); }
 
-bool Connection::is_waiting_request_msg() const 
+bool Connection::is_waiting_request_msg() const
 {
-    if (_state == READING_REQ &&  this->_request.get_state() < HttpRequest::PARSE_FINISHED && _status_code == SUCCESS)
+    if (_state == READING_REQ && this->_request.get_state() < HttpRequest::PARSE_FINISHED &&
+        _status_code == SUCCESS)
         return (true);
     return (false);
 }
 
 time_t Connection::get_last_recv_time() const
-{
-    return _last_recv_time;
-}
+{ return _last_recv_time; }
 
 void Connection::set_request_keep_alive(bool is_keep_alive)
-{
-    _request.set_is_keep_alive(is_keep_alive);
-}
+{ _request.set_is_keep_alive(is_keep_alive); }
