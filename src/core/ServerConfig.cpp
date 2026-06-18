@@ -1,8 +1,25 @@
 #include "ServerConfig.hpp"
 
 ServerConfig::ServerConfig()
-    : _client_max_body_size(1048576)  // 默认 1MB
-{ _init_handlers(); }
+    : _server_names(),
+      _listen_addrs(),
+      _index(),
+      _root(""),
+      _client_max_body_size(1048576), // 默认 1MB 
+      _error_pages(),
+      _methods(),
+      _return_code(0),
+      _return_url(""),
+      _upload_path(""),
+      _cgi_path(""),
+      _cgi_ext(""),
+      _cgi_script(""),
+      _handler_map(),
+      locations()
+{
+    this->_init_handlers();
+}
+
 
 ServerConfig::~ServerConfig() {}
 
@@ -115,9 +132,13 @@ void ServerConfig::_handle_root(std::vector<Token>& tokens, size_t& pos, locatio
     
     if (loc == NULL) {
         // 当前在解析 server 块，存给 ServerConfig 自己的成员变量
+        if (!this->_root.empty())
+            throw std::runtime_error("Configuration error: Multiple 'root' path found in server block");
         this->_root = path;
     } else {
         // 当前在解析 location 块，存给 location 结构体
+        if (!loc->root.empty())
+            throw std::runtime_error("Configuration error: Multiple 'root' path found in location block");
         loc->root = path;
     }
 
@@ -355,13 +376,16 @@ void ServerConfig::_handle_upload_path(std::vector<Token>& tokens, size_t& pos, 
         throw std::runtime_error("Configuration error: 'upload_path' \"" + path +
             "\" exists, but server process has NO permission to access it (Permission denied)!");
 
-
     if (loc == NULL) 
     {
+        if (!this->_upload_path.empty())
+            throw std::runtime_error("Configuration error: Multiple 'upload path' found in server block");
         this->_upload_path = tokens[pos].content;
-    } 
+    }
     else 
     {
+        if (!loc->upload_path.empty())
+            throw std::runtime_error("Configuration error: Multiple 'upload path' found in location block");
         loc->upload_path = tokens[pos].content;
         loc->root = tokens[pos].content;
     }
@@ -387,9 +411,16 @@ void ServerConfig::_handle_cgi_path(std::vector<Token>& tokens, size_t& pos, loc
         throw std::runtime_error("Configuration error: 'cgi_path' \"" + path +
             "\" exists, but server process has NO executable permission (X_OK Denied)!"); 
 
-    if (loc == NULL) {
+    if (loc == NULL) 
+    {
+        if (!this->_cgi_path.empty())
+            throw std::runtime_error("Configuration error: Multiple 'cgi_path' found in server block");
         this->_cgi_path = tokens[pos].content;
-    } else {
+    } 
+    else 
+    {
+        if (!loc->cgi_path.empty())
+            throw std::runtime_error("Configuration error: Multiple 'cgi_path' found in location block");
         loc->cgi_path = tokens[pos].content;
     }
 
@@ -426,12 +457,49 @@ void ServerConfig::_handle_cgi_script(std::vector<Token>& tokens, size_t& pos, l
     Utils::expect_semicolon(tokens, ++pos);
 }
 
-
 void ServerConfig::fill_location_defaults(location& loc)
 {
-    if (loc.root.empty()) loc.root = this->_root;
-    if (loc.methods.empty()) loc.methods.push_back("GET");  // 默认允许 GET
-    // TODO: 其他字段的默认
+    if (loc.root.empty())
+        loc.root = this->_root;
+
+    if (loc.methods.empty()) 
+    {
+        if (!this->_methods.empty()) 
+            loc.methods = this->_methods;
+        else
+            loc.methods.push_back("GET");
+    }
+
+    if (loc.index.empty()) 
+    {
+        if (!this->_index.empty()) 
+            loc.index = this->_index;
+        else
+            loc.index.push_back("index.html");
+    }
+
+    if (loc.client_max_body_size == 1048576 && this->_client_max_body_size != 1048576) 
+        loc.client_max_body_size = this->_client_max_body_size;
+    
+
+    for (std::map<int, std::string>::const_iterator it = this->_error_pages.begin(); 
+         it != this->_error_pages.end(); ++it) 
+    {
+        loc.error_pages.insert(*it);
+    }
+ 
+    if (loc.cgi_path.empty())   loc.cgi_path = this->_cgi_path;
+    if (loc.cgi_ext.empty())    loc.cgi_ext = this->_cgi_ext;
+    if (loc.cgi_script.empty()) loc.cgi_script = this->_cgi_script;
+
+    if (loc.upload_path.empty()) 
+        loc.upload_path = this->_upload_path;
+     
+    if (loc.return_code == 0 && this->_return_code != 0) 
+    {
+        loc.return_code = this->_return_code;
+        loc.return_url = this->_return_url;
+    }    
 }
 
 void ServerConfig::add_location(const location& loc)
@@ -463,6 +531,16 @@ void ServerConfig::parse(std::vector<Token>& tokens, size_t& pos)
         throw std::runtime_error("Syntax error: Unexpected EOF, missing '}' to close server block");
     }
     pos++;
+}
+
+void ServerConfig::_validate_location(const location& new_loc) const
+{
+    for (size_t i = 0; i < this->locations.size(); ++i) 
+    {
+        if (this->locations[i]._prefix == new_loc._prefix)
+            throw std::runtime_error("Configuration error: duplicate location prefix \"" 
+                                     + new_loc._prefix + "\" in server block"); 
+    }
 }
 
 void ServerConfig::parseLocation(std::vector<Token>& tokens, size_t& pos)
@@ -501,8 +579,9 @@ void ServerConfig::parseLocation(std::vector<Token>& tokens, size_t& pos)
                                  new_loc._prefix + "'");
     }
     pos++;
-
+ 
     this->fill_location_defaults(new_loc);
+    this->_validate_location(new_loc);
     this->locations.push_back(new_loc);
 }
 
