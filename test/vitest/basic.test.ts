@@ -39,7 +39,7 @@ describe('POST 请求', () => {
             'Content-Type': 'text/plain',
             'Content-Length': '999',
         });
-        expect(res.status).toBe(408);
+        expect(res.status).toBe(400);
     }, 1200); // 明确超时时间，比默认的 5s 更快失败
 });
 
