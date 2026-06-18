@@ -478,9 +478,15 @@ void ServerConfig::fill_location_defaults(location& loc)
             loc.index.push_back("index.html");
     }
 
+    std::cout << " loc prefix = " << loc._prefix << std::endl;
+    std::cout << " loc max body size = " << loc.client_max_body_size << std::endl;
+    std::cout << " client max body size = " << this->_client_max_body_size << std::endl;
+
+
     if (loc.client_max_body_size == 1048576 && this->_client_max_body_size != 1048576) 
         loc.client_max_body_size = this->_client_max_body_size;
-    
+    std::cout << " loc max body size = " << loc.client_max_body_size << std::endl;
+   
 
     for (std::map<int, std::string>::const_iterator it = this->_error_pages.begin(); 
          it != this->_error_pages.end(); ++it) 
@@ -547,8 +553,8 @@ void ServerConfig::parseLocation(std::vector<Token>& tokens, size_t& pos)
 {
     location new_loc;
 
-    new_loc.client_max_body_size = 0;
-    new_loc.autoindex            = false;
+    //new_loc.client_max_body_size = 0;
+    //new_loc.autoindex            = false;
 
     pos++;
     if (pos >= tokens.size() || tokens[pos].content == "{") {
