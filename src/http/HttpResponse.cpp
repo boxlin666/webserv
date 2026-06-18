@@ -55,7 +55,7 @@ bool HttpResponse::build_static_response(const HttpRequest&    request,
 
     this->_status_code = ret;
 
-    if (this->_status_code != SUCCESS) 
+    if (this->_status_code != SUCCESS && this->_status_code != CREATED && this->_status_code != DELETED) 
         return (false);
 
     this->_prepare_response_data(request);
