@@ -50,8 +50,18 @@ void Connection::handle_read_event(void)
     } 
     else if (bytes_read == 0) 
     {
-        this->set_state(CLOSED);
-        return;
+        if ((!_in_buff.empty() || _state == READING_REQ))
+        {
+            if (_status_code == BODY_TOO_LARGE)
+                buildErrorResponse(BODY_TOO_LARGE);
+            else
+                buildErrorResponse(BAD_REQUEST);
+        }
+        else
+        {
+            this->set_state(CLOSED);
+            return;
+        }
     }
     else 
     {
@@ -180,7 +190,7 @@ void Connection::handle_write_event(void)
         this->_out_buff.erase(0, bytes_send);
     }
 
-    if (!this->_in_buff.empty() && (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT))
+    if (!this->_in_buff.empty() && (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT || this->_status_code == BODY_TOO_LARGE))
         this->_in_buff.clear();
 
     if (this->_out_buff.empty()) {
@@ -198,6 +208,7 @@ void Connection::handle_write_event(void)
                 std::cout << "[Pipeline] Remaining data detected in _in_buff ("
                           << this->_in_buff.size() << " bytes). Driving next request inline."
                           << std::endl;
+                std::cout << "_in_buff: "  << this->_in_buff << std::endl;
                 this->_state = READING_REQ;
                 this->process_existing_in_buff();
             } 
