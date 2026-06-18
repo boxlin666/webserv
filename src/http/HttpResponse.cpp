@@ -24,7 +24,7 @@ void HttpResponse::reset(void)
     this->_full_path.clear();
 }
 
-void HttpResponse::build_static_response(const HttpRequest&    request,
+bool HttpResponse::build_static_response(const HttpRequest&    request,
                                          const RequestHandler& response_ctx, int& status_code)
 {
     int ret = status_code;
@@ -32,14 +32,11 @@ void HttpResponse::build_static_response(const HttpRequest&    request,
     this->_status_code          = status_code;
     this->_body_last_modif_date = response_ctx.get_body_last_modif_date();
 
-    // TODO: if status code is not SUCCESS, redefine the content length according to the nb of bytes
-    // inside error page html
     if (status_code == SUCCESS) {
         if (request.get_method() == "GET" || request.get_method() == "HEAD" ||
             request.get_method() == "DELETE")
             this->_body_len = response_ctx.get_res_body_len();
     }
-    std::cout << "_BODY_LEN = " << this->_body_len << std::endl;
 
     if (this->_status_code == SUCCESS) this->_full_path = response_ctx.get_full_path();
 
@@ -58,20 +55,23 @@ void HttpResponse::build_static_response(const HttpRequest&    request,
 
     this->_status_code = ret;
 
+    if (this->_status_code != SUCCESS) 
+        return (false);
+
     this->_prepare_response_data(request);
 
     if (request.get_method() == "HEAD") this->_body.clear();
 
-    // 6. append all the elements together!
     this->_append_full_response();
+    return (true);
 }
 
 std::string& HttpResponse::build_error_response(int& status_code, std::string& error_page_path,
                                                 HttpRequest& request)
 {
     _status_code = status_code;
-    // _body.clear();
-    // _full_response.clear();
+    _body.clear();
+    _full_response.clear();
     if (!error_page_path.empty()) {
         // 读取文件内容作为 body
         std::ifstream file(error_page_path.c_str());
@@ -81,8 +81,28 @@ std::string& HttpResponse::build_error_response(int& status_code, std::string& e
             _body = ss.str();
         }
     } else {
-        _body = "<html><body><h1>" + Utils::toString(_status_code)
-        +" " + _status_msg_map[_status_code] + "</h1></body></html>";
+        _body = "<!DOCTYPE html>\n"
+                        "<html lang=\"en\">\n"
+                        "<head>\n"
+                        "    <meta charset=\"UTF-8\">\n"
+                        "    <title>" + Utils::toString(_status_code) + " " + _status_msg_map[_status_code] + "</title>\n"
+                        "    \n"
+                        "    <link rel=\"icon\" href=\"data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAMAAAB6ZgTTAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAwUExURQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAN96vjgAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAASTURBVBjTY2AAA8YwAhIDwQCFAAW7gA3bAAAAAElFTkSuQmCC\" />\n"
+                        "    <style>\n"
+                        "        body { text-align: center; padding: 150px; font-family: sans-serif; background: #fafafa; color: #333; }\n"
+                        "        h1 { font-size: 50px; margin: 0; color: #e74c3c; }\n"
+                        "        p { font-size: 20px; color: #666; margin-top: 10px; }\n"
+                        "        hr { max-width: 400px; border: 0; border-top: 1px solid #ddd; margin: 20px auto; }\n"
+                        "        address { font-style: normal; color: #999; font-size: 14px; }\n"
+                        "    </style>\n"
+                        "</head>\n"
+                        "<body>\n"
+                        "    <h1>" + Utils::toString(_status_code) + "</h1>\n"
+                        "    <p>" + _status_msg_map[_status_code] + "</p>\n"
+                        "    <hr>\n"
+                        "    <address>42 Webserv</address>\n"
+                        "</body>\n"
+                        "</html>";
     }
     _body_len = _body.size();
     _prepare_response_data(request);

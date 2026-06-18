@@ -105,7 +105,7 @@ class HttpResponse {
     ~HttpResponse();
 
     // response = status line + header + body
-    void build_static_response(const HttpRequest& request, const RequestHandler& response_ctx,
+    bool build_static_response(const HttpRequest& request, const RequestHandler& response_ctx,
                                int& status_code);
 
     const std::string& get_full_response() const;
