@@ -113,7 +113,6 @@ void Connection::handle_request_dispatch()
             this->_req_handler.process_request_handler(this->_request, this->_route_ctx,
                                                        _status_code);
         }
-
         if (_status_code != SUCCESS)
             buildErrorResponse(_status_code);
         else if (_route_ctx.is_cgi_potential) {
@@ -292,15 +291,16 @@ void Connection::buildErrorResponse(int status_code)
 {
     _status_code                = status_code;
     std::string error_page_path = "";
-    if (_route_ctx.server != NULL)
-        error_page_path = Router::get_error_page_path(_route_ctx, _matched_server, status_code);
+    
+    error_page_path = Router::get_error_page_path(_route_ctx, status_code);
     this->_out_buff = _response.build_error_response(status_code, error_page_path, _request);
     this->_state    = Connection::WRITING_RESP;
 }
 
 void Connection::prepare_static_response()
 {
-    this->_response.build_static_response(this->_request, this->_req_handler, this->_status_code);
+    if (!this->_response.build_static_response(this->_request, this->_req_handler, this->_status_code))
+        this->buildErrorResponse(this->_status_code);
     this->_out_buff = this->_response.get_full_response();
 }
 

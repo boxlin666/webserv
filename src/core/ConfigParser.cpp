@@ -18,7 +18,7 @@ void ConfigParser::build_config_map(const std::string& config_path)
 
     tokenize(raw, tokens);
     size_t pos = 0;
-
+ 
     while (pos < tokens.size())
     {
         if (tokens[pos].content == "server") {

@@ -49,6 +49,7 @@ int main(int argc, char** argv)
         // // 3. 拦截我们在代码里抛出的所有异常
         catch (const std::exception& e) {
              std::cerr << "Fatal Syntax Error: " << e.what() << std::endl;
+            return (1);
         }
         Cluster webserv;
 
