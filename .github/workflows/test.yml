@@ -22,13 +22,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-    # 2. 安装并设置你指定版本的 Python 环境（推荐的做法）
+    # 2. 安装并设置统一的 Python 环境（合并为你最终需要的 3.12 版本）
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10' # 这里可以换成你需要测试的任意 Python 版本
+          python-version: "3.12"
 
-      # 3. 核心：打印 Python 解释器的路径
+      # 3. 打印 Python 解释器的路径（方便在 CI 日志里对账）
       - name: Print Python Interpreter Path
         run: |
           echo "=== 方法 1：使用系统 which 命令 ==="
@@ -57,24 +57,36 @@ jobs:
           echo "--- OS Version ---"
           lsb_release -a
 
+      # 4. 编译你的 C++ Webserver
       - name: Compile Webserver
         run: make
       
       - name: Verify Executable
         run: ls -l webserv
 
-    # Step 2: Install the specific Python version 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      # ================== 🌟 核心增补：为 CGI 脚本/测试器赋予 755 权限 ==================
+      # 如果你的 cgi_tester 在某个子目录下（例如 ./www/cgi-bin/cgi_tester），
+      # 请记得在下方路径前加上对应目录（如: chmod 755 ./www/cgi-bin/cgi_tester）
+      - name: Configure CGI Tester Permissions
+        run: |
+          echo "=== 正在为 cgi_tester 赋予 755 权限 ==="
+          if [ -f "cgi_tester" ]; then
+            chmod 755 cgi_tester
+            ls -l cgi_tester
+          elif [ -f "www/cgi-bin/cgi_tester" ]; then
+            chmod 755 www/cgi-bin/cgi_tester
+            ls -l www/cgi-bin/cgi_tester
+          else
+            echo "⚠️ 警告: 未在根目录或 www/cgi-bin/ 找到 cgi_tester，尝试对所有 .py 脚本赋权"
+            find . -name "*.py" -exec chmod 755 {} +
+          fi
+      # ===============================================================================
 
-    # Step 3: Install project dependencies from requirements.txt
+      # 5. 安装项目的 Python 依赖（用于运行 pytest）
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-    # Step 4: Execute Pytest
-    # If any test fails, ths step returns a non-zero exit code
-    # and the workflow will stop immediately (makred as Failed/KO)
+      # 6. 运行 pytest 轰炸状态机
+      # 此时 cgi_tester 已经具备了完美的 755 权限，学校测试机和 pytest 都能顺利拉起它！
       - name: Run tests
         run: pytest
