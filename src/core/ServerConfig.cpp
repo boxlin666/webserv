@@ -457,12 +457,49 @@ void ServerConfig::_handle_cgi_script(std::vector<Token>& tokens, size_t& pos, l
     Utils::expect_semicolon(tokens, ++pos);
 }
 
-
 void ServerConfig::fill_location_defaults(location& loc)
 {
-    if (loc.root.empty()) loc.root = this->_root;
-    if (loc.methods.empty()) loc.methods.push_back("GET");  // 默认允许 GET
-    // TODO: 其他字段的默认
+    if (loc.root.empty())
+        loc.root = this->_root;
+
+    if (loc.methods.empty()) 
+    {
+        if (!this->_methods.empty()) 
+            loc.methods = this->_methods;
+        else
+            loc.methods.push_back("GET");
+    }
+
+    if (loc.index.empty()) 
+    {
+        if (!this->_index.empty()) 
+            loc.index = this->_index;
+        else
+            loc.index.push_back("index.html");
+    }
+
+    if (loc.client_max_body_size == 1048576 && this->_client_max_body_size != 1048576) 
+        loc.client_max_body_size = this->_client_max_body_size;
+    
+
+    for (std::map<int, std::string>::const_iterator it = this->_error_pages.begin(); 
+         it != this->_error_pages.end(); ++it) 
+    {
+        loc.error_pages.insert(*it);
+    }
+ 
+    if (loc.cgi_path.empty())   loc.cgi_path = this->_cgi_path;
+    if (loc.cgi_ext.empty())    loc.cgi_ext = this->_cgi_ext;
+    if (loc.cgi_script.empty()) loc.cgi_script = this->_cgi_script;
+
+    if (loc.upload_path.empty()) 
+        loc.upload_path = this->_upload_path;
+     
+    if (loc.return_code == 0 && this->_return_code != 0) 
+    {
+        loc.return_code = this->_return_code;
+        loc.return_url = this->_return_url;
+    }    
 }
 
 void ServerConfig::add_location(const location& loc)
@@ -494,6 +531,16 @@ void ServerConfig::parse(std::vector<Token>& tokens, size_t& pos)
         throw std::runtime_error("Syntax error: Unexpected EOF, missing '}' to close server block");
     }
     pos++;
+}
+
+void ServerConfig::_validate_location(const location& new_loc) const
+{
+    for (size_t i = 0; i < this->locations.size(); ++i) 
+    {
+        if (this->locations[i]._prefix == new_loc._prefix)
+            throw std::runtime_error("Configuration error: duplicate location prefix \"" 
+                                     + new_loc._prefix + "\" in server block"); 
+    }
 }
 
 void ServerConfig::parseLocation(std::vector<Token>& tokens, size_t& pos)
@@ -532,8 +579,9 @@ void ServerConfig::parseLocation(std::vector<Token>& tokens, size_t& pos)
                                  new_loc._prefix + "'");
     }
     pos++;
-
+ 
     this->fill_location_defaults(new_loc);
+    this->_validate_location(new_loc);
     this->locations.push_back(new_loc);
 }
 

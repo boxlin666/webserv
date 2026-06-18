@@ -89,6 +89,8 @@ class ServerConfig {
 
     bool _is_valid_server_name(const std::string& host)const;
 
+    void _validate_location(const location& new_loc) const;
+
     // 具体的指令处理器（小函数）
     void _handle_root(std::vector<Token>& tokens, size_t& pos, location* loc);
     void _handle_methods(std::vector<Token>& tokens, size_t& pos, location* loc);

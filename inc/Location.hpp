@@ -33,7 +33,7 @@ struct location {
           error_pages(),
           autoindex(false),              
           methods(),
-          client_max_body_size(0),   
+          client_max_body_size(1048576),   
           return_code(0),              
           return_url(""),
           upload_path(""),
