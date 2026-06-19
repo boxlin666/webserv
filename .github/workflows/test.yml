@@ -3,32 +3,24 @@ name: Webserver CI Check
 
 # Define the events that trigger this workflow
 on:
-  # Trigger automatically when a push is created for the main branch
   push:
     branches: ["main"]
-  # Trigger automatically when a pull request is created for the main branch
   pull_request:
     branches: ["main"]
-  # Allow manual execution form the GitHub UI for testing/debugging
   workflow_dispatch: {}
 
 jobs:
-# Job ID: defines a group of steps
   test:
-  # Use the latest Ubuntu virtual machine provided by Github
     runs-on: ubuntu-latest
     steps:
-    # Step 1: Download the repository code onto the runner
       - name: Checkout code
         uses: actions/checkout@v4
 
-    # 2. 安装并设置统一的 Python 环境
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      # 3. 打印 Python 解释器的路径
       - name: Print Python Interpreter Path
         run: |
           echo "=== 方法 1：使用系统 which 命令 ==="
@@ -57,15 +49,12 @@ jobs:
           echo "--- OS Version ---"
           lsb_release -a
 
-      # 4. 编译你的 C++ Webserver
       - name: Compile Webserver
         run: make
       
       - name: Verify Executable
         run: ls -l webserv
 
-      # ================== 🌟 核心增补 1：强行伪造 42 测试所需的幽灵目录 ==================
-      # 这一步直接粉碎你的 C++ ServerConfig 抛出的 "'root' path does not exist" 致命红字
       - name: Create 42 Test Directory Environment
         run: |
           echo "=== 正在为 42.conf 伪造磁盘 root 目录环境 ==="
@@ -73,7 +62,6 @@ jobs:
           echo "目录创建成功，当前虚拟磁盘状态："
           ls -R ./YoupiBanane
 
-      # ================== 🌟 核心增补 2：为 cgi_tester 赋予 755 权限 ==================
       - name: Configure CGI Tester Permissions
         run: |
           echo "=== 正在为 cgi_tester 赋予 755 权限 ==="
@@ -87,13 +75,74 @@ jobs:
             echo "⚠️ 警告: 未在根目录或 www/cgi-bin/ 找到 cgi_tester，尝试对所有 .py 脚本赋权"
             find . -name "*.py" -exec chmod 755 {} +
           fi
-      # ===============================================================================
 
-      # 5. 安装项目的 Python 依赖
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # 6. 运行 pytest 轰炸状态机
-      # 现在：1. cgi_tester 拥有 755； 2. YoupiBanane 目录已存在，webserv 进程可以完美长驻启动！
       - name: Run tests
         run: pytest
+
+  # ─── 新增：Vitest 前端测试 ──────────────────────────────────────────
+  vitest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. 编译 webserv（Vitest 测试需要真实服务器进程）
+      - name: Install Build Essentials
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential
+
+      - name: Compile Webserver
+        run: make
+
+      - name: Verify Executable
+        run: ls -l webserv
+
+      # 2. 伪造测试所需目录（和 pytest job 保持一致）
+      - name: Create Test Directory Environment
+        run: |
+          mkdir -p ./YoupiBanane/post_body
+
+      - name: Configure CGI Tester Permissions
+        run: |
+          if [ -f "cgi_tester" ]; then
+            chmod 755 cgi_tester
+          elif [ -f "www/cgi-bin/cgi_tester" ]; then
+            chmod 755 www/cgi-bin/cgi_tester
+          else
+            find . -name "*.py" -exec chmod 755 {} +
+          fi
+
+      # 3. 启动 webserv 后台进程
+      - name: Start Webserver
+        run: |
+          ./webserv conf/default.conf &        # ← 把 your_config.conf 换成你实际的配置文件名
+          echo "WEBSERV_PID=$!" >> $GITHUB_ENV
+          echo "等待服务器启动..."
+          sleep 2
+          echo "=== 确认服务器进程存活 ==="
+          ps aux | grep webserv | grep -v grep
+
+      # 4. 安装 Node 并运行 Vitest
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run Vitest
+        run: npm test
+
+      # 5. 无论测试成功与否，都清理掉后台的 webserv 进程
+      - name: Stop Webserver
+        if: always()
+        run: |
+          if [ -n "$WEBSERV_PID" ]; then
+            kill $WEBSERV_PID || true
+          fi
