@@ -86,7 +86,7 @@ class HttpResponse {
     void        _build_cgi_status_line(const HttpRequest& request);
     void        _build_cgi_headers_map(const HttpRequest& request);
     std::string _get_cgi_header_value(const std::string& key, const std::string& value,
-                                bool check_value) const;
+                                      bool check_value) const;
 
     void _add_cgi_header_vector(const std::string& key, const std::string& value);
 
@@ -120,6 +120,8 @@ class HttpResponse {
 
     std::string& build_error_response(int& status_code, std::string& error_page_path,
                                       HttpRequest& request);
+    std::string& build_redirect_response(int code, const std::string& url,
+                                         const HttpRequest& request);
 };
 
 #endif

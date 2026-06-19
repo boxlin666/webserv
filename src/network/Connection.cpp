@@ -44,24 +44,17 @@ void Connection::handle_read_event(void)
 
         this->set_state(CLOSED);
         return;
-    } 
-    else if (bytes_read == 0) 
-    {
-        if ((!_in_buff.empty() || _state == READING_REQ))
-        {
+    } else if (bytes_read == 0) {
+        if ((!_in_buff.empty() || _state == READING_REQ)) {
             if (_status_code == BODY_TOO_LARGE)
                 buildErrorResponse(BODY_TOO_LARGE);
             else
                 buildErrorResponse(BAD_REQUEST);
-        }
-        else
-        {
+        } else {
             this->set_state(CLOSED);
             return;
         }
-    }
-    else 
-    {
+    } else {
         if (_state == WAITING) this->set_state(READING_REQ);
 
         _update_last_recv_time();
@@ -115,7 +108,11 @@ void Connection::handle_request_dispatch()
         }
         if (_status_code != SUCCESS)
             buildErrorResponse(_status_code);
-        else if (_route_ctx.is_cgi_potential) {
+        else if (_route_ctx.is_redirect) {
+            this->_out_buff = this->_response.build_redirect_response(
+                _route_ctx.redirect_code, _route_ctx.redirect_url, this->_request);
+            this->set_state(WRITING_RESP);
+        } else if (_route_ctx.is_cgi_potential) {
             this->execute_cgi_pipeline();
             return;  // CGI 流程接管了 FD，这里直接退出
         } else {
@@ -186,7 +183,9 @@ void Connection::handle_write_event(void)
         this->_out_buff.erase(0, bytes_send);
     }
 
-    if (!this->_in_buff.empty() && (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT || this->_status_code == BODY_TOO_LARGE))
+    if (!this->_in_buff.empty() &&
+        (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT ||
+         this->_status_code == BODY_TOO_LARGE))
         this->_in_buff.clear();
 
     if (this->_out_buff.empty()) {
@@ -204,7 +203,7 @@ void Connection::handle_write_event(void)
                 std::cout << "[Pipeline] Remaining data detected in _in_buff ("
                           << this->_in_buff.size() << " bytes). Driving next request inline."
                           << std::endl;
-                std::cout << "_in_buff: "  << this->_in_buff << std::endl;
+                std::cout << "_in_buff: " << this->_in_buff << std::endl;
                 this->_state = READING_REQ;
                 this->process_existing_in_buff();
             } else {
@@ -291,7 +290,7 @@ void Connection::buildErrorResponse(int status_code)
 {
     _status_code                = status_code;
     std::string error_page_path = "";
-    
+
     error_page_path = Router::get_error_page_path(_route_ctx, status_code);
     this->_out_buff = _response.build_error_response(status_code, error_page_path, _request);
     this->_state    = Connection::WRITING_RESP;
@@ -299,7 +298,8 @@ void Connection::buildErrorResponse(int status_code)
 
 void Connection::prepare_static_response()
 {
-    if (!this->_response.build_static_response(this->_request, this->_req_handler, this->_status_code))
+    if (!this->_response.build_static_response(this->_request, this->_req_handler,
+                                               this->_status_code))
         this->buildErrorResponse(this->_status_code);
     this->_out_buff = this->_response.get_full_response();
 }

@@ -180,3 +180,18 @@ std::string HttpResponse::_generate_autoindex(const std::string& dir_path, const
     html += "</body></html>\r\n";
     return html;
 }
+
+std::string& HttpResponse::build_redirect_response(int code, const std::string& url, const HttpRequest& request)
+{
+    _status_code = code;
+    _body.clear();
+    _full_response.clear();
+    _body_len = 0;
+
+    _build_status_line(request);
+    _add_header_vector("Location", url);
+    _add_header_vector("Content-Length", "0");
+    _add_header_vector("Connection", "close");
+    _append_full_response();
+    return _full_response;
+}

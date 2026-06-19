@@ -117,6 +117,14 @@ RouterCtx build_router_context(const HttpRequest& req, const ServerConfig& serve
     ctx.loc       = find_location(req, server);
     ctx.full_path = build_full_path(req, server, ctx.loc);
 
+    // 加在这里：找到 location 后立刻检查 return 指令
+    if (ctx.loc && ctx.loc->return_code != 0) {
+        ctx.is_redirect   = true;
+        ctx.redirect_code = ctx.loc->return_code;
+        ctx.redirect_url  = ctx.loc->return_url;
+        return (ctx);  // 直接返回，不需要继续处理路径
+    }
+
     if (!ctx.loc)
         ctx.final_root = server.get_root();
     else {
@@ -151,35 +159,30 @@ RouterCtx build_router_context(const HttpRequest& req, const ServerConfig& serve
     return (ctx);
 }
 
-std::string get_error_page_path(RouterCtx &route_ctx, int status_code)
+std::string get_error_page_path(RouterCtx& route_ctx, int status_code)
 {
     std::map<int, std::string>::const_iterator it;
-    std::string error_page_name("");
-    std::string error_root_path("");
-    std::string error_page_path("");
-    std::string empty("");
+    std::string                                error_page_name("");
+    std::string                                error_root_path("");
+    std::string                                error_page_path("");
+    std::string                                empty("");
 
-    if (!route_ctx.server)
-        return (empty);
+    if (!route_ctx.server) return (empty);
 
     error_page_name = route_ctx.server->get_error_page(status_code);
     error_root_path = route_ctx.server->get_root();
 
-    if (route_ctx.loc)
-    {
+    if (route_ctx.loc) {
         error_root_path = route_ctx.loc->root;
-        it = route_ctx.loc->error_pages.find(status_code);
-        if (it != route_ctx.loc->error_pages.end())
-            error_page_name = it->second;
+        it              = route_ctx.loc->error_pages.find(status_code);
+        if (it != route_ctx.loc->error_pages.end()) error_page_name = it->second;
     }
 
-    if (error_page_name.empty())
-        return (empty);        
+    if (error_page_name.empty()) return (empty);
     error_page_path = error_root_path + error_page_name;
 
     struct stat info;
-    if (stat(error_page_path.c_str(), &info) != 0 || !S_ISREG(info.st_mode))
-        return (empty);
+    if (stat(error_page_path.c_str(), &info) != 0 || !S_ISREG(info.st_mode)) return (empty);
     return (error_page_path);
 }
 };  // namespace Router
