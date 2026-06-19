@@ -53,7 +53,7 @@ bool HttpResponse::build_static_response(const HttpRequest&    request,
             ret = this->_handle_delete();
     }
 
-    this->_status_code = ret;
+    this->_set_status(ret);
 
     if (this->_status_code != SUCCESS && this->_status_code != CREATED && this->_status_code != DELETED) 
         return (false);
@@ -69,7 +69,7 @@ bool HttpResponse::build_static_response(const HttpRequest&    request,
 std::string& HttpResponse::build_error_response(int& status_code, std::string& error_page_path,
                                                 HttpRequest& request)
 {
-    _status_code = status_code;
+    _set_status(status_code);
     _body.clear();
     _full_response.clear();
     if (!error_page_path.empty()) {

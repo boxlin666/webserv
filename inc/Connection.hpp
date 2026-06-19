@@ -82,6 +82,8 @@ class Connection {
     void execute_cgi_pipeline();
 
     void   _update_last_recv_time();
+    void   _set_status_code(int code);
+    void   _reset_status_code();
 
     Connection(const Connection& other);
     Connection& operator=(const Connection& other);
