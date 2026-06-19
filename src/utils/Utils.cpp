@@ -81,3 +81,17 @@ bool Utils::is_digit_str(const std::string& str)
     }
     return (true);
 }
+
+int Utils::convertThreeDigit(const std::string& str)
+{
+    if (str.length() != 3)
+        return (-1);
+
+    std::stringstream ss(str);
+    int result;
+
+    if ((ss >> result) && ss.eof())
+        return (result);
+
+    return (-1);
+}

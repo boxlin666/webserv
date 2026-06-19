@@ -258,7 +258,14 @@ void ServerConfig::_handle_error_page(std::vector<Token>& tokens, size_t& pos, l
 
     while (pos < tokens.size() && std::isdigit(tokens[pos].content[0])) {
         if (tokens[pos].content.length() == 3 && Utils::is_digit_str(tokens[pos].content))
-            codes.push_back(std::atoi(tokens[pos].content.c_str()));
+        {
+            int error_code = Utils::convertThreeDigit(tokens[pos].content);
+
+            if (error_code >= 300 && error_code <= 599)
+                codes.push_back(std::atoi(tokens[pos].content.c_str()));
+            else
+                throw std::runtime_error("Syntax error: Invalid status code " + tokens[pos].content  + " for 'error_page'");
+        }
         else
             throw std::runtime_error("Syntax error: Invalid status code " + tokens[pos].content  + " for 'error_page'");
         pos++;
@@ -272,6 +279,9 @@ void ServerConfig::_handle_error_page(std::vector<Token>& tokens, size_t& pos, l
     }
 
     std::string error_file_path = tokens[pos].content;
+
+    if (!error_file_path.empty() && error_file_path[0] != '/')
+        throw std::runtime_error("Syntax error: Invalid error page path: " + error_file_path);
 
     for (size_t i = 0; i < codes.size(); ++i) {
         if (loc == NULL) {
