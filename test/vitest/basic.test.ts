@@ -104,25 +104,48 @@ describe('边界情况', () => {
     });
 });
 
-// describe('状态码专项', () => {
-//     test('GET /redirect 应返回 301 且有 Location 头', async () => {
-//         const res = await client.get('/redirect');
-//         expect(res.status).toBe(301);
-//         expect(res.headers).toHaveProperty('location');
-//         expect(res.headers['location']).toBe('http://another-site.com');
-//     });
+describe('状态码专项', () => {
+    // test('GET /redirect 应返回 301 且有 Location 头', async () => {
+    //     const res = await client.get('/redirect');
+    //     expect(res.status).toBe(301);
+    //     expect(res.headers).toHaveProperty('location');
+    //     expect(res.headers['location']).toBe('http://another-site.com');
+    // });
 
-//     test('POST 超出 client_max_body_size 应返回 413', async () => {
-//         // cat.com 的限制是 10m，对 localhost 服务器发超大 body
-//         const bigBody = 'x'.repeat(11 * 1024 * 1024); // 11MB
-//         const res = await client.post('/uploads', bigBody, {
-//             'Content-Type': 'text/plain',
-//         });
-//         expect(res.status).toBe(413);
-//     });
+    test('POST 超出 client_max_body_size 应返回 413', async () => {
+        // cat.com 的限制是 10m，对 localhost 服务器发超大 body
+        const bigBody = 'x'.repeat(11 * 1024 * 1024); // 11MB
+        const res = await client.post('/uploads', bigBody, {
+            'Content-Type': 'text/plain',
+        });
+        expect(res.status).toBe(413);
+    });
 
-//     test('DELETE /uploads 应返回合法状态码', async () => {
-//         const res = await client.request('DELETE', '/uploads');
-//         expect([200, 204, 404]).toContain(res.status);
-//     });
-// });
+    test('DELETE /uploads 应返回合法状态码', async () => {
+        const res = await client.request('DELETE', '/uploads');
+        expect([200, 204, 404]).toContain(res.status);
+    });
+});
+
+describe('CGI 测试', () => {
+    test('GET /cgi-php/hello.php 应返回 200 且包含 PHP 输出', async () => {
+        const res = await client.get('/cgi-php/hello.php');
+        expect(res.status).toBe(200);
+        expect(res.body.toString()).toContain('Hello from PHP CGI');
+        expect(res.body.toString()).toContain('Method: GET');
+    });
+
+    test('GET /cgi-php/hello.php?name=test 应正确传递 query string', async () => {
+        const res = await client.get('/cgi-php/hello.php?name=test');
+        expect(res.status).toBe(200);
+        expect(res.body.toString()).toContain('Query: name=test');
+    });
+
+    test('POST /cgi-php/hello.php 应正确传递 method', async () => {
+        const res = await client.post('/cgi-php/hello.php', 'data=123', {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        });
+        expect(res.status).toBe(200);
+        expect(res.body.toString()).toContain('Method: POST');
+    });
+});

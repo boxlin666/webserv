@@ -27,12 +27,18 @@ void CGIHandler::_prepareEnvMap(const HttpRequest& req)
 
     _envMap["REQUEST_METHOD"]    = req.get_method();
     _envMap["QUERY_STRING"]      = req.get_querystring();
-    _envMap["SCRIPT_FILENAME"]   = _scriptPath;
     _envMap["PATH_INFO"]         = req.get_path();
     _envMap["GATEWAY_INTERFACE"] = "CGI/1.1";
     _envMap["SERVER_PROTOCOL"]   = "HTTP/1.1";
     _envMap["SERVER_SOFTWARE"]   = "Webserv/1.0";
+    _envMap["REDIRECT_STATUS"]   = "200"; // php-cgi 必须有这个
   
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) != NULL)
+        _envMap["SCRIPT_FILENAME"] = std::string(cwd) + "/" + _scriptPath;
+    else
+        _envMap["SCRIPT_FILENAME"] = _scriptPath; // fallback
+        
     //需要通过判断是不是Chunked来决定添加content length 否则脚本可能会卡住！
     if (req.get_is_chunked() == false)
     {
