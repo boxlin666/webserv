@@ -71,7 +71,9 @@ void Connection::handle_read_event(void)
 void Connection::process_existing_in_buff()
 {
     // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
-    this->_status_code = this->_request.parse(this->_in_buff);
+    int ret = this->_request.parse(this->_in_buff);
+
+    _set_status_code(ret);
 
     if (this->_status_code != SUCCESS) {
         _request.set_is_keep_alive(false);
@@ -97,6 +99,8 @@ void Connection::handle_request_dispatch()
 {
     std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
     std::cout << "[Check] Entering CGI pipeline..." << std::endl;
+
+    debug_msg_print("REQUEST_MSG", _back_up_in_buff, "\033[31m", 400);
 
     try {
         this->set_matched_server();
@@ -426,6 +430,23 @@ bool Connection::is_waiting_request_msg() const
 
 time_t Connection::get_last_recv_time() const
 { return _last_recv_time; }
+
+void Connection::_set_status_code(int code)
+{
+    if (code < 100 || code > 599)
+    {
+        this->_status_code = SERVER_ERROR;
+        return ;
+    }   
+    if (this->_status_code >= 400 && code < 400)
+        return ;
+    this->_status_code = code; 
+}
+
+void Connection::_reset_status_code()
+{
+    this->_status_code = SUCCESS;
+}
 
 void Connection::set_request_keep_alive(bool is_keep_alive)
 { _request.set_is_keep_alive(is_keep_alive); }

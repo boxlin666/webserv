@@ -2,6 +2,13 @@
 
 void HttpResponse::_set_status(int code)
 {
+    if (code < 100 || code > 599)
+    {
+        this->_status_code = 500;
+        return ;
+    }   
+    if (this->_status_code >= 400 && code < 400)
+        return ;
     this->_status_code = code;
 }
 

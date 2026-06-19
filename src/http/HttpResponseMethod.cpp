@@ -40,13 +40,13 @@ int HttpResponse::_handle_static_post_dir(void)
 {
     if (mkdir(this->_full_path.c_str(), 0755) == 0) 
     {
-        _status_code = CREATED;
+        _set_status(CREATED);
         return (_status_code);
     }
 
     if (errno == EEXIST) 
-    {
-       _status_code = SUCCESS;
+    { 
+       _set_status(SUCCESS);
        return (_status_code);
     }
     return (SERVER_ERROR);
@@ -80,7 +80,7 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
     }
 
     std::cout << "handle static post called" << std::endl;
-    if (!is_overwrite) this->_status_code = CREATED;
+    if (!is_overwrite) _set_status(CREATED);
     total_size = request.get_body_len();
     if (total_size == 0)
     {
