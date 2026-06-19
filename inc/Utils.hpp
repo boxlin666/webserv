@@ -24,6 +24,8 @@ class Utils
         template <typename T>
         static std::string toString(T value);
 
+        static int convertThreeDigit(const std::string &str);
+
         static std::string formatHttpDate(time_t raw_time);
         
         static void expect_semicolon(const std::vector<Token>& tokens, size_t& pos);
@@ -34,9 +36,9 @@ class Utils
 
         static void toUpper(std::string &input);
 
-        static void to_lowercase(std::string &str) ;
+        static void to_lowercase(std::string &str);
 
-        static bool is_digit_str(const std::string& str) ;
+        static bool is_digit_str(const std::string& str);
 };
 
 void debug_msg_print(const std::string& variable, const std::string& content, 
