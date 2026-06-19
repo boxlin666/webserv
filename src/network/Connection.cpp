@@ -22,9 +22,7 @@ Connection::Connection(int client_fd, PassiveSocket* matched_socket,
       _response(),
       _status_code(200),
       _state(WAITING)
-{
-    _update_last_recv_time();
-}
+{ _update_last_recv_time(); }
 
 Connection::~Connection(void) {}
 
@@ -41,34 +39,26 @@ void Connection::handle_read_event(void)
     char    buffer[4096];
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read < 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)  return;
-     
+    if (bytes_read < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+
         this->set_state(CLOSED);
         return;
-    } 
-    else if (bytes_read == 0) 
-    {
-        if ((!_in_buff.empty() || _state == READING_REQ))
-        {
+    } else if (bytes_read == 0) {
+        if ((!_in_buff.empty() || _state == READING_REQ)) {
             if (_status_code == BODY_TOO_LARGE)
                 buildErrorResponse(BODY_TOO_LARGE);
             else
                 buildErrorResponse(BAD_REQUEST);
-        }
-        else
-        {
+        } else {
             this->set_state(CLOSED);
             return;
         }
-    }
-    else 
-    {
+    } else {
         if (_state == WAITING) this->set_state(READING_REQ);
 
         _update_last_recv_time();
-   
+
         // 1. 数据必须累积到 Connection 的 _in_buff
         _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
 
@@ -115,14 +105,18 @@ void Connection::handle_request_dispatch()
     try {
         this->set_matched_server();
         this->process_router_match();
-        
+
         if (_status_code == SUCCESS) {
             this->_req_handler.process_request_handler(this->_request, this->_route_ctx,
                                                        _status_code);
         }
         if (_status_code != SUCCESS)
             buildErrorResponse(_status_code);
-        else if (_route_ctx.is_cgi_potential) {
+        else if (_route_ctx.is_redirect) {
+            this->_out_buff = this->_response.build_redirect_response(
+                _route_ctx.redirect_code, _route_ctx.redirect_url, this->_request);
+            this->set_state(WRITING_RESP);
+        } else if (_route_ctx.is_cgi_potential) {
             this->execute_cgi_pipeline();
             return;  // CGI 流程接管了 FD，这里直接退出
         } else {
@@ -193,7 +187,9 @@ void Connection::handle_write_event(void)
         this->_out_buff.erase(0, bytes_send);
     }
 
-    if (!this->_in_buff.empty() && (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT || this->_status_code == BODY_TOO_LARGE))
+    if (!this->_in_buff.empty() &&
+        (this->_status_code == BAD_REQUEST || this->_status_code == REQUEST_TIMEOUT ||
+         this->_status_code == BODY_TOO_LARGE))
         this->_in_buff.clear();
 
     if (this->_out_buff.empty()) {
@@ -206,17 +202,15 @@ void Connection::handle_write_event(void)
         } else {
             this->_request.reset();
             this->_response.reset();
-            _reset_status_code(); 
+
             if (!this->_in_buff.empty()) {
                 std::cout << "[Pipeline] Remaining data detected in _in_buff ("
                           << this->_in_buff.size() << " bytes). Driving next request inline."
                           << std::endl;
-                std::cout << "_in_buff: "  << this->_in_buff << std::endl;
+                std::cout << "_in_buff: " << this->_in_buff << std::endl;
                 this->_state = READING_REQ;
                 this->process_existing_in_buff();
-            } 
-            else
-            {
+            } else {
                 this->_state = WAITING;
                 std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
             }
@@ -300,7 +294,7 @@ void Connection::buildErrorResponse(int status_code)
 {
     _status_code                = status_code;
     std::string error_page_path = "";
-    
+
     error_page_path = Router::get_error_page_path(_route_ctx, status_code);
     this->_out_buff = _response.build_error_response(status_code, error_page_path, _request);
     this->_state    = Connection::WRITING_RESP;
@@ -308,7 +302,8 @@ void Connection::buildErrorResponse(int status_code)
 
 void Connection::prepare_static_response()
 {
-    if (!this->_response.build_static_response(this->_request, this->_req_handler, this->_status_code))
+    if (!this->_response.build_static_response(this->_request, this->_req_handler,
+                                               this->_status_code))
         this->buildErrorResponse(this->_status_code);
     this->_out_buff = this->_response.get_full_response();
 }
@@ -423,21 +418,18 @@ void Connection::clean_up_cgi_handler(void)
 { _cgi_handler.reset(); }
 
 void Connection::_update_last_recv_time()
-{
-   _last_recv_time = time(NULL);
-}
+{ _last_recv_time = time(NULL); }
 
-bool Connection::is_waiting_request_msg() const 
+bool Connection::is_waiting_request_msg() const
 {
-    if (_state == READING_REQ &&  this->_request.get_state() < HttpRequest::PARSE_FINISHED && _status_code == SUCCESS)
+    if (_state == READING_REQ && this->_request.get_state() < HttpRequest::PARSE_FINISHED &&
+        _status_code == SUCCESS)
         return (true);
     return (false);
 }
 
 time_t Connection::get_last_recv_time() const
-{
-    return _last_recv_time;
-}
+{ return _last_recv_time; }
 
 void Connection::_set_status_code(int code)
 {
@@ -457,6 +449,4 @@ void Connection::_reset_status_code()
 }
 
 void Connection::set_request_keep_alive(bool is_keep_alive)
-{
-    _request.set_is_keep_alive(is_keep_alive);
-}
+{ _request.set_is_keep_alive(is_keep_alive); }
