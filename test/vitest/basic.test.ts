@@ -105,12 +105,12 @@ describe('边界情况', () => {
 });
 
 describe('状态码专项', () => {
-    // test('GET /redirect 应返回 301 且有 Location 头', async () => {
-    //     const res = await client.get('/redirect');
-    //     expect(res.status).toBe(301);
-    //     expect(res.headers).toHaveProperty('location');
-    //     expect(res.headers['location']).toBe('http://another-site.com');
-    // });
+    test('GET /redirect 应返回 301 且有 Location 头', async () => {
+        const res = await client.get('/redirect');
+        expect(res.status).toBe(301);
+        expect(res.headers).toHaveProperty('location');
+        expect(res.headers['location']).toBe('http://another-site.com');
+    });
 
     test('POST 超出 client_max_body_size 应返回 413', async () => {
         // cat.com 的限制是 10m，对 localhost 服务器发超大 body
