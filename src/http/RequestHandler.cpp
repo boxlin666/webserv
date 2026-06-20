@@ -170,8 +170,8 @@ int RequestHandler::check_ext_post_file(void)const
         pos = file_name.find_last_of('.');
         if (pos != std::string::npos)
         {
-            std::string file_name_ext = file_name.substr(pos, file_name.length()); 
-            if (file_name_ext == ".html" || file_name_ext == ".py")
+            std::string file_name_ext = file_name.substr(pos, file_name.length());
+            if (file_name_ext == ".html" || file_name_ext == ".py" || file_name_ext == ".php")
                 return (METHOD_NOT_ALLOWED);
         }
     }
