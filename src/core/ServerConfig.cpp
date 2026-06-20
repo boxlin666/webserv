@@ -262,7 +262,7 @@ void ServerConfig::_handle_error_page(std::vector<Token>& tokens, size_t& pos, l
             int error_code = Utils::convertThreeDigit(tokens[pos].content);
 
             if (error_code >= 300 && error_code <= 599)
-                codes.push_back(std::atoi(tokens[pos].content.c_str()));
+                codes.push_back(error_code);
             else
                 throw std::runtime_error("Syntax error: Invalid status code " + tokens[pos].content  + " for 'error_page'");
         }
@@ -350,6 +350,9 @@ void ServerConfig::_handle_methods(std::vector<Token>& tokens, size_t& pos, loca
     current_line = tokens[pos].line;
 
     while (++pos < tokens.size() && tokens[pos].content != ";" && tokens[pos].line == current_line) {
+        if (tokens[pos].content != "GET" && tokens[pos].content != "POST" && 
+            tokens[pos].content != "HEAD" && tokens[pos].content != "DELETE")
+            throw std::runtime_error("Configuration error: method " + tokens[pos].content + " is not allowed.");
         if (loc == NULL) {
             this->_methods.push_back(tokens[pos].content);
         } else {
@@ -362,23 +365,43 @@ void ServerConfig::_handle_methods(std::vector<Token>& tokens, size_t& pos, loca
 
 void ServerConfig::_handle_return(std::vector<Token>& tokens, size_t& pos, location* loc)
 {
-    if (++pos >= tokens.size() || tokens[pos].content == ";") {
+    if (++pos >= tokens.size() || tokens[pos].content == ";")
         throw std::runtime_error("Syntax error: Missing status code for 'return'");
-    }
 
-    int code = std::atoi(tokens[pos].content.c_str());
+    int code = Utils::convertThreeDigit(tokens[pos].content);
 
-    if (++pos >= tokens.size() || tokens[pos].content == ";") {
+    if (code < 300 || code > 308)
+        throw std::runtime_error("Syntax error: Invalid status code " + tokens[pos].content  + " for 'return status code'");
+
+    if (++pos >= tokens.size() || tokens[pos].content == ";")
         throw std::runtime_error("Syntax error: Missing URL for 'return'");
-    }
 
-    // 获取 http://...
+    // fetch the  http://...
     std::string url = tokens[pos].content;
 
-    if (loc == NULL) {
+    if (url.empty())
+        throw std::runtime_error("Return URL cannot be empty");
+
+    for (size_t i = 0; i < url.length(); ++i) 
+    {
+        if (std::isspace(url[i]))
+            throw std::runtime_error("Return URL contains invalid whitespace characters");
+    }
+
+    bool is_absolute = (url.compare(0, 7, "http://") == 0 || 
+                        url.compare(0, 8, "https://") == 0);
+    bool is_relative = (url[0] == '/');
+
+    if (!is_absolute && !is_relative) 
+        throw std::runtime_error("Invalid return URL format: must start with 'http://', 'https://' or '/'");
+
+    if (loc == NULL) 
+    {
         this->_return_code = code;
         this->_return_url  = url;
-    } else {
+    } 
+    else 
+    {
         loc->return_code = code;
         loc->return_url  = url;
     }
