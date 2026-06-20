@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#include <cerrno>
 #include <climits>
 #include <cstdio>
 #include <cstdlib>

@@ -28,28 +28,7 @@ int HttpResponse::_handle_get(void)
 
 int HttpResponse::_handle_post(const HttpRequest& request) 
 {
-    //std::size_t pos = this->_full_path.find_last_of('/');
-
-    //if (pos == this->_full_path.size() - 1)
-        //return (this->_handle_static_post_dir());
-
     return (this->_handle_static_post(request));
-}
-
-int HttpResponse::_handle_static_post_dir(void)
-{
-    if (mkdir(this->_full_path.c_str(), 0755) == 0) 
-    {
-        _set_status(CREATED);
-        return (_status_code);
-    }
-
-    if (errno == EEXIST) 
-    { 
-       _set_status(SUCCESS);
-       return (_status_code);
-    }
-    return (SERVER_ERROR);
 }
 
 int HttpResponse::_handle_static_post(const HttpRequest& request)
@@ -61,26 +40,28 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
     const std::string& req_body = request.get_body();
     bool is_overwrite = false;
 
-    fd = open(this->_full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
-    if (fd == -1)
+    if (access(_full_path.c_str(), F_OK) == 0)
     {
-        if (errno == EEXIST)
+        is_overwrite = true;
+        fd = open(this->_full_path.c_str(), O_WRONLY | O_TRUNC, 0644);
+        if (fd == -1)
         {
-            is_overwrite = true;
-            fd = open(this->_full_path.c_str(), O_WRONLY | O_TRUNC, 0644);
-            if (fd == -1)
-            {
-                if (errno == EACCES) return (FORBIDDEN);
-                return (SERVER_ERROR);
-            }
+            if (access(_full_path.c_str(), W_OK) == -1) return (FORBIDDEN);
+            return (SERVER_ERROR);
         }
-        else if (errno == EACCES) return (FORBIDDEN);
-        else if (errno == ENOENT) return (NOT_FOUND);
-        else return (SERVER_ERROR); 
+    }
+    else
+    {
+        fd = open(this->_full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        if (fd == -1)
+        {
+            if (access(this->_full_path.c_str(), F_OK) == -1) return (NOT_FOUND);
+            return (SERVER_ERROR);
+        }
     }
 
-    std::cout << "handle static post called" << std::endl;
     if (!is_overwrite) _set_status(CREATED);
+
     total_size = request.get_body_len();
     if (total_size == 0)
     {
@@ -94,8 +75,6 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
         ret = write(fd, req_body.data() + byte_written, total_size - byte_written);
         if (ret < 0)
         {
-            if (errno == EINTR)
-                continue ;
             close(fd);
             return (SERVER_ERROR);
         }
@@ -114,11 +93,11 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
 
 int HttpResponse::_handle_delete(void)
 {
-    if (std::remove(this->_full_path.c_str()) == 0)
-        return (DELETED);
-    if (errno == ENOENT)
-        return (NOT_FOUND);
-    else if (errno == EACCES || errno == EPERM)
-        return (FORBIDDEN);
+    if (std::remove(this->_full_path.c_str()) == 0) return (DELETED);
+
+    if (access(_full_path.c_str(), F_OK) != 0) return (NOT_FOUND);
+
+    if (access(_full_path.c_str(), W_OK) != 0) return (FORBIDDEN);
+
     return (SERVER_ERROR);
 }

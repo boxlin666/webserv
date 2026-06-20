@@ -47,6 +47,7 @@ class Cluster : public IClusterMediator {
     static bool is_invalid_fd(const struct pollfd& pfd);
     void        cleanup_inactive_fds();
     void        _handleSignalEvent();
+    bool        _handle_poll_error();
     void        _manage_cgi_lifecycle();
     void        _check_timeouts(time_t now);
 

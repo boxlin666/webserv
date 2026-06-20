@@ -6,7 +6,6 @@
 #include <sys/stat.h>
 #include <unistd.h>  //tmp header missing config data
 
-#include <cerrno>
 #include <cstdio>
 #include <iterator>
 #include <map>

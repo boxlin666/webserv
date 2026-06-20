@@ -142,7 +142,7 @@ bool CGIHandler::execute(const HttpRequest& req)
         execve(args[0], args, _envp);
 
         // 如果代码执行到这里，说明 execve 100% 失败了
-        std::cerr << "[CGI ERROR] Execve failed: " << strerror(errno) << std::endl;
+        std::cerr << "[CGI ERROR] Execve failed." << std::endl;
         exit(1);
     }
     // 5. 父进程流 (The Parent)
@@ -209,14 +209,16 @@ int CGIHandler::sendToScript()
 {
     if (_state != CGI_EXECUTING || _pipeIn[1] == -1) return 0;
 
-    if (_inBuffer.empty()) {
+    if (_inBuffer.empty()) 
+    {
         close(_pipeIn[1]);
         _pipeIn[1] = -1;
         return 0;
     }
 
     ssize_t bytes_sent = write(_pipeIn[1], _inBuffer.c_str(), _inBuffer.size());
-    if (bytes_sent > 0) {
+    if (bytes_sent > 0) 
+    {
         _inBuffer.erase(0, bytes_sent);
         if (_inBuffer.empty()) {
             close(_pipeIn[1]);
@@ -224,8 +226,9 @@ int CGIHandler::sendToScript()
             return 0;
         }
         return 1;  // 还没发完，继续 POLLOUT
-    } else if (bytes_sent == -1) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) return 1;
+    }
+    else if (bytes_sent == -1) 
+    {
         _state = CGI_ERROR;
         _close_all_pipes();
         return -1;
@@ -266,11 +269,8 @@ int CGIHandler::receiveFromScript()
         // 这样可以确保状态的原子性。我们可以在 checkChildProcess() 中做最终的状态切换。
         return 0;
     } else {
-        // 非阻塞读取在无数据可读时会返回 -1 且 errno 为 EAGAIN
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            _state = CGI_ERROR;
-            _close_all_pipes();
-        }
+        _state = CGI_ERROR;
+        _close_all_pipes();
     }
     return -1;
 }

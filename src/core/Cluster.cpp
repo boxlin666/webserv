@@ -110,9 +110,9 @@ void Cluster::handle_new_connection(int listen_fd, PassiveSocket* passive_socket
     int                client_fd  = accept(listen_fd, (struct sockaddr*)&client_addr, &client_len);
     std::map<int, std::vector<ServerConfig*> >::const_iterator it_servers;
 
-    if (client_fd < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) return;
-        std::cerr << "Accept failed: " << strerror(errno) << std::endl;
+    if (client_fd < 0)
+    {
+        std::cerr << "[Warning] accept() failed to check out a new client connection. Skipping..." << std::endl;
         return;
     }
 
@@ -205,42 +205,40 @@ void Cluster::run()
     time_t last_check_time = std::time(NULL);
 
     _is_running = true;
-    while (_is_running) {
-        // 🚨 修正 1：将 -1 改为 1000ms（1秒）。
+    while (_is_running) 
+    {
         // 这样即使没有任何网络请求，poll 每隔 1 秒也会醒来一次，执行后面的超时检查
         int ret = poll(_poll_fds.data(), _poll_fds.size(), 1000);
-
-        if (ret == -1) {
-            if (errno == EINTR) continue;
-            throw std::runtime_error("Poll failed: " + std::string(strerror(errno)));
+        if (ret == -1)
+        {
+            if (_handle_poll_error() == true) break;
         }
-
-        // ==========================================
-        // 阶段 1 & 2：处理 IO 事件 (如果 ret > 0)
-        // ==========================================
-        if (ret > 0) {
-            for (size_t i = 0; i < _poll_fds.size(); ++i) {
+        else if (ret > 0) 
+        {
+            for (size_t i = 0; i < _poll_fds.size(); ++i) 
+            {
                 if (_poll_fds[i].fd == -1) continue;
 
-                if (_poll_fds[i].fd == _sig_pipe.getReadFd()) {
+                if (_poll_fds[i].fd == _sig_pipe.getReadFd()) 
+                {
                     if (_poll_fds[i].revents & POLLIN) {
                         _handleSignalEvent();
                         break;
                     }
                     continue;
                 }
-                if (_poll_fds[i].revents & (POLLERR | POLLNVAL)) {
+                if (_poll_fds[i].revents & (POLLERR | POLLNVAL)) 
+                {
                     this->_process_poll_errors(i);
                     continue;
                 }
 
-                if (_poll_fds[i].revents & POLLIN) { this->_dispatch_read_event(i); }
+                if (_poll_fds[i].revents & POLLIN) this->_dispatch_read_event(i); 
 
-                if (_poll_fds[i].revents & POLLHUP) { this->_dispatch_pollhup_event(i); }
+                if (_poll_fds[i].revents & POLLHUP) this->_dispatch_pollhup_event(i); 
 
-                if (_poll_fds[i].fd != -1 && (_poll_fds[i].revents & POLLOUT)) {
-                    this->_dispatch_write_event(i);
-                }
+                if (_poll_fds[i].fd != -1 && (_poll_fds[i].revents & POLLOUT)) 
+                    this->_dispatch_write_event(i); 
             }
         }
 
@@ -257,6 +255,20 @@ void Cluster::run()
             last_check_time = current_time;
         }
     }
+}
+
+bool Cluster::_handle_poll_error()
+{
+    char check_buf[1];
+    ssize_t sig_check = ::read(_sig_pipe.getReadFd(), check_buf, 1);
+
+    if (sig_check > 0 && check_buf[0] == 'W') 
+    {
+        std::cout << "\n[Signal Detected] Initiating graceful shutdown sequence..." << std::endl;
+        _sig_pipe.clearNotification(); 
+        return (true);
+    } 
+    throw std::runtime_error("Fatal: Core multiplexing system (poll) collapsed by internal error!");
 }
 
 void Cluster::_handleSignalEvent()
