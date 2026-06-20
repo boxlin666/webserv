@@ -91,7 +91,7 @@ void handle_client(struct pollfd &client_pfd, int status)
             client_pfd.events |= POLLOUT; //除了初始化加入的POLLIN 加入新的追踪事件
         else if (ret == strlen(response))//数据传输完毕
             client_pfd.events &= ~POLLOUT; //关闭POLLOUT追踪事件
-        else if (ret ==-1, errno == EAGAIN || errno == EWOULDBLOCK)
+        else if (ret ==-1)
             client_pfd.events |= POLLOUT;
     }
 }

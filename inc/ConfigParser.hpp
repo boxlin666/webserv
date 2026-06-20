@@ -1,7 +1,6 @@
 #ifndef CONFIG_PARSER_HPP
 #define CONFIG_PARSER_HPP
 
-#include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
 

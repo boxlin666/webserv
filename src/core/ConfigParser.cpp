@@ -35,9 +35,9 @@ std::string ConfigParser::read_file(const std::string& filepath)
 {
     struct stat info;
     if (stat(filepath.c_str(), &info) != 0)
-    {
-        throw std::runtime_error("Config Error: " + std::string(strerror(errno)));
-    }
+        throw std::runtime_error("Config Error: Unable to access or find the file at '" +
+            filepath + "'. Check path and permissions.");
+    
     if (S_ISDIR(info.st_mode)) {
         throw std::runtime_error("Config Error: '" + filepath + "' is a directory");
     }

@@ -105,11 +105,7 @@ int HttpRequest::validate_and_prepare_payload()
 
 int HttpRequest::parse_request_header(std::string& line) 
 {
-    if (line.empty())
-    {
-        int ret = validate_and_prepare_payload();
-        return (ret);
-    }
+    if (line.empty()) return (validate_and_prepare_payload());
 
     size_t colon_pos = line.find(':');
     if (colon_pos == std::string::npos) return (BAD_REQUEST);
@@ -130,18 +126,16 @@ int HttpRequest::parse_request_header(std::string& line)
     _header_map[key] = value;
     if (key == "content-length")
     {
-        std::string cl_str= _header_map["content-length"].c_str();
+        if (value.empty() || value[0] == '-' || !Utils::is_digit_str(value)) return (BAD_REQUEST);
 
-        if (cl_str.empty() || cl_str[0] == '-' || !Utils::is_digit_str(cl_str)) return (BAD_REQUEST);
+        unsigned long long parsed_cl = 0;
+        std::stringstream ss(value);
 
-        errno = 0;
+        if (!(ss >> parsed_cl) || !ss.eof()) return (BAD_REQUEST);
 
-        _content_length = strtoul(_header_map["content-length"].c_str(), NULL, 10);
-        
-        if (errno == ERANGE && this->_content_length == ULLONG_MAX) return (BAD_REQUEST);
-
-        if (this->_content_length > GLOBAL_MAX_ALLOWED) return (BODY_TOO_LARGE);
-        
+        _content_length = parsed_cl;
+       
+        if (this->_content_length > GLOBAL_MAX_ALLOWED) return (BODY_TOO_LARGE); 
     }
     else if (key == "connection")
     {

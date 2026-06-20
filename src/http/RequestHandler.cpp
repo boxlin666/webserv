@@ -81,12 +81,14 @@ int RequestHandler::existing_resource_validator(const RouterCtx& route_ctx)
 
     if (stat(this->_full_path.c_str(), &st) == -1)
     {
-        std::cerr << "[DEBUG] stat failed: " << this->_full_path 
-              << " errno: " << strerror(errno) << std::endl;
-        if (errno == ENOENT)
-            return (NOT_FOUND);
-        else if (errno == EACCES)
-            return (FORBIDDEN);
+        std::cerr << "[DEBUG] stat failed: " 
+              << "Unable to access or find the fill at '" 
+              << this->_full_path << "' . Check path and permissions." << std::endl;
+
+        if (access(this->_full_path.c_str(), F_OK) == -1) return (NOT_FOUND);
+
+        if (access(this->_full_path.c_str(), R_OK) == -1) return (FORBIDDEN);
+
         return (SERVER_ERROR);
     }
     if (S_ISDIR(st.st_mode))
@@ -121,10 +123,10 @@ int RequestHandler::creatable_resource_validator(void)
 
     if (stat(this->_parent_path.c_str(), &st_parent) == -1)
     {
-        if (errno == ENOENT)
-            return (NOT_FOUND);
-        else if (errno == EACCES)
-            return (FORBIDDEN);
+        if (access(this->_parent_path.c_str(), F_OK) == -1) return (NOT_FOUND);
+
+        if (access(this->_parent_path.c_str(), R_OK) == -1) return (FORBIDDEN);
+       
         return (SERVER_ERROR);
     }
     if (!S_ISDIR(st_parent.st_mode)) //KO if _parent_path is not a real parent directory

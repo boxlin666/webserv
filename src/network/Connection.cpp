@@ -39,22 +39,28 @@ void Connection::handle_read_event(void)
     char    buffer[4096];
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) return;
-
+    if (bytes_read < 0) 
+    {
         this->set_state(CLOSED);
         return;
-    } else if (bytes_read == 0) {
-        if ((!_in_buff.empty() || _state == READING_REQ)) {
+    } 
+    else if (bytes_read == 0) 
+    {
+        if ((!_in_buff.empty() || _state == READING_REQ)) 
+        {
             if (_status_code == BODY_TOO_LARGE)
                 buildErrorResponse(BODY_TOO_LARGE);
             else
                 buildErrorResponse(BAD_REQUEST);
-        } else {
+        } 
+        else 
+        {
             this->set_state(CLOSED);
             return;
         }
-    } else {
+    } 
+    else 
+    {
         if (_state == WAITING) this->set_state(READING_REQ);
 
         _update_last_recv_time();
@@ -166,24 +172,20 @@ void Connection::handle_write_event(void)
     if (this->_out_buff.empty()) return;
     ssize_t bytes_send;
 
-    // 🌟 打印 1：看看进这个函数时，缓冲区里有多少数据要发
     std::cout << "[Debug] handle_write_event called. Buff size to send: " << this->_out_buff.size()
               << std::endl;
 
     bytes_send = send(this->_client_fd, this->_out_buff.c_str(), this->_out_buff.size(), 0);
 
-    if (bytes_send < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            // 只是暂时的无法写入，此时不应关闭连接，而是留在当前状态，等待下一次事件触发
-            return;
-        }
+    if (bytes_send < 0) 
+    {
         std::cerr << "Failed to send the http response on ..." << std::endl;
         this->_state = CLOSED;
         return;
-    } else {
-        // 🌟 打印 2：看看实际发了多少字节
+    } 
+    else 
+    {
         std::cout << "[Debug] send() actually sent: " << bytes_send << " bytes." << std::endl;
-        // std::cout << "_out_buff = " << _out_buff << std::endl;
         this->_out_buff.erase(0, bytes_send);
     }
 
@@ -192,25 +194,29 @@ void Connection::handle_write_event(void)
          this->_status_code == BODY_TOO_LARGE))
         this->_in_buff.clear();
 
-    if (this->_out_buff.empty()) {
-        // 🌟 增加判定：如果响应报文里包含了 "Connection: close"，或者请求本身就不支持长连接
+    if (this->_out_buff.empty()) 
+    {
         if ((this->_request.get_is_keep_alive() == false ||
              this->_response.get_full_response().find("Connection: close") != std::string::npos) &&
-            this->_in_buff.empty()) {
+            this->_in_buff.empty()) 
+        {
             std::cout << "[Debug] Short connection detected. Switching to CLOSED." << std::endl;
             this->_state = CLOSED;
-        } else {
+        } 
+        else 
+        {
             this->_request.reset();
             this->_response.reset();
-
-            if (!this->_in_buff.empty()) {
+            this->_reset_status_code();
+            if (!this->_in_buff.empty()) 
+            {
                 std::cout << "[Pipeline] Remaining data detected in _in_buff ("
-                          << this->_in_buff.size() << " bytes). Driving next request inline."
-                          << std::endl;
-                std::cout << "_in_buff: " << this->_in_buff << std::endl;
+                    << this->_in_buff.size() << " bytes). Driving next request inline." << std::endl;
                 this->_state = READING_REQ;
                 this->process_existing_in_buff();
-            } else {
+            } 
+            else 
+            {
                 this->_state = WAITING;
                 std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
             }

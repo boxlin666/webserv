@@ -319,16 +319,19 @@ void ServerConfig::_handle_client_max_body_size(std::vector<Token>& tokens, size
     if (num_val.empty() || !Utils::is_digit_str(num_val))
         throw std::runtime_error("Syntax error: Invalid client_max_body_size value '" + val + "'");
 
-    errno = 0;
-    long long parsed_num = std::strtoll(num_val.c_str(), NULL, 10);
+    long long parsed_num = 0;
+    std::stringstream ss(num_val);
 
-    if (errno == ERANGE || parsed_num > LLONG_MAX / multiplier ||(parsed_num * multiplier) > 1099511627776LL)
-        throw std::runtime_error("Configuration error: 'client_max_body_size' value " + val +  " is overflowed");
+    if (!(ss >> parsed_num) || !ss.eof())
+        throw std::runtime_error("Configuration error: 'client_max_body_size' value '" + val + "' is overflowed");
+
+    if (parsed_num > LLONG_MAX / multiplier ||(parsed_num * multiplier) > 1099511627776LL)
+        throw std::runtime_error("Configuration error: 'client_max_body_size' value '" + val +  "' is overflowed");
 
     long long size = parsed_num * multiplier;
 
     if (size < 0 || (multiplier > 1 && size < parsed_num))
-        throw std::runtime_error("Configuration error: 'client_max_body_size' value " + val + "is overflowed");
+        throw std::runtime_error("Configuration error: 'client_max_body_size' value '" + val + "' is overflowed");
 
     if (loc == NULL) {
         this->_client_max_body_size = size;
