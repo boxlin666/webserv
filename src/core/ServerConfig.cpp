@@ -14,6 +14,7 @@ ServerConfig::ServerConfig()
       _cgi_path(""),
       _cgi_ext(""),
       _cgi_script(""),
+      _autoindex(false),
       _handler_map(),
       locations()
 {
@@ -149,30 +150,32 @@ void ServerConfig::_handle_autoindex(std::vector<Token>& tokens, size_t& pos, lo
 {
     if (++pos >= tokens.size()) throw std::runtime_error("Missing value for autoindex");
 
-    bool is_on = (tokens[pos].content == "on");
+    bool is_on = false;
 
-    if (loc == NULL) {
-        // 如果 Nginx 允许在 server 级别开 autoindex，就存在 Server 里（可选）
-        // this->_autoindex = is_on;
-    } else {
+    if (tokens[pos].content == "on")
+        is_on = true;
+    else if (tokens[pos].content == "off")
+        is_on = false;
+    else 
+        throw std::runtime_error("autoindex value '" + tokens[pos].content + "' is invalid");
+
+    if (loc == NULL)
+         this->_autoindex = is_on;
+    else
         loc->autoindex = is_on;
-    }
 
     Utils::expect_semicolon(tokens, ++pos);
 }
 
 void ServerConfig::_handle_listen(std::vector<Token>& tokens, size_t& pos, location* loc)
 {
-    if (loc != NULL) {
+    if (loc != NULL) 
         throw std::runtime_error(
             "Syntax error: 'listen' directive is not allowed in location block");
-    }
-
-    if (++pos >= tokens.size()) {
+    
+    if (++pos >= tokens.size()) 
         throw std::runtime_error("Syntax error: Missing port number for 'listen'");
-    }
-
-    //this->set_ports(tokens[pos].content.c_str());
+    
 
     this->set_listen_addrs(tokens[pos].content.c_str());
 
@@ -261,7 +264,7 @@ void ServerConfig::_handle_error_page(std::vector<Token>& tokens, size_t& pos, l
         {
             int error_code = Utils::convertThreeDigit(tokens[pos].content);
 
-            if (error_code >= 300 && error_code <= 599)
+            if (error_code >= 400 && error_code <= 599)
                 codes.push_back(error_code);
             else
                 throw std::runtime_error("Syntax error: Invalid status code " + tokens[pos].content  + " for 'error_page'");
@@ -373,7 +376,7 @@ void ServerConfig::_handle_return(std::vector<Token>& tokens, size_t& pos, locat
 
     int code = Utils::convertThreeDigit(tokens[pos].content);
 
-    if (code < 300 || code > 308)
+    if (code < 300 || code > 308 || code == 304)
         throw std::runtime_error("Syntax error: Invalid status code " + tokens[pos].content  + " for 'return status code'");
 
     if (++pos >= tokens.size() || tokens[pos].content == ";")
@@ -593,6 +596,22 @@ void ServerConfig::_validate_location(const location& new_loc) const
         if (this->locations[i]._prefix == new_loc._prefix)
             throw std::runtime_error("Configuration error: duplicate location prefix \"" 
                                      + new_loc._prefix + "\" in server block"); 
+        
+        if ((this->locations[i].cgi_path.empty() && !this->locations[i].cgi_ext.empty()) || 
+            (!this->locations[i].cgi_path.empty() && this->locations[i].cgi_ext.empty()))
+            throw std::runtime_error("Configuration error: missing cgi_path or cgi_ext for location prefix " + new_loc._prefix);
+        
+        if (!this->locations[i].cgi_path.empty() && !this->locations[i].cgi_ext.empty())
+        {
+            std::string cgi_path = this->locations[i].cgi_path;
+            std::string cgi_ext = this->locations[i].cgi_ext;
+
+            if (cgi_ext == ".py" && cgi_path.find("python") == std::string::npos) 
+                throw std::runtime_error("Config Error: .py extension must match a python CGI path");
+
+            if (cgi_ext == ".php" && cgi_path.find("php") == std::string::npos) 
+                throw std::runtime_error("Config Error: .php extension must match a php CGI path");
+        }
     }
 }
 

@@ -80,6 +80,8 @@ class ServerConfig {
     std::string _cgi_ext;
     std::string _cgi_script;
 
+    bool _autoindex;
+
     std::map<std::string, LocationHandler> _handler_map;
     int string_to_port(const std::string& port_str)const;
     void                                   _init_handlers();  // 在构造函数中调用，初始化映射表
