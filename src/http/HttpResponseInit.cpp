@@ -16,6 +16,13 @@ void    HttpResponse::_init_status_msg_map(void)
     HttpResponse::_status_msg_map[CREATED] = "Created";
     HttpResponse::_status_msg_map[DELETED] = "No Content";
 
+    /* 3xx */
+    HttpResponse::_status_msg_map[MOVED_PERMANENTLY]  = "Moved Permanently";
+    HttpResponse::_status_msg_map[FOUND]              = "Found";
+    HttpResponse::_status_msg_map[SEE_OTHER]          = "See Other";
+    HttpResponse::_status_msg_map[TEMPORARY_REDIRECT] = "Temporary Redirect";
+    HttpResponse::_status_msg_map[PERMANENT_REDIRECT] = "Permanent Redirect";
+
     /* 4xx */
     HttpResponse::_status_msg_map[BAD_REQUEST] = "Bad Request";
     HttpResponse::_status_msg_map[FORBIDDEN] = "Forbidden"; 

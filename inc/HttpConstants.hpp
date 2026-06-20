@@ -1,9 +1,19 @@
 #ifndef HTTP_CONSTANTS
 # define HTTP_CONSTANTS
 
+// 2xx Success
 #define SUCCESS 200
 #define CREATED 201
 #define DELETED 204
+
+// 3XX Redirection
+#define MOVED_PERMANENTLY   301
+#define FOUND               302
+#define SEE_OTHER           303
+#define TEMPORARY_REDIRECT  307
+#define PERMANENT_REDIRECT  308
+
+// 4XX Client error
 #define BAD_REQUEST 400
 #define FORBIDDEN 403
 #define NOT_FOUND 404
@@ -13,6 +23,8 @@
 #define BODY_TOO_LARGE 413
 #define URI_TOO_LONG 414
 #define REQ_HEADER_TOO_LONG 431
+
+// 5xx Server error
 #define SERVER_ERROR 500
 #define NO_METHOD 501
 #define BAD_GATEWAY 502
