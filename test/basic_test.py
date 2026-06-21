@@ -1169,3 +1169,64 @@ def test_post_content_length_too_small(manage_server):
         pytest.fail("Content-Length 偏小时，服务器处理逻辑卡死，未能及时返回任何响应。")
     finally:
         s.close()
+
+import pytest
+import requests
+import os
+
+BASE_URL = "http://localhost:8080" # 请根据你测试环境的实际端口修改
+
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_delete_upload_flow(manage_server):
+    """
+    测试 /uploads 路径下的 DELETE 完整生命周期：
+    1. POST 上传一个文件
+    2. DELETE 删除该文件 (预期 200 或 204)
+    3. 再次 DELETE 该文件 (预期 404)
+    4. DELETE 整个目录 (预期 404/403，防范 500)
+    """
+    filename = "test_delete_me.txt"
+    upload_url = f"{BASE_URL}/uploads/{filename}"
+    
+    try:
+        # ---- 第一步：先通过 POST 准备好这个文件 ----
+        # 构造一个 100 字节的小数据（小于 2M 的限制）
+        file_content = b"A" * 100
+        files = {'file': (filename, file_content, 'text/plain')}
+        
+        post_res = requests.post(f"{BASE_URL}/uploads", files=files)
+        # 注意：取决于你的 webserv 实现，POST 成功可能返回 200 或 201
+        assert post_res.status_code in [200, 201], f"准备测试文件失败，POST 返回了 {post_res.status_code}"
+
+        # ---- 第二步：测试合法的 DELETE 请求 ----
+        delete_res = requests.get(upload_url) # 选做：可以先 GET 确认它存在
+        
+        delete_res = requests.delete(upload_url)
+        # 42 项目或标准 HTTP 中，DELETE 成功通常返回 200 OK 或 204 No Content
+        assert delete_res.status_code in [200, 204], f"删除文件失败，预期 200 或 204，实际返回 {delete_res.status_code}"
+
+        # ---- 第三步：重复 DELETE 相同文件（测试 404 资源不存在） ----
+        repeat_delete_res = requests.delete(upload_url)
+        assert repeat_delete_res.status_code == 404, f"重复删除已不存在的文件，预期 404，实际返回 {repeat_delete_res.status_code}"
+
+        # ---- 第四步：测试直接 DELETE 目录（阻击刚才修掉的 500 崩溃漏洞） ----
+        dir_delete_res = requests.delete(f"{BASE_URL}/uploads")
+        # 按照你刚才 HttpResponse 的修改逻辑，这里应该稳稳地返回 404
+        assert dir_delete_res.status_code == 404, f"尝试删除目录，预期 404，实际返回 {dir_delete_res.status_code}"
+
+    except requests.exceptions.ConnectionError:
+        pytest.fail("无法连接到服务器，请确保 webserv 已启动。")
+
+
+@pytest.mark.parametrize("manage_server", ["./conf/default.conf"], indirect=True)
+def test_delete_method_not_allowed(manage_server):
+    """
+    测试方法限制（安全性校验）：
+    如果一个路由没有允许 DELETE（比如根路由 / ），应该返回 405 Method Not Allowed
+    """
+    try:
+        # 假设根路由没有允许 DELETE 方法
+        response = requests.delete(f"{BASE_URL}/index.html")
+        assert response.status_code == 405, f"对未允许 DELETE 的路由发送请求，预期 405，实际返回 {response.status_code}"
+    except requests.exceptions.ConnectionError:
+        pytest.fail("无法连接到服务器，请确保 webserv 已启动。")

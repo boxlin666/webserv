@@ -93,6 +93,14 @@ int HttpResponse::_handle_static_post(const HttpRequest& request)
 
 int HttpResponse::_handle_delete(void)
 {
+    struct stat path_stat;
+    
+    if (stat(this->_full_path.c_str(), &path_stat) == 0) {
+        if (S_ISDIR(path_stat.st_mode)) {
+            return (NOT_FOUND); 
+        }
+    }
+
     if (std::remove(this->_full_path.c_str()) == 0) return (DELETED);
 
     if (access(_full_path.c_str(), F_OK) != 0) return (NOT_FOUND);

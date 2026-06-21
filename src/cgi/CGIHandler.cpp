@@ -142,7 +142,7 @@ bool CGIHandler::execute(const HttpRequest& req)
         execve(args[0], args, _envp);
 
         // 如果代码执行到这里，说明 execve 100% 失败了
-        std::cerr << "[CGI ERROR] Execve failed." << std::endl;
+    std::cerr << "[CGI ERROR] Execve failed." << std::endl;
         exit(1);
     }
     // 5. 父进程流 (The Parent)
