@@ -19,8 +19,8 @@ class Connection;
 class Cluster : public IClusterMediator {
    private:
     std::map<int, Connection*>                 _connection_map;
-    std::map<int, PassiveSocket*>              _socket_map;   // (listen_fd , PassiveSocket ptr)
-    std::map<int, std::vector<ServerConfig*> > _servers_map;  //(Port Number, Server vector)
+    std::map<int, PassiveSocket*>              _socket_map;
+    std::map<int, std::vector<ServerConfig*> > _servers_map;
     std::map<int, Connection*>                 _cgi_fd_map;
 
     std::vector<struct pollfd> _poll_fds;

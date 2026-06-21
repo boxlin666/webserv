@@ -1,48 +1,48 @@
 #ifndef UTILS_HPP
-# define UTILS_HPP
+#define UTILS_HPP
 
-#include <sstream>
-#include <string>
-#include <ctime>
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <ctime>
+#include <sstream>
+#include <string>
+
 #include "ConfigParser.hpp"
-#include <algorithm>
 
 struct Token;
-//Every utils function could be added here!
-class Utils 
-{
-    private:
-        Utils(const Utils& other);
-        Utils& operator=(const Utils& other);
+// Every utils function could be added here!
+class Utils {
+   private:
+    Utils(const Utils& other);
+    Utils& operator=(const Utils& other);
 
-    public:
-        Utils(void);
-        ~Utils(void);
+   public:
+    Utils(void);
+    ~Utils(void);
 
-        template <typename T>
-        static std::string toString(T value);
+    template <typename T>
+    static std::string toString(T value);
 
-        static int convertThreeDigit(const std::string &str);
+    static int convertThreeDigit(const std::string& str);
 
-        static std::string formatHttpDate(time_t raw_time);
-        
-        static void expect_semicolon(const std::vector<Token>& tokens, size_t& pos);
+    static std::string formatHttpDate(time_t raw_time);
 
-        static std::string generate_unique_id();
+    static void expect_semicolon(const std::vector<Token>& tokens, size_t& pos);
 
-        static void replaceAll(std::string &input);
+    static std::string generate_unique_id();
 
-        static void toUpper(std::string &input);
+    static void replaceAll(std::string& input);
 
-        static void to_lowercase(std::string &str);
+    static void toUpper(std::string& input);
 
-        static bool is_digit_str(const std::string& str);
+    static void to_lowercase(std::string& str);
+
+    static bool is_digit_str(const std::string& str);
 };
 
-void debug_msg_print(const std::string& variable, const std::string& content, 
-                     const std::string& color, size_t max_len = 200); 
+void debug_msg_print(const std::string& variable, const std::string& content,
+                     const std::string& color, size_t max_len = 200);
 
 void printEnvMap(const std::map<std::string, std::string>& env_map);
 

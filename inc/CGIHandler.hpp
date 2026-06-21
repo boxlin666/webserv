@@ -20,10 +20,10 @@
 class CGIHandler {
    public:
     enum CGIState {
-        CGI_INIT,       // 初始化完成，准备执行
-        CGI_EXECUTING,  // fork 完成，子进程正在运行，正在进行 IO 推拉
-        CGI_FINISHED,   // 子进程正常结束，数据读取完毕
-        CGI_ERROR       // 发生错误（如超时、execve 失败、管道断裂）
+        CGI_INIT,
+        CGI_EXECUTING,
+        CGI_FINISHED,
+        CGI_ERROR
     };
 
    private:

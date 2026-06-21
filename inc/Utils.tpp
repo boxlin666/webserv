@@ -1,7 +1,7 @@
-template <typename T> 
+template <typename T>
 std::string Utils::toString(T value)
 {
-    std::stringstream  ss;
+    std::stringstream ss;
     ss << value;
     return (ss.str());
 }
