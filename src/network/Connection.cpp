@@ -1,7 +1,5 @@
 #include "Connection.hpp"
 
-#include <poll.h>
-
 #include "Router.hpp"
 #include "Utils.hpp"
 
@@ -39,44 +37,31 @@ void Connection::handle_read_event(void)
     char    buffer[4096];
     ssize_t bytes_read = recv(this->_client_fd, buffer, sizeof(buffer), 0);
 
-    if (bytes_read < 0) 
-    {
+    if (bytes_read < 0) {
         this->set_state(CLOSED);
         return;
-    } 
-    else if (bytes_read == 0) 
-    {
-        if ((!_in_buff.empty() || _state == READING_REQ)) 
-        {
+    } else if (bytes_read == 0) {
+        if ((!_in_buff.empty() || _state == READING_REQ)) {
             if (_status_code == BODY_TOO_LARGE)
                 buildErrorResponse(BODY_TOO_LARGE);
             else
                 buildErrorResponse(BAD_REQUEST);
-        } 
-        else 
-        {
+        } else {
             this->set_state(CLOSED);
             return;
         }
-    } 
-    else 
-    {
+    } else {
         if (_state == WAITING) this->set_state(READING_REQ);
 
         _update_last_recv_time();
-
-        // 1. 数据必须累积到 Connection 的 _in_buff
         _in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
-
         _back_up_in_buff.append(buffer, static_cast<std::size_t>(bytes_read));
-
         this->process_existing_in_buff();
     }
 }
 
 void Connection::process_existing_in_buff()
 {
-    // 2. 尝试解析 (此时只是尝试填充 HttpRequest 内部的数据结构)
     int ret = this->_request.parse(this->_in_buff);
 
     _set_status_code(ret);
@@ -87,17 +72,10 @@ void Connection::process_existing_in_buff()
         return;
     }
 
-    // 3. 这里的关键：检查是否真的“请求完成”
-    // 不要只依赖 _status_code，必须检查数据完整性
     if (this->check_parse_finished()) {
-        std::cout << "[Debug] Request is fully complete, body size: "
-                  << _request.get_body().length() << std::endl;
         debug_msg_print("REQUEST_MSG", _back_up_in_buff, "\033[31m", 400);
         this->_request.parse_multipart_body();
-        this->handle_request_dispatch();  // 只有这时才处理
-    } else {
-        // 如果数据没齐，直接 return，保持 _in_buff 状态，等待下次 POLLIN
-        std::cout << "[Debug] Waiting for more body data..." << std::endl;
+        this->handle_request_dispatch();
     }
 }
 
@@ -124,15 +102,13 @@ void Connection::handle_request_dispatch()
             this->set_state(WRITING_RESP);
         } else if (_route_ctx.is_cgi_potential) {
             this->execute_cgi_pipeline();
-            return;  // CGI 流程接管了 FD，这里直接退出
+            return;
         } else {
-            // 职责分离：普通静态文件（GET 个图片或 HTML），走普通的响应组装
             this->prepare_static_response();
             this->set_state(WRITING_RESP);
         }
     } catch (const std::exception& e) {
         std::cerr << "CATCHED FATAL ERROR: " << e.what() << std::endl;
-        // 如果这里打印了，那就实锤了是 C++ 的异常导致的崩溃
         return;
     }
 }
@@ -142,7 +118,7 @@ void Connection::execute_cgi_pipeline()
     std::cout << "[Server] CGI detected. Initiating Child Process..." << std::endl;
 
     if (this->_cgi_handler.init(this->_request, this->_route_ctx) == false ||
-        this->_cgi_handler.execute(this->_request) == false) {
+        this->_cgi_handler.execute() == false) {
         // TODO: generate error page(500)
         return;
     }
@@ -152,17 +128,10 @@ void Connection::execute_cgi_pipeline()
     int read_fd  = _cgi_handler.getReadFd();
     int write_fd = _cgi_handler.getWriteFd();
 
-    if (read_fd != -1) {  // 统一注册接口
-        this->_cluster_mediator->register_cgi_fd(read_fd, POLLIN, this);
-    }
+    if (read_fd != -1) this->_cluster_mediator->register_cgi_fd(read_fd, POLLIN, this);
 
-    if (write_fd != -1) {
-        // 如果是 POST 且有 Body，CGIHandler 会保留这个写端，这里才注册
+    if (write_fd != -1)
         this->_cluster_mediator->register_cgi_fd(write_fd, POLLOUT, this);
-    } else {
-        // 如果没有写端（如 GET），CGIHandler 内部已经关了，Connection 根本不需要操心
-        std::cout << "[Debug] CGI write pipe not needed or closed." << std::endl;
-    }
 }
 
 void Connection::handle_write_event(void)
@@ -172,20 +141,12 @@ void Connection::handle_write_event(void)
     if (this->_out_buff.empty()) return;
     ssize_t bytes_send;
 
-    std::cout << "[Debug] handle_write_event called. Buff size to send: " << this->_out_buff.size()
-              << std::endl;
-
     bytes_send = send(this->_client_fd, this->_out_buff.c_str(), this->_out_buff.size(), 0);
 
-    if (bytes_send < 0) 
-    {
-        std::cerr << "Failed to send the http response on ..." << std::endl;
+    if (bytes_send < 0) {
         this->_state = CLOSED;
         return;
-    } 
-    else 
-    {
-        std::cout << "[Debug] send() actually sent: " << bytes_send << " bytes." << std::endl;
+    } else {
         this->_out_buff.erase(0, bytes_send);
     }
 
@@ -194,31 +155,23 @@ void Connection::handle_write_event(void)
          this->_status_code == BODY_TOO_LARGE))
         this->_in_buff.clear();
 
-    if (this->_out_buff.empty()) 
-    {
+    if (this->_out_buff.empty()) {
         if ((this->_request.get_is_keep_alive() == false ||
              this->_response.get_full_response().find("Connection: close") != std::string::npos) &&
-            this->_in_buff.empty()) 
-        {
-            std::cout << "[Debug] Short connection detected. Switching to CLOSED." << std::endl;
+            this->_in_buff.empty()) {
             this->_state = CLOSED;
-        } 
-        else 
-        {
+        } else {
             this->_request.reset();
             this->_response.reset();
             this->_reset_status_code();
-            if (!this->_in_buff.empty()) 
-            {
+            if (!this->_in_buff.empty()) {
                 std::cout << "[Pipeline] Remaining data detected in _in_buff ("
-                    << this->_in_buff.size() << " bytes). Driving next request inline." << std::endl;
+                          << this->_in_buff.size() << " bytes). Driving next request inline."
+                          << std::endl;
                 this->_state = READING_REQ;
                 this->process_existing_in_buff();
-            } 
-            else 
-            {
+            } else {
                 this->_state = WAITING;
-                std::cout << "[Debug] Long connection. Switching to WAITING." << std::endl;
             }
         }
     }
@@ -226,12 +179,8 @@ void Connection::handle_write_event(void)
 
 bool Connection::check_parse_finished()
 {
-    // 1. 基础状态校验
     if (this->_request.get_state() != HttpRequest::PARSE_FINISHED) { return false; }
 
-    // 2. 契约校验 (Contract Validation)
-    // 检查是否有 Content-Length 头部，如果有，确保 Body 已经读取完整
-    // 这里处理 POST, 等带有 payload 的请求
     if (this->_request.get_method() == "POST" && !this->_request.get_is_chunked()) {
         size_t expected_len = this->_request.get_content_length();
         size_t actual_len   = this->_request.get_body().length();
@@ -239,16 +188,8 @@ bool Connection::check_parse_finished()
         std::cout << "expected_len = " << expected_len << std::endl;
         std::cout << "actual_len = " << actual_len << std::endl;
 
-        // 如果期望长度大于已读长度，说明数据还在路上，或者解析器过早进入了 FINISHED
-        if (actual_len < expected_len) {
-            // 这是一个重要的安全断言：如果还没读够，绝不能进入下一步
-            // 此时应该保持状态或继续等待读取
-            return false;
-        }
+        if (actual_len < expected_len) { return false; }
     }
-
-    // 3. (可选) Chunked 校验
-    // 如果你已经支持了 Chunked，这里应该检查是否有结束符 "0\r\n\r\n"
 
     return true;
 }
@@ -275,16 +216,11 @@ bool Connection::set_matched_server()
         for (std::size_t j = 0; j < this->_servers[i]->get_servers_name().size(); j++) {
             if (req_host == this->_servers[i]->get_servers_name()[j]) {
                 this->_matched_server = this->_servers[i];
-                std::cout << "selected server name is : "
-                          << this->_servers[i]->get_servers_name()[j] << std::endl;
                 return (true);
             }
         }
     }
-    this->_matched_server = this->_servers[0];  // if no matched server, then select the 1st one
-                                                // associted with this port number by default!
-    std::cout << "selected default server name is : " << this->_servers[0]->get_servers_name()[0]
-              << std::endl;
+    this->_matched_server = this->_servers[0];
     return (true);
 }
 
@@ -322,32 +258,21 @@ Connection::State Connection::get_state(void) const
 
 short Connection::get_poll_events() const
 {
-    // 如果连接处于等待新请求、或者正在读取请求的状态，我们需要监听读（POLLIN）
     if (this->_state == WAITING || this->_state == READING_REQ || this->_state == CGI_RUNNING)
         return POLLIN;
 
-    // 如果连接处于正在向客户端写响应、或者正在往 CGI 喂数据的状态，我们需要监听写（POLLOUT）
     if (this->_state == WRITING_RESP) return POLLOUT;
 
-    // 其他状态（比如 CLOSED 或者正在等待 CGI 读管道），让客户端 Socket 保持不监听任何读写事件
     return 0;
 }
 
 void Connection::handle_cgi_write()
 {
-    // 获取当前正在写的 FD（写完前它是有效的）
     int current_pipe_fd = _cgi_handler.getWriteFd();
-
-    // 只有在 FD 有效时才干活
     if (current_pipe_fd == -1) return;
 
     int status = _cgi_handler.sendToScript();
-
-    // 🌟 如果返回 0 (写完关了) 或 -1 (出错了)，通知 Cluster 别再 poll 它了
-    if (status <= 0) {
-        this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
-        std::cout << "[CGI] Input pipe finished and unregistered." << std::endl;
-    }
+    if (status <= 0) this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
 }
 
 void Connection::handle_cgi_read()
@@ -359,14 +284,10 @@ void Connection::handle_cgi_read()
     int status = _cgi_handler.receiveFromScript();
 
     if (status == 1) {
-        // 数据还在源源不断地来，保持 CGI_RUNNING 状态，什么都不用做
-        // 🚨 就算 is_poll_up 是 true，只要 status 是 1，就必须继续读！
         return;
     } else if (status == 0) {
-        // 🌟 外包干完活了 (EOF)
         this->_state = Connection::CGI_FINISH;
 
-        // 找外包拿最终的完整数据
         const std::string& full_cgi_output = _cgi_handler.getRawResponse();
         if (this->_response.build_cgi_response(_request, full_cgi_output) == false) {
             buildErrorResponse(502);
@@ -375,12 +296,9 @@ void Connection::handle_cgi_read()
         this->_out_buff = this->_response.get_full_response();
         this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
 
-        // 子进程输出EOF PipeOut[0]可以关闭，开始启动waitpid 子进程资源回收。。。
         this->_cgi_handler.checkChildProcess();
         this->_state = Connection::WRITING_RESP;
     } else if (status == -1) {
-        // 外包搞砸了 (Pipe 破裂等报错)
-        std::cerr << "[Error] CGI read failed!" << std::endl;
         this->buildErrorResponse(500);
         this->_cluster_mediator->update_client_events(this->_client_fd, POLLOUT);
     }
@@ -398,19 +316,12 @@ void Connection::checkCGI()
 
 void Connection::finalize_cgi_success(int cgi_fd)
 {
-    std::cout << "[Server] CGI Process finished writing all data." << std::endl;
+    _cgi_handler.checkChildProcess();
+    _cgi_handler.get_waitpid_status();
 
-    this->_cgi_handler.checkChildProcess();
-
-    int waitpid_status = _cgi_handler.get_waitpid_status();
-    (void)
-        waitpid_status;  // TODO extract waitpid_status to formalize cgi response msg status code...
-
-    // 3. 核心解耦：先安全从 poll 中撤销，再关闭管道，防止 FD 复用串流
     this->_cluster_mediator->unregister_cgi_fd(cgi_fd);
     this->_cgi_handler._close_all_pipes();
 
-    // 4. 驱动状态机进入发送响应阶段
     this->_state = WRITING_RESP;
     this->_cluster_mediator->update_client_events(this->_client_fd, POLLOUT);
 
@@ -439,20 +350,16 @@ time_t Connection::get_last_recv_time() const
 
 void Connection::_set_status_code(int code)
 {
-    if (code < 100 || code > 599)
-    {
+    if (code < 100 || code > 599) {
         this->_status_code = SERVER_ERROR;
-        return ;
-    }   
-    if (this->_status_code >= 400 && code < 400)
-        return ;
-    this->_status_code = code; 
+        return;
+    }
+    if (this->_status_code >= 400 && code < 400) return;
+    this->_status_code = code;
 }
 
 void Connection::_reset_status_code()
-{
-    this->_status_code = SUCCESS;
-}
+{ this->_status_code = SUCCESS; }
 
 void Connection::set_request_keep_alive(bool is_keep_alive)
 { _request.set_is_keep_alive(is_keep_alive); }

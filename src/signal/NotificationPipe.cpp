@@ -30,19 +30,13 @@ void NotificationPipe::notifyFromHandler()
 {
     // 'W' for Write/Wakeup. write() is async-signal-safe.
     // We don't check the return value extensively here to maintain speed in handler.
-    if (_pipe_fds[1] != -1) {
-        std::size_t bytes_written = ::write(_pipe_fds[1], "W", 1);
-        (void)bytes_written;
-    }
+    if (_pipe_fds[1] != -1) { write(_pipe_fds[1], "W", 1); }
 }
 
 void NotificationPipe::clearNotification()
 {
     char buffer[128];
-    // Drain the pipe completely since it's non-blocking
-    while (read(_pipe_fds[0], buffer, sizeof(buffer)) > 0) {
-        // Keep reading until empty (EAGAIN / EWOULDBLOCK)
-    }
+    while (read(_pipe_fds[0], buffer, sizeof(buffer)) > 0) {}
 }
 
 void cSignalHandler(int signum)
@@ -56,17 +50,13 @@ void resetCgiChildSignals()
 {
     struct sigaction sa;
 
-    // 1. 初始化 sigaction 结构体
-    ::sigemptyset(&sa.sa_mask);
+    sigemptyset(&sa.sa_mask);
     sa.sa_flags   = 0;
     sa.sa_handler = SIG_DFL;
 
-    // 2. 恢复常规的终止信号
-    ::sigaction(SIGINT, &sa, NULL);
-    ::sigaction(SIGTERM, &sa, NULL);
-    ::sigaction(SIGQUIT, &sa, NULL);
-
-    // 3. 恢复 SIGPIPE 的默认行为
-    ::sigaction(SIGPIPE, &sa, NULL);
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGQUIT, &sa, NULL);
+    sigaction(SIGPIPE, &sa, NULL);
 }
 }  // namespace Webserv

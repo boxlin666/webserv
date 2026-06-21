@@ -1,20 +1,15 @@
 #include "HttpResponse.hpp"
 
-#include <iostream>
-
 #include "HttpRequest.hpp"
 
-#include "HttpRequest.hpp"
-
-HttpResponse::HttpResponse(void): _status_code(0)
+HttpResponse::HttpResponse(void) : _status_code(0)
 { this->reset(); }
 
 HttpResponse::~HttpResponse(void) {}
 
-void HttpResponse::reset(void) 
+void HttpResponse::reset(void)
 {
-
-    this->_set_status(SUCCESS);  // default OK at the beginning!
+    this->_set_status(SUCCESS);
     this->_status_line.clear();
     this->_headers_vector.clear();
     this->_cgi_headers_vector.clear();
@@ -56,7 +51,8 @@ bool HttpResponse::build_static_response(const HttpRequest&    request,
 
     this->_set_status(ret);
 
-    if (this->_status_code != SUCCESS && this->_status_code != CREATED && this->_status_code != DELETED) 
+    if (this->_status_code != SUCCESS && this->_status_code != CREATED &&
+        this->_status_code != DELETED)
         return (false);
 
     this->_prepare_response_data(request);
@@ -74,7 +70,6 @@ std::string& HttpResponse::build_error_response(int& status_code, std::string& e
     _body.clear();
     _full_response.clear();
     if (!error_page_path.empty()) {
-        // 读取文件内容作为 body
         std::ifstream file(error_page_path.c_str());
         if (file.is_open()) {
             std::ostringstream ss;
@@ -82,28 +77,42 @@ std::string& HttpResponse::build_error_response(int& status_code, std::string& e
             _body = ss.str();
         }
     } else {
-        _body = "<!DOCTYPE html>\n"
-                        "<html lang=\"en\">\n"
-                        "<head>\n"
-                        "    <meta charset=\"UTF-8\">\n"
-                        "    <title>" + Utils::toString(_status_code) + " " + _status_msg_map[_status_code] + "</title>\n"
-                        "    \n"
-                        "    <link rel=\"icon\" href=\"data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAMAAAB6ZgTTAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAwUExURQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAN96vjgAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAASTURBVBjTY2AAA8YwAhIDwQCFAAW7gA3bAAAAAElFTkSuQmCC\" />\n"
-                        "    <style>\n"
-                        "        body { text-align: center; padding: 150px; font-family: sans-serif; background: #fafafa; color: #333; }\n"
-                        "        h1 { font-size: 50px; margin: 0; color: #e74c3c; }\n"
-                        "        p { font-size: 20px; color: #666; margin-top: 10px; }\n"
-                        "        hr { max-width: 400px; border: 0; border-top: 1px solid #ddd; margin: 20px auto; }\n"
-                        "        address { font-style: normal; color: #999; font-size: 14px; }\n"
-                        "    </style>\n"
-                        "</head>\n"
-                        "<body>\n"
-                        "    <h1>" + Utils::toString(_status_code) + "</h1>\n"
-                        "    <p>" + _status_msg_map[_status_code] + "</p>\n"
-                        "    <hr>\n"
-                        "    <address>42 Webserv</address>\n"
-                        "</body>\n"
-                        "</html>";
+        _body =
+            "<!DOCTYPE html>\n"
+            "<html lang=\"en\">\n"
+            "<head>\n"
+            "    <meta charset=\"UTF-8\">\n"
+            "    <title>" +
+            Utils::toString(_status_code) + " " + _status_msg_map[_status_code] +
+            "</title>\n"
+            "    \n"
+            "    <link rel=\"icon\" "
+            "href=\"data:image/"
+            "x-icon;base64,"
+            "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAMAAAB6ZgTTAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAA"
+            "AwUExURQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAN96vjgAAAAJ"
+            "cEhZcwAADsMAAA7DAcdvqGQAAAASTURBVBjTY2AAA8YwAhIDwQCFAAW7gA3bAAAAAElFTkSuQmCC\" />\n"
+            "    <style>\n"
+            "        body { text-align: center; padding: 150px; font-family: sans-serif; "
+            "background: #fafafa; color: #333; }\n"
+            "        h1 { font-size: 50px; margin: 0; color: #e74c3c; }\n"
+            "        p { font-size: 20px; color: #666; margin-top: 10px; }\n"
+            "        hr { max-width: 400px; border: 0; border-top: 1px solid #ddd; margin: 20px "
+            "auto; }\n"
+            "        address { font-style: normal; color: #999; font-size: 14px; }\n"
+            "    </style>\n"
+            "</head>\n"
+            "<body>\n"
+            "    <h1>" +
+            Utils::toString(_status_code) +
+            "</h1>\n"
+            "    <p>" +
+            _status_msg_map[_status_code] +
+            "</p>\n"
+            "    <hr>\n"
+            "    <address>42 Webserv</address>\n"
+            "</body>\n"
+            "</html>";
     }
     _body_len = _body.size();
     _prepare_response_data(request);
@@ -171,7 +180,8 @@ std::string HttpResponse::_generate_autoindex(const std::string& dir_path, const
     return html;
 }
 
-std::string& HttpResponse::build_redirect_response(int code, const std::string& url, const HttpRequest& request)
+std::string& HttpResponse::build_redirect_response(int code, const std::string& url,
+                                                   const HttpRequest& request)
 {
     _status_code = code;
     _body.clear();

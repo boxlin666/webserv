@@ -7,9 +7,8 @@
 
 #include "HttpRequest.hpp"
 #include "Location.hpp"
-#include "ServerConfig.hpp"
-// #include "Connection.hpp"
 #include "RouterCtx.hpp"
+#include "ServerConfig.hpp"
 
 namespace Router {
 RouterCtx   build_router_context(const HttpRequest& req, const ServerConfig& server,

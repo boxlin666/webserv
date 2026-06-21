@@ -1,6 +1,7 @@
 #ifndef CONNECTION_HPP
 #define CONNECTION_HPP
 
+#include <poll.h>
 #include <time.h>
 
 #include <string>
@@ -49,7 +50,6 @@ class Connection {
 
     bool   is_waiting_request_msg() const;
     time_t get_last_recv_time() const;
-
     void   set_request_keep_alive(bool is_keep_alive);
 
    private:
@@ -81,9 +81,9 @@ class Connection {
     void handle_request_dispatch();
     void execute_cgi_pipeline();
 
-    void   _update_last_recv_time();
-    void   _set_status_code(int code);
-    void   _reset_status_code();
+    void _update_last_recv_time();
+    void _set_status_code(int code);
+    void _reset_status_code();
 
     Connection(const Connection& other);
     Connection& operator=(const Connection& other);

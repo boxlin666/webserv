@@ -27,24 +27,19 @@ class HttpResponse {
     std::string _body_last_modif_date;
     std::size_t _body_len;
     std::string _full_path;
+    std::string _body;
+    std::string _full_response;
 
-    std::string                       _status_line;
-    static std::map<int, std::string> _status_msg_map;
-
+    std::string                               _status_line;
+    static std::map<int, std::string>         _status_msg_map;
     static std::map<std::string, std::string> _ext_map;
 
     typedef std::pair<std::string, std::string> HeaderPair;
     std::vector<HeaderPair>                     _headers_vector;
     std::vector<HeaderPair>                     _cgi_headers_vector;
 
-    std::string _body;
-
-    std::string _full_response;
-
     HttpResponse(const HttpResponse& other);
     HttpResponse& operator=(const HttpResponse& other);
-
-    // Prepa input data
 
     void _prepare_from_handler(const RequestHandler& response_ctx);
 
@@ -60,9 +55,9 @@ class HttpResponse {
     void _build_status_line(const HttpRequest& request);
     void _build_headers_map(const HttpRequest& request);
     void _add_header(const std::string& key, const std::string& value);
+    void _add_header_vector(const std::string& key, const std::string& value);
+    bool _has_header(const std::string& key) const;
 
-    void        _add_header_vector(const std::string& key, const std::string& value);
-    bool        _has_header(const std::string& key) const;
     std::string _generate_date(void) const;
     std::string _generate_content_type(void) const;
 
@@ -80,19 +75,16 @@ class HttpResponse {
     // Response CGI generator
     bool _split_cgi_header_body(const std::string& raw_output, std::string& header_part);
     bool _parse_cgi_headers(const std::string& header_part);
+    void _prepare_cgi_response(const HttpRequest& request);
+    void _build_cgi_status_line(const HttpRequest& request);
+    void _build_cgi_headers_map(const HttpRequest& request);
 
-    void        _prepare_cgi_response(const HttpRequest& request);
-    void        _build_cgi_status_line(const HttpRequest& request);
-    void        _build_cgi_headers_map(const HttpRequest& request);
     std::string _get_cgi_header_value(const std::string& key, const std::string& value,
                                       bool check_value) const;
 
     void _add_cgi_header_vector(const std::string& key, const std::string& value);
-
     bool _validate_cgi_content_type() const;
-
     bool _validate_cgi_content_length() const;
-
     bool _is_error_response() const;
 
     int         _handle_directory(const HttpRequest& request, bool is_auto_index);
@@ -103,19 +95,16 @@ class HttpResponse {
     HttpResponse();
     ~HttpResponse();
 
+    void reset(void);
     // response = status line + header + body
     bool build_static_response(const HttpRequest& request, const RequestHandler& response_ctx,
                                int& status_code);
-
     const std::string& get_full_response() const;
-
-    void reset(void);
 
     // init static data for any connection http response
     static void init_response_map();
 
-    bool build_cgi_response(const HttpRequest& request, const std::string& cgi_output);
-
+    bool         build_cgi_response(const HttpRequest& request, const std::string& cgi_output);
     std::string& build_error_response(int& status_code, std::string& error_page_path,
                                       HttpRequest& request);
     std::string& build_redirect_response(int code, const std::string& url,

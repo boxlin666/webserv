@@ -32,22 +32,18 @@ class ConfigParser {
     ConfigParser& operator=(const ConfigParser& other);
 
     void tokenize(const std::string& raw_data, std::vector<Token>& tokens);
-
     void parseServer(std::vector<Token>& tokens, size_t& pos);
-
-    // TODO: 校验
-    void validateDirectives(const std::vector<ServerConfig>& configs);
     void flush_token(std::string& current, int line, std::vector<Token>& tokens);
 
    public:
     ConfigParser();
     ~ConfigParser(void);
-    // tmp for test
+
     std::string read_file(const std::string& filepath);
-    void        build_config_map(const std::string& config_path);  // => 总入口 parser
+    void        build_config_map(const std::string& config_path);
     void        print() const;
 
-    const std::vector<ServerConfig*> &get_servers(void)const;
+    const std::vector<ServerConfig*>& get_servers(void) const;
 };
 
 #endif

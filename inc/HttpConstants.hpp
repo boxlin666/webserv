@@ -1,5 +1,5 @@
 #ifndef HTTP_CONSTANTS
-# define HTTP_CONSTANTS
+#define HTTP_CONSTANTS
 
 // 2xx Success
 #define SUCCESS 200
@@ -7,11 +7,11 @@
 #define DELETED 204
 
 // 3XX Redirection
-#define MOVED_PERMANENTLY   301
-#define FOUND               302
-#define SEE_OTHER           303
-#define TEMPORARY_REDIRECT  307
-#define PERMANENT_REDIRECT  308
+#define MOVED_PERMANENTLY 301
+#define FOUND 302
+#define SEE_OTHER 303
+#define TEMPORARY_REDIRECT 307
+#define PERMANENT_REDIRECT 308
 
 // 4XX Client error
 #define BAD_REQUEST 400
@@ -32,4 +32,4 @@
 #define NO_HTTP_VERSION 505
 
 #define TRIGGER_CGI 1001
-#endif 
+#endif
