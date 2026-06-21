@@ -613,9 +613,22 @@ void ServerConfig::parse(std::vector<Token>& tokens, size_t& pos)
 
 void ServerConfig::_validate_location(const location& loc) const
 {
+    if (loc._prefix.empty())
+        throw std::runtime_error("Config Error: location prefix cannot be empty!");
+
+    if (loc._prefix[0] != '/') 
+        throw std::runtime_error("Config Error: location prefix \"" + loc._prefix + "\" must start with '/'!"); 
+
+    //KO if //uploads
+    if (loc._prefix.find("//") != std::string::npos) 
+        throw std::runtime_error("Config Error: consecutive slashes '//' are forbidden in location prefix \"" + loc._prefix + "\"!");
+    
+    if (loc._prefix.length() > 1 && loc._prefix[loc._prefix.length() - 1] == '/')
+        throw std::runtime_error("Config Error: location prefix \"" + loc._prefix + "\" cannot end with '/'!");
+
     if ((loc.cgi_path.empty() && !loc.cgi_ext.empty()) || 
         (!loc.cgi_path.empty() && loc.cgi_ext.empty())) {
-        throw std::runtime_error("Configuration error: missing cgi_path or cgi_ext for location prefix \"" + loc._prefix + "\"");
+        throw std::runtime_error("Config Error: missing cgi_path or cgi_ext for location prefix \"" + loc._prefix + "\"");
     }
     
     if (!loc.cgi_path.empty() && !loc.cgi_ext.empty())

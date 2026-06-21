@@ -22,7 +22,6 @@ void HttpRequest::reset() {
     _multipart_filename = "";
 }
 
-// 构造函数直接调用 reset 即可
 HttpRequest::HttpRequest() {
     this->reset();
 }
@@ -44,6 +43,7 @@ int    HttpRequest::parse_request_line(std::string& line)
         return (BAD_REQUEST);
     if (this->_path.empty() || this->_path[0] != '/')
         return (BAD_REQUEST);
+
     std::size_t query_pos = this->_path.find('?');
     if (query_pos != std::string::npos) {
         this->_querystring = this->_path.substr(query_pos + 1);
@@ -51,15 +51,30 @@ int    HttpRequest::parse_request_line(std::string& line)
     } else {
         this->_querystring = "";
     }
+
+    //Clean up the "//" inside URI
+    std::string clean_path = "";
+    for (std::size_t i = 0; i < this->_path.length(); ++i) {
+        if (this->_path[i] == '/' && !clean_path.empty() && clean_path[clean_path.length() - 1] == '/') {
+            continue;
+        }
+        clean_path += this->_path[i];
+    }
+    this->_path = clean_path;
+
     if (this->_method.empty())
         return (BAD_REQUEST);
-    if (this->_path.find("/../") != std::string::npos) //不允许访问除了www以外的，他的上一级目录
+         
+    if (this->_path.find("/../") != std::string::npos) // not allowed to checkout file out out ./www
         return (BAD_REQUEST);
+        
     if (this->_http_version != "HTTP/1.0" && this->_http_version != "HTTP/1.1")
         return (NO_HTTP_VERSION);
+        
     req_line_len = this->_method.length() + this->_path.length() + this->_http_version.length();
     if (req_line_len > URI_SIZE)
         return (URI_TOO_LONG);
+        
     this->_state = PARSE_HEADER;
     return (SUCCESS);
 }
