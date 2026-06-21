@@ -6,13 +6,14 @@
 
 #include "HttpRequest.hpp"
 
-HttpResponse::HttpResponse(void)
+HttpResponse::HttpResponse(void): _status_code(0)
 { this->reset(); }
 
 HttpResponse::~HttpResponse(void) {}
 
-void HttpResponse::reset(void)
+void HttpResponse::reset(void) 
 {
+
     this->_set_status(SUCCESS);  // default OK at the beginning!
     this->_status_line.clear();
     this->_headers_vector.clear();
