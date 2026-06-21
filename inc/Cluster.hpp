@@ -1,11 +1,6 @@
 #ifndef CLUSTER_HPP
 #define CLUSTER_HPP
 
-#include <poll.h>
-
-#include <map>
-#include <vector>
-
 #include "Connection.hpp"
 #include "IClusterMediator.hpp"
 #include "NotificationPipe.hpp"
@@ -27,11 +22,11 @@ class Cluster : public IClusterMediator {
 
     Webserv::NotificationPipe _sig_pipe;
     bool                      _is_running;
-    void                      open_listener(const ConfigParser& config);
-    void                      init_servers_map(const ConfigParser& config);
-    void                      init_poll_listen_fds();
-    void                      add_to_poll_fds(int fd);
 
+    void open_listener(const ConfigParser& config);
+    void init_servers_map(const ConfigParser& config);
+    void init_poll_listen_fds();
+    void add_to_poll_fds(int fd);
     void handle_new_connection(int listen_fd, PassiveSocket* passive_socket);
     void close_connection(size_t poll_idx);
 
@@ -59,18 +54,17 @@ class Cluster : public IClusterMediator {
     ~Cluster(void);
 
     void setup(const ConfigParser& config);
-
     void run(void);
-
-    void print_socket_map() const;
-    void print_pfds() const;
-    void print_servers_map() const;
 
     void register_cgi_fd(int fd, short events, Connection* conn);
     void unregister_cgi_fd(int fd);
     void update_client_events(int client_fd, short new_events);
 
     const std::vector<struct pollfd>& get_poll_fds() const;
+
+    void print_socket_map() const;
+    void print_pfds() const;
+    void print_servers_map() const;
 };
 
 #endif

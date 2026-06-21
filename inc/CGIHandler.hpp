@@ -55,7 +55,7 @@ class CGIHandler {
     ~CGIHandler();
 
     bool init(const HttpRequest& req, const RouterCtx& ctx);
-    bool execute(const HttpRequest& req);
+    bool execute();
 
     int sendToScript();
     int receiveFromScript();

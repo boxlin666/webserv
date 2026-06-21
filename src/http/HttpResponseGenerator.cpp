@@ -1,5 +1,4 @@
 #include "HttpResponse.hpp"
-#include "Utils.hpp"
 
 void HttpResponse::_prepare_response_data(const HttpRequest& request)
 {

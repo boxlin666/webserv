@@ -22,7 +22,6 @@ class RequestHandler {
     void               _set_res_body_len(size_t body_len);
     const std::string& get_full_path() const;
     std::size_t        get_res_body_len() const;
-    std::string        get_req_body() const;
     bool               is_cgi_mode() const;
     bool               is_auto_index() const;
     const std::string& get_body_last_modif_date() const;

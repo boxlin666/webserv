@@ -31,8 +31,6 @@ const location* find_location(const HttpRequest& req, const ServerConfig& server
     int                                   match_index          = -1;
     std::size_t                           longest_match_length = 0;
 
-    // pre-requis (TO DO):: we should normalize the format of URI before the match process (remove
-    // "../.." "///" "//" extra)
     if (server.get_locations().empty()) return (NULL);
     for (it = server.get_locations().begin(); it != server.get_locations().end(); it++) {
         if (is_valid_prefix_loc(it, req.get_path())) {
@@ -52,8 +50,8 @@ int check_supported_method(const HttpRequest& req, const ServerConfig& server, c
     bool                            method_allow = false;
     const std::vector<std::string>* loc_methods  = NULL;
 
-    if (req.get_method() != "GET" && req.get_method() != "POST" &&
-            req.get_method()!= "HEAD" && req.get_method() != "DELETE")
+    if (req.get_method() != "GET" && req.get_method() != "POST" && req.get_method() != "HEAD" &&
+        req.get_method() != "DELETE")
         return (NO_METHOD);
 
     if (loc)
@@ -61,8 +59,7 @@ int check_supported_method(const HttpRequest& req, const ServerConfig& server, c
     else
         loc_methods = &(server.get_methods());
 
-    if (loc_methods) 
-    {
+    if (loc_methods) {
         for (std::size_t i = 0; i < loc_methods->size(); i++) {
             if (req.get_method() == (*loc_methods)[i]) {
                 std::cout << (*loc_methods)[i] << std::endl;
@@ -90,16 +87,13 @@ std::string build_full_path(const HttpRequest& req, const ServerConfig& server, 
     else {
         prefix        = loc->_prefix;
         relative_path = req.get_path().substr(prefix.length());
-        std::cout << "relative path = " << relative_path << std::endl;
         if (relative_path[0] == '/') relative_path.erase(0, 1);
-        std::cout << "AFTER relative path = " << relative_path << std::endl;
 
         if (loc->root[loc->root.length() - 1] == '/')
             full_path = loc->root + relative_path;
         else
             full_path = loc->root + "/" + relative_path;
     }
-    std::cout << "FULL PATH " << full_path << std::endl;
     return (full_path);
 }
 
@@ -115,12 +109,11 @@ RouterCtx build_router_context(const HttpRequest& req, const ServerConfig& serve
     ctx.loc       = find_location(req, server);
     ctx.full_path = build_full_path(req, server, ctx.loc);
 
-    // 加在这里：找到 location 后立刻检查 return 指令
     if (ctx.loc && ctx.loc->return_code != 0) {
         ctx.is_redirect   = true;
         ctx.redirect_code = ctx.loc->return_code;
         ctx.redirect_url  = ctx.loc->return_url;
-        return (ctx);  // 直接返回，不需要继续处理路径
+        return (ctx);
     }
 
     if (!ctx.loc)
@@ -135,11 +128,7 @@ RouterCtx build_router_context(const HttpRequest& req, const ServerConfig& serve
                 if (pos != std::string::npos) {
                     std::string file_name_ext = file_name.substr(pos, file_name.length());
                     if (file_name_ext == ctx.loc->cgi_ext) ctx.is_cgi_potential = true;
-                } else if (!ctx.loc->cgi_script
-                                .empty())  // if inside request, we don't precise the cgi script
-                                           // name, then we can fetch the one inside config file to
-                                           // complete the full path!
-                {
+                } else if (!ctx.loc->cgi_script.empty()) {
                     ctx.is_cgi_potential = true;
                     ctx.full_path += ctx.loc->cgi_script;
                 }
@@ -148,12 +137,6 @@ RouterCtx build_router_context(const HttpRequest& req, const ServerConfig& serve
     }
     if (status_code == SUCCESS) status_code = check_supported_method(req, server, ctx.loc);
 
-    std::cout << "final Physic path = " << ctx.full_path << std::endl;
-    std::cout << "final root = " << ctx.final_root << std::endl;
-    if (ctx.loc) {
-        std::cout << "location prefix = " << ctx.loc->_prefix << std::endl;
-        std::cout << "location root = " << ctx.loc->root << std::endl;
-    }
     return (ctx);
 }
 

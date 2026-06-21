@@ -27,7 +27,6 @@ void PassiveSocket::_set_options()
     int opt = 1;
     if (setsockopt(this->_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
         throw std::runtime_error("setsockopt failed");
-    // 暂时注释掉这一行 用于测试
     if (fcntl(_fd, F_SETFL, O_NONBLOCK) < 0) throw std::runtime_error("fcntl non-block failed");
 }
 
@@ -66,7 +65,7 @@ int PassiveSocket::getPort() const {
 
 const std::string &PassiveSocket::get_host() const
 {
-    return (this->_host);
+    return this->_host;
 }
 
 PassiveSocket::~PassiveSocket()

@@ -7,6 +7,7 @@
 #include <ctime>
 #include <sstream>
 #include <string>
+#include <iostream>
 
 #include "ConfigParser.hpp"
 

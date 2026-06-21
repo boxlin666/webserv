@@ -16,9 +16,6 @@
 #include "HttpConstants.hpp"
 #include "Utils.hpp"
 
-// tempo
-// #include "Location.hpp"
-
 #define GLOBAL_MAX_ALLOWED 1000000000
 #define URI_SIZE 8192
 #define MAX_HEADER_SIZE 8192
@@ -59,27 +56,6 @@ class HttpRequest {
 
     int parse(std::string& input_data);
 
-    void set_method(const std::string& method)
-    { _method = method; }
-
-    void set_path(const std::string& path)
-    { _path = path; }
-
-    void set_version(const std::string& version)
-    { _http_version = version; }
-
-    void set_body(const std::string& content)
-    {
-        _body           = content;
-        _content_length = content.length();
-    }
-
-    void set_state(e_request_state state)
-    { _state = state; }
-
-    void set_is_chunked(bool is_chunked)
-    { _is_chunked = is_chunked; }
-
     void set_is_keep_alive(bool is_keep_alive)
     { _is_keep_alive = is_keep_alive; }
 
@@ -90,24 +66,21 @@ class HttpRequest {
     const std::string& get_multipart_filename(void) const;
 
    private:
-    std::string _method;
-    std::string _path;
-    std::string _http_version;
-    std::string _body;
-    std::string _querystring;
-
+    std::string                        _method;
+    std::string                        _path;
+    std::string                        _http_version;
+    std::string                        _body;
+    std::string                        _querystring;
     std::map<std::string, std::string> _header_map;
-
-    std::vector<std::string> _content_type_vector;
-
-    e_request_state _state;
-    e_chunk_state   _chunk_state;
-    std::size_t     _content_length;
-    std::size_t     _chunk_size;
-    std::string     _boundary_value;
-    std::string     _multipart_filename;
-    bool            _is_chunked;
-    bool            _is_keep_alive;
+    std::vector<std::string>           _content_type_vector;
+    e_request_state                    _state;
+    e_chunk_state                      _chunk_state;
+    std::size_t                        _content_length;
+    std::size_t                        _chunk_size;
+    std::string                        _boundary_value;
+    std::string                        _multipart_filename;
+    bool                               _is_chunked;
+    bool                               _is_keep_alive;
 
     int parse_request_line(std::string& line);
     int parse_request_header(std::string& line);
