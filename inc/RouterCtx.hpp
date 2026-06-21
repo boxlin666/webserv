@@ -16,8 +16,17 @@ struct RouterCtx {
     int                 redirect_code;
     std::string         redirect_url;
 
-    RouterCtx() : server(NULL), loc(NULL), final_root(""), full_path(""),
-                  is_cgi_potential(false), is_redirect(false), redirect_code(0), redirect_url("") {}
+    RouterCtx()
+        : server(NULL),
+          loc(NULL),
+          final_root(""),
+          full_path(""),
+          is_cgi_potential(false),
+          is_redirect(false),
+          redirect_code(0),
+          redirect_url("")
+    {
+    }
 };
 
 #endif

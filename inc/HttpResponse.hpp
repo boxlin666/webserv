@@ -109,7 +109,6 @@ class HttpResponse {
 
     const std::string& get_full_response() const;
 
-    // reset function for each turn of RUN loop, to clean up the old content inside!!
     void reset(void);
 
     // init static data for any connection http response

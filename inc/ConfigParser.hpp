@@ -33,7 +33,6 @@ class ConfigParser {
 
     void tokenize(const std::string& raw_data, std::vector<Token>& tokens);
 
-    // 递归解析函数：使用引用传递 pos，确保全局进度同步
     void parseServer(std::vector<Token>& tokens, size_t& pos);
 
     // TODO: 校验
