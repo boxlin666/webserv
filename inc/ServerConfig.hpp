@@ -50,7 +50,6 @@ class ServerConfig {
     void executeHandler(const std::string& directive, std::vector<Token>& tokens, size_t& pos,
                         location* loc);
 
-    void fill_location_defaults(location& loc);
     void add_location(const location& loc);
     void parse(std::vector<Token>& tokens, size_t& pos);
 
@@ -91,8 +90,10 @@ class ServerConfig {
     bool validate_listen_fd(const std::string& host, const std::string& port)const;
 
     bool _is_valid_server_name(const std::string& host)const;
+   
+    void _fill_location_defaults(location& loc);
 
-    void _validate_location(const location& new_loc) const;
+    void _validate_location(const location& loc) const;
 
     // 具体的指令处理器（小函数）
     void _handle_root(std::vector<Token>& tokens, size_t& pos, location* loc);

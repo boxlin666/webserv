@@ -128,23 +128,12 @@ void HttpResponse::_append_full_response(void)
 
 int HttpResponse::_handle_directory(const HttpRequest& request, bool is_auto_index)
 {
-    // 找 index 文件（根据配置的 index 文件名）
-    std::string index_path = this->_full_path + "/index.html";
-    struct stat st;
-    if (stat(index_path.c_str(), &st) == 0 && S_ISREG(st.st_mode)) {
-        this->_full_path = index_path;
-        int ret          = this->_handle_get();
-        this->_body_len  = this->_body.size();
-        return ret;
-    }
-
     if (is_auto_index) {
         this->_body     = _generate_autoindex(this->_full_path, request.get_path());
         this->_body_len = this->_body.size();
         this->_add_header_vector("Content-Type", "text/html; charset=utf-8");
         return SUCCESS;
     }
-
     return FORBIDDEN;
 }
 

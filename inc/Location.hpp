@@ -16,6 +16,7 @@ struct location {
  
     std::vector<std::string> methods;
     std::size_t              client_max_body_size;
+    bool  client_max_body_size_set;
 
     int                      return_code;
     std::string              return_url;
@@ -25,6 +26,7 @@ struct location {
     std::string cgi_ext;
     std::string cgi_script;
     std::string index_file;
+    bool    autoindex_set;
 
     location()
         : _prefix(""),
@@ -33,14 +35,16 @@ struct location {
           error_pages(),
           autoindex(false),              
           methods(),
-          client_max_body_size(1048576),   
+          client_max_body_size(1048576),  
+          client_max_body_size_set(false), 
           return_code(0),              
           return_url(""),
           upload_path(""),
           cgi_path(""),
           cgi_ext(""),
           cgi_script(""),
-          index_file("")
+          index_file(""),
+          autoindex_set(false)
     {}
 };
 

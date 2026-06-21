@@ -162,8 +162,10 @@ void ServerConfig::_handle_autoindex(std::vector<Token>& tokens, size_t& pos, lo
     if (loc == NULL)
          this->_autoindex = is_on;
     else
+    {
         loc->autoindex = is_on;
-
+        loc->autoindex_set = true;
+    }
     Utils::expect_semicolon(tokens, ++pos);
 }
 
@@ -335,10 +337,11 @@ void ServerConfig::_handle_client_max_body_size(std::vector<Token>& tokens, size
 
     if (size < 0 || (multiplier > 1 && size < parsed_num))
         throw std::runtime_error("Configuration error: 'client_max_body_size' value '" + val + "' is overflowed");
-
+ 
     if (loc == NULL) {
         this->_client_max_body_size = size;
     } else {
+        loc->client_max_body_size_set = true;
         loc->client_max_body_size = size;
     }
 
@@ -514,7 +517,7 @@ void ServerConfig::_handle_cgi_script(std::vector<Token>& tokens, size_t& pos, l
     Utils::expect_semicolon(tokens, ++pos);
 }
 
-void ServerConfig::fill_location_defaults(location& loc)
+void ServerConfig::_fill_location_defaults(location& loc)
 {
     if (loc.root.empty())
         loc.root = this->_root;
@@ -531,11 +534,16 @@ void ServerConfig::fill_location_defaults(location& loc)
     {
         if (!this->_index.empty()) 
             loc.index = this->_index;
-        else
-            loc.index.push_back("index.html");
     }
 
-    if (loc.client_max_body_size == 1048576 && this->_client_max_body_size != 1048576) 
+    if (loc.autoindex_set == false) 
+    {
+        loc.autoindex = this->_autoindex; 
+        loc.autoindex_set = true; 
+    }
+
+    if (loc.client_max_body_size == 1048576  && loc.client_max_body_size_set == false &&
+        this->_client_max_body_size != 1048576)
         loc.client_max_body_size = this->_client_max_body_size;
 
     for (std::map<int, std::string>::const_iterator it = this->_error_pages.begin(); 
@@ -586,32 +594,37 @@ void ServerConfig::parse(std::vector<Token>& tokens, size_t& pos)
     if (pos >= tokens.size() || tokens[pos].content != "}") {
         throw std::runtime_error("Syntax error: Unexpected EOF, missing '}' to close server block");
     }
+
+    for (size_t i = 0; i < this->locations.size(); ++i) 
+        this->_fill_location_defaults(this->locations[i]);
+    
+    for (size_t i = 0; i < this->locations.size(); ++i) { 
+        this->_validate_location(this->locations[i]);
+
+        for (size_t j = i + 1; j < this->locations.size(); ++j) {
+            if (this->locations[i]._prefix == this->locations[j]._prefix) {
+                throw std::runtime_error("Configuration error: duplicate location prefix \"" 
+                                        + this->locations[i]._prefix + "\" in server block");
+            }
+        }
+    }
     pos++;
 }
 
-void ServerConfig::_validate_location(const location& new_loc) const
+void ServerConfig::_validate_location(const location& loc) const
 {
-    for (size_t i = 0; i < this->locations.size(); ++i) 
+    if ((loc.cgi_path.empty() && !loc.cgi_ext.empty()) || 
+        (!loc.cgi_path.empty() && loc.cgi_ext.empty())) {
+        throw std::runtime_error("Configuration error: missing cgi_path or cgi_ext for location prefix \"" + loc._prefix + "\"");
+    }
+    
+    if (!loc.cgi_path.empty() && !loc.cgi_ext.empty())
     {
-        if (this->locations[i]._prefix == new_loc._prefix)
-            throw std::runtime_error("Configuration error: duplicate location prefix \"" 
-                                     + new_loc._prefix + "\" in server block"); 
-        
-        if ((this->locations[i].cgi_path.empty() && !this->locations[i].cgi_ext.empty()) || 
-            (!this->locations[i].cgi_path.empty() && this->locations[i].cgi_ext.empty()))
-            throw std::runtime_error("Configuration error: missing cgi_path or cgi_ext for location prefix " + new_loc._prefix);
-        
-        if (!this->locations[i].cgi_path.empty() && !this->locations[i].cgi_ext.empty())
-        {
-            std::string cgi_path = this->locations[i].cgi_path;
-            std::string cgi_ext = this->locations[i].cgi_ext;
+        if (loc.cgi_ext == ".py" && loc.cgi_path.find("python") == std::string::npos) 
+            throw std::runtime_error("Config Error: .py extension must match a python CGI path for prefix \"" + loc._prefix + "\"");
 
-            if (cgi_ext == ".py" && cgi_path.find("python") == std::string::npos) 
-                throw std::runtime_error("Config Error: .py extension must match a python CGI path");
-
-            if (cgi_ext == ".php" && cgi_path.find("php") == std::string::npos) 
-                throw std::runtime_error("Config Error: .php extension must match a php CGI path");
-        }
+        if (loc.cgi_ext == ".php" && loc.cgi_path.find("php") == std::string::npos) 
+            throw std::runtime_error("Config Error: .php extension must match a php CGI path for prefix \"" + loc._prefix + "\"");
     }
 }
 
@@ -651,9 +664,6 @@ void ServerConfig::parseLocation(std::vector<Token>& tokens, size_t& pos)
                                  new_loc._prefix + "'");
     }
     pos++;
- 
-    this->fill_location_defaults(new_loc);
-    this->_validate_location(new_loc);
     this->locations.push_back(new_loc);
 }
 
