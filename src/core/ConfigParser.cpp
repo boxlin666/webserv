@@ -5,9 +5,12 @@ ConfigParser::ConfigParser()
 
 }
 
-ConfigParser::~ConfigParser(void)
+ConfigParser::~ConfigParser()
 {
-
+    std::vector<ServerConfig*>::iterator it;
+    for (it = this->_servers.begin(); it != this->_servers.end(); it++)
+        delete *it;
+    this->_servers.clear();
 }
 
 void ConfigParser::build_config_map(const std::string& config_path)

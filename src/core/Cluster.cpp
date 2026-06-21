@@ -7,9 +7,19 @@
 Cluster::Cluster(void)
 { _is_running = false; }
 
-Cluster::~Cluster(void)
+Cluster::~Cluster()
 {
-    // TODO: delete ptr inside _server_map _connection_map
+    // 清理 listeners
+    std::map<int, PassiveSocket*>::iterator sock_it;
+    for (sock_it = this->_socket_map.begin(); sock_it != this->_socket_map.end(); sock_it++)
+        delete sock_it->second;
+    this->_socket_map.clear();
+
+    // 清理 connections（如果有的话）
+    std::map<int, Connection*>::iterator conn_it;
+    for (conn_it = this->_connection_map.begin(); conn_it != this->_connection_map.end(); conn_it++)
+        delete conn_it->second;
+    this->_connection_map.clear();
 }
 
 void Cluster::setup(const ConfigParser& config)
