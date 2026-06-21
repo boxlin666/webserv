@@ -49,28 +49,26 @@ const location* find_location(const HttpRequest& req, const ServerConfig& server
 
 int check_supported_method(const HttpRequest& req, const ServerConfig& server, const location* loc)
 {
-    bool                            method_exist = false;
     bool                            method_allow = false;
     const std::vector<std::string>* loc_methods  = NULL;
+
+    if (req.get_method() != "GET" && req.get_method() != "POST" &&
+            req.get_method()!= "HEAD" && req.get_method() != "DELETE")
+        return (NO_METHOD);
 
     if (loc)
         loc_methods = &(loc->methods);
     else
         loc_methods = &(server.get_methods());
 
-    for (std::size_t i = 0; i < server.get_methods().size(); i++) {
-        if (req.get_method() == server.get_methods()[i]) {
-            method_exist = true;
-            break;
-        }
-    }
-    if (method_exist == false) return (NO_METHOD);
-
-    for (std::size_t i = 0; i < loc_methods->size(); i++) {
-        if (req.get_method() == (*loc_methods)[i]) {
-            std::cout << (*loc_methods)[i] << std::endl;
-            method_allow = true;
-            break;
+    if (loc_methods) 
+    {
+        for (std::size_t i = 0; i < loc_methods->size(); i++) {
+            if (req.get_method() == (*loc_methods)[i]) {
+                std::cout << (*loc_methods)[i] << std::endl;
+                method_allow = true;
+                break;
+            }
         }
     }
     if (method_allow == false) { return (METHOD_NOT_ALLOWED); }
