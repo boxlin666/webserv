@@ -13,8 +13,10 @@
 #include "IClusterMediator.hpp"
 #include "PassiveSocket.hpp"
 #include "RequestHandler.hpp"
+#include "Router.hpp"
 #include "RouterCtx.hpp"
 #include "ServerConfig.hpp"
+#include "Utils.hpp"
 
 class IClusterMediator;
 

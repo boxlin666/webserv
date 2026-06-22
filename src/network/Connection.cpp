@@ -1,8 +1,5 @@
 #include "Connection.hpp"
 
-#include "Router.hpp"
-#include "Utils.hpp"
-
 Connection::Connection(int client_fd, PassiveSocket* matched_socket,
                        const std::vector<ServerConfig*>& servers,
                        IClusterMediator*                 cluster_mediator)
@@ -119,7 +116,8 @@ void Connection::execute_cgi_pipeline()
 
     if (this->_cgi_handler.init(this->_request, this->_route_ctx) == false ||
         this->_cgi_handler.execute() == false) {
-        // TODO: generate error page(500)
+        buildErrorResponse(500);
+        this->set_state(WRITING_RESP);
         return;
     }
 

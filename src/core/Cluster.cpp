@@ -1,9 +1,5 @@
 #include "Cluster.hpp"
 
-#include <algorithm>
-#include <iterator>
-#include <set>
-
 Cluster::Cluster(void)
 { _is_running = false; }
 
@@ -302,25 +298,6 @@ void Cluster::_check_timeouts(time_t now)
 
 void Cluster::_process_poll_errors(size_t index)
 {
-    int fd = _poll_fds[index].fd;
-
-    if (this->_cgi_fd_map.count(fd) > 0) {
-        std::cerr << "[Debug] Error on FD: " << fd;
-
-        if (_socket_map.count(fd))
-            std::cerr << " (Type: Listen Socket)";
-        else if (_cgi_fd_map.count(fd))
-            std::cerr << " (Type: CGI Pipe)";
-        else
-            std::cerr << " (Type: Client Socket)";
-
-        if (_poll_fds[index].revents & POLLERR) std::cerr << " [POLLERR]";
-        if (_poll_fds[index].revents & POLLNVAL) std::cerr << " [POLLNVAL]";
-
-        // TODO: handle cgi error
-    }
-
-    // 普通客户端套接字连接出错，直接断开
     this->_poll_fds[index].fd = -1;
     this->close_connection(index);
 }
@@ -341,7 +318,6 @@ void Cluster::_dispatch_read_event(size_t index)
         if (current_state == Connection::CGI_FINISH || current_state == Connection::WRITING_RESP) {
             this->_poll_fds[index].fd = -1;
             this->_cgi_fd_map.erase(fd);
-            // TODO: 清理CGI中的输入输出fd 以及 waitpid
         }
         return;
     }
@@ -360,8 +336,6 @@ void Cluster::_dispatch_write_event(size_t index)
         if (conn->get_state() == Connection::CGI_FINISH || conn->get_state() == Connection::ERROR) {
             this->_poll_fds[index].fd = -1;
             this->_cgi_fd_map.erase(fd);
-            // TODO: 这里务必确保 Connection 内部已经 close(cgi_write_fd)
-            // 只有 close 了写端，cgi 才会意识到输入结束
         }
         return;
     }
