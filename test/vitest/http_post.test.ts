@@ -3,15 +3,15 @@ import { TestClient } from './TestClient.js';
 
 const client = new TestClient(8080);
 
-describe('POST body 解析', () => {
-    test('POST 表单数据到 /uploads 应返回 201', async () => {
+describe('POST Body Parsing', () => {
+    test('POST form data to /uploads should return 201', async () => {
         const res = await client.post('/uploads', 'name=42student', {
             'Content-Type': 'application/x-www-form-urlencoded',
         });
         expect(res.status).toBe(201);
     });
 
-    test('POST 携带自定义请求头应返回 201', async () => {
+    test('POST with custom headers to /uploads should return 201', async () => {
         const res = await client.post('/uploads', 'data', {
             'Content-Type': 'text/plain',
             'X-Custom': 'test',
@@ -19,8 +19,8 @@ describe('POST body 解析', () => {
         expect(res.status).toBe(201);
     });
 
-    test('POST 到不允许的路径应返回 405', async () => {
-        // / 只允许 GET HEAD，POST 应该被拒绝
+    test('POST to a restricted path should return 405', async () => {
+        // / only allows GET and HEAD, POST should be rejected
         const res = await client.post('/', 'name=42student');
         expect(res.status).toBe(405);
     });

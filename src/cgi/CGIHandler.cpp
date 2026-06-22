@@ -273,7 +273,7 @@ bool CGIHandler::checkChildProcess()
 {
     if (_state != CGI_EXECUTING || _pid <= 0) return (_state == CGI_FINISHED);
 
-    pid_t result = waitpid(_pid, &_waitpid_status, WNOHANG);
+    pid_t result = waitpid(-1, &_waitpid_status, WNOHANG);
 
     if (result == _pid) {
         _pid = -1;
