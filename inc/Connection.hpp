@@ -38,9 +38,8 @@ class Connection {
     void  set_state(State state);
     State get_state(void) const;
     short get_poll_events() const;
+    int   get_client_fd() const;
 
-    int get_client_fd() const
-    { return _client_fd; }
     void handle_cgi_read();
     void handle_cgi_write();
 
