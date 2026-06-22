@@ -81,8 +81,6 @@ void Connection::handle_request_dispatch()
     std::cout << "[Server] Request parsed successfully. Preparing response..." << std::endl;
     std::cout << "[Check] Entering CGI pipeline..." << std::endl;
 
-    debug_msg_print("REQUEST_MSG", _back_up_in_buff, "\033[31m", 400);
-
     try {
         this->set_matched_server();
         this->process_router_match();
@@ -205,10 +203,11 @@ bool Connection::set_matched_server()
         return (false);  // failure on server match status_code should be 400
     std::size_t colon_pos = _raw_data.find(':');
     std::string req_host;  // Host: xxxx (in http request header)
+
     if (colon_pos == std::string::npos)
         req_host = _raw_data;
     else
-        req_host = _raw_data.substr(0, std::string::npos);
+        req_host = _raw_data.substr(0, colon_pos); 
 
     for (std::size_t i = 0; i < this->_servers.size(); i++) {
         for (std::size_t j = 0; j < this->_servers[i]->get_servers_name().size(); j++) {
