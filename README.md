@@ -55,8 +55,8 @@ make re
 ```bash
 curl -v http://localhost:8080/ #GET
 curl -I http://localhost:8080/ #HEAD
-curl -v -X POST -d "this is a test.txt file" POST http://localhost:8080/uploads/test.txt #POST
-curl -X POST http://localhost:8080/uploads -F "file=@/home/login_name/images.jpg" -v #POST jpg
+curl -v -X POST -d "this is a test.txt file" http://localhost:8080/uploads/test.txt #POST
+curl -v -X POST http://localhost:8080/uploads -F "file=@/home/login_name/images.jpg" #POST jpg
 curl -v -X DELETE http://localhost:8080/uploads/test.txt #DELETE
 ```
 
@@ -86,20 +86,39 @@ source ~/.bashrc
 
 # Note: Ensure your ./webserv is running with a valid configuration before execution.
 
-# Case A: Basic Test (1 Single Request)
-siege -c 1 -r 1 http://127.0.0.1:8080
+# Case A: Tests 15 users making 10 requests each on an empty page without delays to check basic setup.
+siege -c 15 -r 10 -b http://127.0.0.1:8080/empty.html
 
-# Case B: Low Concurrency (100 Total Requests)
-siege -c 10 -r 10 http://127.0.0.1:8080
+# Case B: Floods the server with 50 users at max speed for 30 seconds to test basic stability.
+siege -c 50 -t 30s -b http://127.0.0.1:8080/
 
-# Case C: High Concurrency (30-Second Flood)
-# "Flood" mode means requests are sent indefinitely at maximum capacity during the 30 seconds
-siege -c 50 -t 30s http://127.0.0.1:8080
+# Case C: Runs 40 users for 1 minute.
+siege -c 40 -t 1m -b http://127.0.0.1:8080/
 
-# Case D: Stress & Limit Test (Extreme Load - 1 Minute)
-# Pushes the server's event loop to its absolute limit during 1 minutes.
-siege -c 150 -t 1m http://127.0.0.1:8080
+# Case D: Tests 100 users making 20 requests each with random 1 second delays.
+siege -c 100 -d 1 -r 20 http://127.0.0.1:8080/
+
 ```
+
+### Resource Leak Verification 
+---
+Monitor the Resident Set Size (RSS) memory footprint using:
+```bash
+watch -n 1 "ps -o rss,vsz,pid,comm -p \$(pidof ./webserv)"
+```
+
+Monitor the fd numbers during the executing of webserv program:
+```bash
+watch -n 1 "ls -l /proc/\$(pidof ./webserv)/fd | wc -l"
+```
+
+### Hanging Connection Verification
+---
+Inspect TCP socket state lifecycle using:
+```bash
+netstat -an | grep 8080
+```
+
 
 ### Tstest run
 ---
