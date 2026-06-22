@@ -18,6 +18,13 @@ void RequestHandler::process_request_handler(const HttpRequest& req, const Route
             return;
         }
     }
+    else
+    {
+        if (req.get_body_len() > route_ctx.server->get_client_max_body()){
+            status_code = BODY_TOO_LARGE;
+            return ;
+        }
+    }
     this->_full_path          = route_ctx.full_path;
     this->_is_cgi_mode        = route_ctx.is_cgi_potential;
     this->_multipart_filename = req.get_multipart_filename();

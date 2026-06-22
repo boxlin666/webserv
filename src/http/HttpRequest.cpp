@@ -38,7 +38,7 @@ int HttpRequest::parse_request_line(std::string& line)
 
     if (!(ss >> this->_method >> this->_path >> this->_http_version)) return (BAD_REQUEST);
     if (ss >> extra) return (BAD_REQUEST);
-    if (this->_path.empty() || this->_path[0] != '/') return (BAD_REQUEST);
+    if (this->_path.empty()) return (BAD_REQUEST);
 
     std::size_t query_pos = this->_path.find('?');
     if (query_pos != std::string::npos) {
