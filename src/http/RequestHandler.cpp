@@ -161,7 +161,7 @@ int RequestHandler::process_directory(const RouterCtx& route_ctx)
         }
     }
 
-    if (route_ctx.loc->autoindex == true) {
+    if (route_ctx.loc && route_ctx.loc->autoindex == true) {
         this->_is_auto_index = true;
         return (SUCCESS);
     }

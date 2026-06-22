@@ -52,7 +52,7 @@ void PassiveSocket::_bind_and_listen()
     if (result != NULL)
         freeaddrinfo(result);
 
-    if (listen(this->_fd, 128) < 0) throw std::runtime_error("listen failed");
+    if (listen(this->_fd, 1024) < 0) throw std::runtime_error("listen failed");
 }
 
 int PassiveSocket::getFd() const {
