@@ -56,11 +56,9 @@ class HttpRequest {
 
     int parse(std::string& input_data);
 
-    void set_is_keep_alive(bool is_keep_alive)
-    { _is_keep_alive = is_keep_alive; }
+    void set_is_keep_alive(bool is_keep_alive);
 
-    bool is_header_parsed() const
-    { return _state > PARSE_HEADER; }
+    bool is_header_parsed() const;
 
     int                parse_multipart_body(void);
     const std::string& get_multipart_filename(void) const;

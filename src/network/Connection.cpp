@@ -126,8 +126,7 @@ void Connection::execute_cgi_pipeline()
 
     if (read_fd != -1) this->_cluster_mediator->register_cgi_fd(read_fd, POLLIN, this);
 
-    if (write_fd != -1)
-        this->_cluster_mediator->register_cgi_fd(write_fd, POLLOUT, this);
+    if (write_fd != -1) this->_cluster_mediator->register_cgi_fd(write_fd, POLLOUT, this);
 }
 
 void Connection::handle_write_event(void)
@@ -207,7 +206,7 @@ bool Connection::set_matched_server()
     if (colon_pos == std::string::npos)
         req_host = _raw_data;
     else
-        req_host = _raw_data.substr(0, colon_pos); 
+        req_host = _raw_data.substr(0, colon_pos);
 
     for (std::size_t i = 0; i < this->_servers.size(); i++) {
         for (std::size_t j = 0; j < this->_servers[i]->get_servers_name().size(); j++) {
@@ -262,6 +261,9 @@ short Connection::get_poll_events() const
 
     return 0;
 }
+
+int Connection::get_client_fd() const
+{ return _client_fd; }
 
 void Connection::handle_cgi_write()
 {

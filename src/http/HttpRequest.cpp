@@ -327,6 +327,12 @@ int HttpRequest::parse(std::string& input_data)
     return (ret);
 }
 
+void HttpRequest::set_is_keep_alive(bool is_keep_alive)
+{ this->_is_keep_alive = is_keep_alive; }
+
+bool HttpRequest::is_header_parsed() const
+{ return _state > PARSE_HEADER; }
+
 const std::string& HttpRequest::get_method() const
 { return this->_method; }
 
@@ -348,9 +354,7 @@ std::size_t HttpRequest::get_body_len() const
 const std::string& HttpRequest::get_header(const std::string& key) const
 {
     std::map<std::string, std::string>::const_iterator it = _header_map.find(key);
-    if (it == _header_map.end()) {
-        return HttpRequest::empty_string;
-    }
+    if (it == _header_map.end()) { return HttpRequest::empty_string; }
     return it->second;
 }
 

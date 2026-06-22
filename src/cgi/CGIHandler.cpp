@@ -122,7 +122,6 @@ bool CGIHandler::execute()
         args[2] = NULL;
 
         execve(args[0], args, _envp);
-
         std::cerr << "[CGI ERROR] Execve failed." << std::endl;
         exit(1);
     } else {
