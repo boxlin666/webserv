@@ -1,4 +1,4 @@
-  _This project has been created as part of the 42 curriculum by helin and yanzhao._
+_This project has been created as part of the 42 curriculum by helin and yanzhao._
 
 # Webserv 
 
@@ -52,30 +52,102 @@ make re
 
 ### Quick test
 
-```curl -v http://localhost:8080/``` (GET)
-
-```curl -I http://localhost:8080/``` (HEAD)
-
-```curl -v -X POST -d "this is a test.txt file" POST http://localhost:8080/uploads/test.txt``` (POST)
-
-```curl -X POST http://localhost:8080/uploads -F "file=@/home/login_name/images.jpg" -v``` (POST jpg)
-
-```curl -v -X DELETE http://localhost:8080/uploads/test.txt``` (DELETE)
-
+```bash
+curl -v http://localhost:8080/ #GET
+curl -I http://localhost:8080/ #HEAD
+curl -v -X POST -d "this is a test.txt file" POST http://localhost:8080/uploads/test.txt #POST
+curl -X POST http://localhost:8080/uploads -F "file=@/home/login_name/images.jpg" -v #POST jpg
+curl -v -X DELETE http://localhost:8080/uploads/test.txt #DELETE
+```
 
 ### Siege test
-TODO
+---
+Here is the step-by-step guide to download, install, and run the `siege` benchmarking tool:
+
+```bash
+# 1. Download and Extract
+wget http://download.joedog.org/siege/siege-4.0.7.tar.gz
+tar -xzf siege-4.0.7.tar.gz
+cd siege-4.0.7
+
+# 2. Fix compilation errors (if any occur)
+sed -i 's/^int \(.*\)();$/\/\/ int \1();/' src/setup.h
+
+# 3. Configure, compile and install to your local home directory
+./configure --prefix=$HOME/.local
+make CFLAGS="-g -O2 -std=gnu89 -w"
+make install
+
+# 4. Add to PATH and refresh environment variables
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# 5. Run benchmarking
+
+# Note: Ensure your ./webserv is running with a valid configuration before execution.
+
+# Case A: Basic Test (1 Single Request)
+siege -c 1 -r 1 http://127.0.0.1:8080
+
+# Case B: Low Concurrency (100 Total Requests)
+siege -c 10 -r 10 http://127.0.0.1:8080
+
+# Case C: High Concurrency (30-Second Flood)
+# "Flood" mode means requests are sent indefinitely at maximum capacity during the 30 seconds
+siege -c 50 -t 30s http://127.0.0.1:8080
+
+# Case D: Stress & Limit Test (Extreme Load - 1 Minute)
+# Pushes the server's event loop to its absolute limit during 1 minutes.
+siege -c 150 -t 1m http://127.0.0.1:8080
+```
 
 ### Tstest run
-TODO
+---
+Here is the guide to setting up and running typescript test for this project.
+
+```bash
+# 1. Requirements
+# Node.js (v18 or higher recommended)
+# npm (usually comes with Node.js)
+
+# 2. Quick Setup
+# If you are on the 42 iMacs or your own Linux environment, run this once to install the testing dependencies:
+npm install
+
+# 3. How to run tstest
+#Start the webserv program with default.conf configuration file:
+./webserv ./conf/default.conf
+
+#Execute the tstest program:
+npm test
+```
 
 ### Pytest run
-TODO
+---
+Here is the guide to setting up and running pytest for this project.
+
+```bash
+# 1. Requirements
+# Python 3 (Ensure it is available at `/usr/bin/python3` to match the server's `cgi_path` configuration)
+# pytest (Python testing framework)
+
+# 2. Quick Setup
+# If you are on the 42 iMacs or your own Linux environment, install `pytest` using `pip`:
+pip install -r requirement.txt
+
+# 3. How to run pytest
+#Execute the pytest program without starting the webserv program:
+pytest
+```
 
 # Resources
-TODO
-* [xxx] line hypertext - purpose 
+* [Socket Programming in C (Video)](https://www.youtube.com/watch?v=mStnzIEprH8&t=972s) - A tutorial video demonstrating how to build a basic web server from scratch.
+* [Socket Programming in C (Playlist)](https://www.youtube.com/watch?v=_lQ-3S4fJ0U&list=PLPyaR5G9aNDvs6TtdpLcVO43_jvxp4emI) - A guide on building a mini user agent and a server, showcasing how the two programs interact with each other.
+* [Writing an Nginx-like Web Server from Scratch in C++](https://www.alimnaqvi.com/blog/webserv) - A blog that covers the essential backbone architecture of building a web server.
+* [MDN HTTP Status Reference](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status) - The official standard guide for standard HTTP response behaviors and status codes.
+* [RFC 7230: Message Syntax and Routing](https://datatracker.ietf.org/doc/html/rfc7230) - The official specification for parsing HTTP requests, header fields, and chunked transfer encoding.
+* [RFC 7231: Semantics and Content](https://datatracker.ietf.org/doc/html/rfc7231) - The reference guide for HTTP methods (`GET`, `POST`, `DELETE`) and expected response payloads.
+* [RFC 3875: The Common Gateway Interface (CGI) v1.1](https://datatracker.ietf.org/doc/html/rfc3875) - The requirements for executing CGI scripts and handling environment variables.
 
-
- `how do we use AI to build up the project`
- TODO
+### How do we use AI in our project?
+We built this web server by reading RFC 7230/7231 to learn the official HTTP rules, and used AI like a personal tutor to help us clear up confusing parts and plan stress tests. When we had to make trade-offs, we used AI to think through the options and chose what worked best for us.
