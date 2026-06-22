@@ -25,27 +25,21 @@ class ServerConfig {
 
     typedef std::pair<std::string, int> ListenAddr;
 
-    const std::vector<ListenAddr>& get_listen_addrs() const
-    { return this->_listen_addrs; }
+    const std::vector<ListenAddr>& get_listen_addrs() const;
 
-    const std::vector<std::string>& get_servers_name() const
-    { return this->_server_names; }
+    const std::vector<std::string>& get_servers_name() const;
 
-    const std::string& get_root() const
-    { return this->_root; }
+    const std::string& get_root() const;
 
-    const std::vector<std::string>& get_methods() const
-    { return this->_methods; }
+    const std::vector<std::string>& get_methods() const;
 
-    const std::vector<std::string>& get_index() const
-    { return this->_index; }
+    const std::vector<std::string>& get_index() const;
 
     const std::string& get_error_page(int status_code) const;
 
     const std::vector<location>& get_locations(void) const;
 
-    std::size_t get_client_max_body(void) const
-    { return this->_client_max_body_size; }
+    std::size_t get_client_max_body(void) const;
 
     typedef void (ServerConfig::*LocationHandler)(std::vector<Token>&, size_t&, location*);
 

@@ -706,3 +706,21 @@ const std::string& ServerConfig::get_error_page(int status_code) const
     static const std::string empty = "";
     return empty;
 }
+
+const std::vector<ServerConfig::ListenAddr>& ServerConfig::get_listen_addrs() const
+{ return this->_listen_addrs; }
+
+const std::vector<std::string>& ServerConfig::get_servers_name() const
+{ return this->_server_names; }
+
+const std::string& ServerConfig::get_root() const
+{ return this->_root; }
+
+const std::vector<std::string>& ServerConfig::get_methods() const
+{ return this->_methods; }
+
+const std::vector<std::string>& ServerConfig::get_index() const
+{ return this->_index; }
+
+std::size_t ServerConfig::get_client_max_body(void) const
+{ return this->_client_max_body_size; }
