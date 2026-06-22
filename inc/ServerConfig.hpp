@@ -44,6 +44,9 @@ class ServerConfig {
 
     const std::vector<location>& get_locations(void) const;
 
+    std::size_t get_client_max_body(void) const
+    { return this->_client_max_body_size; }
+
     typedef void (ServerConfig::*LocationHandler)(std::vector<Token>&, size_t&, location*);
 
     bool hasHandler(const std::string& directive) const;

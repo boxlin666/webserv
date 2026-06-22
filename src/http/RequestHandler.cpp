@@ -18,6 +18,13 @@ void RequestHandler::process_request_handler(const HttpRequest& req, const Route
             return;
         }
     }
+    else
+    {
+        if (req.get_body_len() > route_ctx.server->get_client_max_body()){
+            status_code = BODY_TOO_LARGE;
+            return ;
+        }
+    }
     this->_full_path          = route_ctx.full_path;
     this->_is_cgi_mode        = route_ctx.is_cgi_potential;
     this->_multipart_filename = req.get_multipart_filename();
@@ -29,7 +36,7 @@ void RequestHandler::process_request_handler(const HttpRequest& req, const Route
 
 int RequestHandler::dispatch_resource_check(const HttpRequest& req, const RouterCtx& route_ctx)
 {
-    if (route_ctx.is_cgi_potential) { return (this->cgi_resource_validator(route_ctx)); }
+    if (route_ctx.is_cgi_potential && route_ctx.loc) { return (this->cgi_resource_validator(route_ctx)); }
     if (req.get_method() == "GET" || req.get_method() == "HEAD" || req.get_method() == "DELETE") {
         return (this->existing_resource_validator(route_ctx));
     } else if (req.get_method() == "POST" && !route_ctx.is_cgi_potential) {
@@ -40,6 +47,8 @@ int RequestHandler::dispatch_resource_check(const HttpRequest& req, const Router
 
 int RequestHandler::cgi_resource_validator(const RouterCtx& route_ctx)
 {
+    if (!route_ctx.loc) return (SERVER_ERROR);
+
     std::string cgi_executable = route_ctx.loc->cgi_path;
 
     if (cgi_executable.empty()) return (NOT_FOUND);

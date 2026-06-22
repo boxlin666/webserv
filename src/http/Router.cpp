@@ -75,7 +75,10 @@ std::string build_full_path(const HttpRequest& req, const ServerConfig& server, 
     std::string prefix;
 
     if (!loc) {
-        full_path = server.get_root();
+        if (!req.get_path().empty() && req.get_path()[0] == '/')
+            full_path = server.get_root() + req.get_path();
+        else if (!req.get_path().empty() && req.get_path()[0] != '/')
+            full_path = server.get_root() + "/" + req.get_path();
         return (full_path);
     }
     if (req.get_path() == "/")
@@ -132,7 +135,6 @@ RouterCtx build_router_context(const HttpRequest& req, const ServerConfig& serve
         }
     }
     if (status_code == SUCCESS) status_code = check_supported_method(req, server, ctx.loc);
-
     return (ctx);
 }
 
