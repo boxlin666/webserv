@@ -5,6 +5,7 @@
 #include <iterator>
 #include <string>
 
+#include "HttpConstants.hpp"
 #include "HttpRequest.hpp"
 #include "Location.hpp"
 #include "RouterCtx.hpp"

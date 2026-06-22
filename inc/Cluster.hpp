@@ -1,6 +1,10 @@
 #ifndef CLUSTER_HPP
 #define CLUSTER_HPP
 
+#include <algorithm>
+#include <iterator>
+#include <set>
+
 #include "Connection.hpp"
 #include "IClusterMediator.hpp"
 #include "NotificationPipe.hpp"
