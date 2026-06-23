@@ -212,11 +212,17 @@ int CGIHandler::receiveFromScript()
     char    buffer[8192];
     ssize_t bytes_read = read(_pipeOut[0], buffer, sizeof(buffer));
     updateTime();
+    std::cout << "receive from script to update time ??" << std::endl;
 
     if (bytes_read > 0) {
         if (_outBuffer.size() + bytes_read > MAX_CGI_RESPONSE_SIZE) {
             _state = CGI_ERROR;
             _close_all_pipes();
+            std::cout << "killing this program pid:"  << _pid << std::endl;
+            kill(_pid, SIGKILL); 
+            int kill_status;
+            waitpid(_pid, &kill_status, 0);
+            _pid = -1;
             return -1;
         }
         _outBuffer.append(buffer, bytes_read);
@@ -255,6 +261,10 @@ bool CGIHandler::isTimeout()
 
     if (_last_activity_time == 0) return false;
 
+    std::cout << "last activity time: " << _last_activity_time << std::endl;
+    std::cout << "time now" << std::time(NULL) << std::endl;
+    std::cout << "CGI TIMEOUT SEC" << CGI_TIMEOUT_SEC << std::endl;
+
     if ((std::time(NULL) - _last_activity_time) > CGI_TIMEOUT_SEC) {
         std::cerr << "[CGI Timeout] Process " << _pid << " is taking too long. Killing it."
                   << std::endl;
@@ -271,29 +281,58 @@ bool CGIHandler::isTimeout()
 
 bool CGIHandler::checkChildProcess()
 {
-    if (_state != CGI_EXECUTING || _pid <= 0) return (_state == CGI_FINISHED);
+    // 如果不是正在执行状态，或者 pid 已经非法，直接返回是否完成
+    //if (_state != CGI_EXECUTING || _pid <= 0) return (_state == CGI_FINISHED);
 
-    pid_t result = waitpid(-1, &_waitpid_status, WNOHANG);
+    std::cout << "Before going to the waitpid loop" << std::endl;
+    pid_t result;
+    // 使用 while 循环，一次性把所有已经结束的子进程全部回收，防止多个子进程同时结束产生僵尸
+    while ((result = waitpid(-1, &_waitpid_status, WNOHANG)) > 0) {
+        std::cout << "reapeat inside waitpid loop" << std::endl; 
+        // 场景 A：刚好回收到了当前 CGI 实例所管理的那个 PID
+        if (result == _pid) {
+            _pid = -1; // 标记已经回收成功
 
-    if (result == _pid) {
-        _pid = -1;
-        if (WIFEXITED(_waitpid_status) && WEXITSTATUS(_waitpid_status) != 0) {
-            std::cerr << "[CGI Error] Script exited with error code: "
-                      << WEXITSTATUS(_waitpid_status) << std::endl;
-            _state = CGI_ERROR;
-            _close_all_pipes();
-            return false;
+            // 检查是否是非正常退出（比如退出码不为 0）
+            if (WIFEXITED(_waitpid_status) && WEXITSTATUS(_waitpid_status) != 0) {
+                std::cerr << "[CGI Error] Script exited with error code: "
+                          << WEXITSTATUS(_waitpid_status) << std::endl;
+                _state = CGI_ERROR;
+                _close_all_pipes();
+                return false;
+            }
+            
+            // 检查是否是被信号杀死的（比如你主动 kill 掉的死循环）
+            if (WIFSIGNALED(_waitpid_status)) {
+                std::cerr << "[CGI Warning] Script was terminated by signal: "
+                          << WTERMSIG(_waitpid_status) << std::endl;
+                _state = CGI_ERROR; // 或者根据你的业务定义为 FINISHED 
+                _close_all_pipes();
+                return false;
+            }
+
+            // 如果读端管道已经关闭，说明数据读完了，CGI 正式结束
+            if (_pipeOut[0] == -1) { 
+                _state = CGI_FINISHED; 
+            }
+        } 
+        else {
+            // 场景 B：回收到了别的 CGI 子进程
+            // 没关系，这里顺手帮别的 CGIHandler 实例把“尸体”收了，防止了别的进程变成 <defunct>
+            // 注意：因为这里帮别人收了尸，建议你的全局设计中，
+            // 别的 CGIHandler 对象在检查状态时，不仅看 waitpid，还要看它的管道是否读到了 EOF
+            std::cout << "[Webserv] 顺手回收了另一个并发的子进程 PID: " << result << std::endl;
         }
+    }
 
-        if (_pipeOut[0] == -1) { _state = CGI_FINISHED; }
-
-        return false;
-    } else if (result < 0) {
+    // 处理 waitpid 出错的情况
+    if (result < 0 && errno != ECHILD) {
         _state = CGI_ERROR;
         _close_all_pipes();
         return false;
     }
-    return false;
+
+    return (_state == CGI_FINISHED);
 }
 
 void CGIHandler::_close_all_pipes()

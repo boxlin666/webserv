@@ -14,7 +14,7 @@
 #include "HttpRequest.hpp"
 #include "Router.hpp"
 
-#define MAX_CGI_RESPONSE_SIZE 1024*1024*100  // 104857600
+#define MAX_CGI_RESPONSE_SIZE 1024*1000  // 104857600
 #define CGI_TIMEOUT_SEC 10
 
 class CGIHandler {

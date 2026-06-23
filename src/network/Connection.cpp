@@ -271,7 +271,13 @@ void Connection::handle_cgi_write()
     if (current_pipe_fd == -1) return;
 
     int status = _cgi_handler.sendToScript();
-    if (status <= 0) this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
+    if (status <= 0) 
+    {
+        this->_cgi_handler.checkChildProcess();
+        this->buildErrorResponse(500);
+        this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
+        this->_cluster_mediator->update_client_events(this->_client_fd, POLLOUT);
+    }
 }
 
 void Connection::handle_cgi_read()
@@ -294,11 +300,13 @@ void Connection::handle_cgi_read()
         }
         this->_out_buff = this->_response.get_full_response();
         this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
-
         this->_cgi_handler.checkChildProcess();
         this->_state = Connection::WRITING_RESP;
     } else if (status == -1) {
+        std::cout << "after receiving -1 in receive Script!" << std::endl;
+        this->_cgi_handler.checkChildProcess();
         this->buildErrorResponse(500);
+        this->_cluster_mediator->unregister_cgi_fd(current_pipe_fd);
         this->_cluster_mediator->update_client_events(this->_client_fd, POLLOUT);
     }
 }
