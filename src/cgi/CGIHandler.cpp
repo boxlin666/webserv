@@ -216,6 +216,8 @@ int CGIHandler::receiveFromScript()
     if (bytes_read > 0) {
         if (_outBuffer.size() + bytes_read > MAX_CGI_RESPONSE_SIZE) {
             _state = CGI_ERROR;
+            kill(_pid, SIGKILL);
+            waitpid(_pid, NULL, 0);
             _close_all_pipes();
             return -1;
         }
