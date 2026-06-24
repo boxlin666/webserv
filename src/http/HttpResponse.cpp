@@ -180,7 +180,6 @@ std::string HttpResponse::_generate_autoindex(const std::string& dir_path, const
         else
             html += "<a href=\"" + uri + name + "\">" + name + "</a>\r\n";
     }
-    std::cout << "HTML LINK: " << html << std::endl;
     closedir(dir);
 
     html += "</pre><hr>\r\n";
