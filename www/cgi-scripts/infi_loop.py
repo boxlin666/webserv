@@ -9,7 +9,7 @@ def main():
     try:
         while True:
             print("Hello world!")
-            time.sleep(0.0001)
+            #time.sleep(0.0001)
 
     except BrokenPipeError:
         print("[CGI Debug] Client disconnected.", file=sys.stderr)
